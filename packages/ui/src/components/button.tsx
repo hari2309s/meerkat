@@ -9,13 +9,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-meerkat-orange text-white shadow-lg shadow-meerkat-orange/25 hover:bg-meerkat-orange/90 hover:shadow-xl hover:shadow-meerkat-orange/30",
+          "bg-meerkat-brown text-white shadow-lg shadow-meerkat-brown/25 hover:bg-meerkat-dark hover:shadow-xl hover:shadow-meerkat-brown/30",
         secondary:
           "bg-meerkat-tan text-meerkat-dark shadow-md shadow-meerkat-tan/20 hover:bg-meerkat-tan/90",
         outline:
-          "border-2 border-meerkat-orange text-meerkat-orange hover:bg-meerkat-orange hover:text-white",
+          "border-2 border-meerkat-brown text-meerkat-brown hover:bg-meerkat-brown hover:text-white",
         ghost: "hover:bg-meerkat-sand hover:text-meerkat-dark",
-        link: "text-meerkat-orange underline-offset-4 hover:underline",
+        link: "text-meerkat-brown underline-offset-4 hover:underline hover:text-meerkat-dark",
       },
       size: {
         default: "h-11 px-6 py-2",
