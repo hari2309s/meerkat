@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, Clash_Display } from "next/font/google";
+import { DM_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -8,7 +8,7 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
-const clashDisplay = Clash_Display({
+const clashDisplay = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-display",
   display: "swap",
@@ -16,7 +16,7 @@ const clashDisplay = Clash_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Meerkat - Stand together, communicate better",
+  title: "Meerkat - Communicate better",
   description:
     "Collaborative workspace with voice intelligence. Perfect for solo users, families, friends, and small teams.",
   keywords: [

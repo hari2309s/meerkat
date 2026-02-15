@@ -95,7 +95,7 @@ export default function LoginPage() {
             <Label htmlFor="password">Password</Label>
             <Link
               href="/forgot-password"
-              className="text-sm text-meerkat-orange hover:underline"
+              className="text-sm text-meerkat-brown hover:text-meerkat-dark hover:underline"
             >
               Forgot password?
             </Link>
@@ -121,7 +121,7 @@ export default function LoginPage() {
         {/* Submit button */}
         <Button
           type="submit"
-          className="w-full h-12 text-base font-semibold"
+          className="w-full h-12 text-base font-semibold bg-meerkat-dark hover:bg-meerkat-dark/80"
           disabled={isLoading}
         >
           {isLoading ? (
@@ -152,20 +152,12 @@ export default function LoginPage() {
         {/* Sign up link */}
         <div className="text-center">
           <Link href="/signup">
-            <Button variant="ghost" className="text-meerkat-orange font-medium">
+            <Button variant="ghost" className="text-meerkat-brown hover:text-meerkat-dark font-medium">
               Create an account
             </Button>
           </Link>
         </div>
       </form>
-
-      {/* Help text */}
-      <p className="mt-8 text-center text-sm text-meerkat-brown/70">
-        Need help?{" "}
-        <Link href="/support" className="underline hover:text-meerkat-orange">
-          Contact support
-        </Link>
-      </p>
     </AuthLayout>
   );
 }

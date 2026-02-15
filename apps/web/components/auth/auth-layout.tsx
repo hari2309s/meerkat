@@ -13,7 +13,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
   return (
     <div className="min-h-screen w-full flex">
       {/* Left side - Branding with meerkat theme */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-meerkat-tan via-meerkat-orange to-meerkat-brown relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-meerkat-tan via-meerkat-brown to-meerkat-dark relative overflow-hidden">
         {/* Animated background pattern */}
         <div className="absolute inset-0 opacity-10">
           <div
@@ -38,7 +38,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
               <h1 className="text-4xl font-bold tracking-tight">Meerkat</h1>
             </div>
             <p className="text-xl text-white/90 font-light">
-              Stand together, communicate better
+              Communicate better
             </p>
           </motion.div>
 
@@ -116,7 +116,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
               <h1 className="text-3xl font-bold text-meerkat-dark">Meerkat</h1>
             </div>
             <p className="text-meerkat-brown">
-              Stand together, communicate better
+              Communicate better
             </p>
           </div>
 

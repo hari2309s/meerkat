@@ -42,13 +42,21 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Meerkat brand colors
+        meerkat: {
+          tan: "hsl(var(--meerkat-tan))",
+          orange: "hsl(var(--meerkat-orange))",
+          brown: "hsl(var(--meerkat-brown))",
+          sand: "hsl(var(--meerkat-sand))",
+          dark: "hsl(var(--meerkat-dark))",
+        },
         // Mood/tone colors
         mood: {
-          positive: "hsl(142, 76%, 36%)",
-          negative: "hsl(0, 84%, 60%)",
-          neutral: "hsl(215, 16%, 47%)",
-          excited: "hsl(45, 93%, 47%)",
-          calm: "hsl(199, 89%, 48%)",
+          positive: "hsl(var(--mood-positive))",
+          negative: "hsl(var(--mood-negative))",
+          neutral: "hsl(var(--mood-neutral))",
+          excited: "hsl(var(--mood-excited))",
+          calm: "hsl(var(--mood-calm))",
         },
       },
       borderRadius: {

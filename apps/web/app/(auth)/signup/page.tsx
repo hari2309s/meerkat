@@ -175,7 +175,7 @@ export default function SignUpPage() {
         {/* Sign in link */}
         <div className="text-center">
           <Link href="/login">
-            <Button variant="ghost" className="text-meerkat-orange font-medium">
+            <Button variant="ghost" className="text-meerkat-brown hover:text-meerkat-dark font-medium">
               Sign in instead
             </Button>
           </Link>
@@ -185,11 +185,11 @@ export default function SignUpPage() {
       {/* Terms and privacy */}
       <p className="mt-8 text-center text-xs text-meerkat-brown/70">
         By creating an account, you agree to our{" "}
-        <Link href="/terms" className="underline hover:text-meerkat-orange">
+        <Link href="/terms" className="underline hover:text-meerkat-dark">
           Terms of Service
         </Link>{" "}
         and{" "}
-        <Link href="/privacy" className="underline hover:text-meerkat-orange">
+        <Link href="/privacy" className="underline hover:text-meerkat-dark">
           Privacy Policy
         </Link>
       </p>

@@ -18,19 +18,19 @@
     --card-foreground: 30 28% 22%;
     --popover: 0 0% 100%;
     --popover-foreground: 30 28% 22%;
-    --primary: 23 82% 52%; /* meerkat-orange */
+    --primary: 30 30% 40%; /* meerkat-brown */
     --primary-foreground: 0 0% 100%;
     --secondary: 42 45% 65%; /* meerkat-tan */
     --secondary-foreground: 30 28% 22%;
     --muted: 36 50% 90%;
     --muted-foreground: 30 30% 40%;
-    --accent: 23 82% 52%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 42 45% 65%; /* meerkat-tan */
+    --accent-foreground: 30 28% 22%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
     --border: 42 45% 80%;
     --input: 42 45% 80%;
-    --ring: 23 82% 52%;
+    --ring: 30 30% 40%; /* meerkat-brown */
     --radius: 0.75rem;
 
     /* Mood colors */
@@ -48,19 +48,19 @@
     --card-foreground: 36 50% 90%;
     --popover: 30 28% 15%;
     --popover-foreground: 36 50% 90%;
-    --primary: 23 82% 52%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 42 45% 65%; /* meerkat-tan */
+    --primary-foreground: 30 28% 22%;
     --secondary: 42 45% 35%;
     --secondary-foreground: 36 50% 90%;
     --muted: 30 28% 20%;
     --muted-foreground: 42 45% 65%;
-    --accent: 23 82% 52%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 42 45% 65%; /* meerkat-tan */
+    --accent-foreground: 30 28% 22%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 36 50% 90%;
     --border: 30 28% 25%;
     --input: 30 28% 25%;
-    --ring: 23 82% 52%;
+    --ring: 30 30% 40%; /* meerkat-brown */
   }
 }
 
