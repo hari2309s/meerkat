@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Meerkat Theme Colors */
+    --meerkat-tan: 42 45% 65%; /* #D4A574 - Primary warm tan */
+    --meerkat-orange: 23 82% 52%; /* #E67E22 - Accent desert orange */
+    --meerkat-brown: 30 30% 40%; /* #8B6F47 - Secondary earthy brown */
+    --meerkat-sand: 36 50% 90%; /* #F5E6D3 - Background light sand */
+    --meerkat-dark: 30 28% 22%; /* #4A3728 - Text dark brown */
+
+    /* Base colors */
+    --background: 36 50% 90%; /* meerkat-sand */
+    --foreground: 30 28% 22%; /* meerkat-dark */
+    --card: 0 0% 100%;
+    --card-foreground: 30 28% 22%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 28% 22%;
+    --primary: 23 82% 52%; /* meerkat-orange */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 42 45% 65%; /* meerkat-tan */
+    --secondary-foreground: 30 28% 22%;
+    --muted: 36 50% 90%;
+    --muted-foreground: 30 30% 40%;
+    --accent: 23 82% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 42 45% 80%;
+    --input: 42 45% 80%;
+    --ring: 23 82% 52%;
+    --radius: 0.75rem;
+
+    /* Mood colors */
+    --mood-positive: 142 76% 36%;
+    --mood-negative: 0 84% 60%;
+    --mood-neutral: 215 16% 47%;
+    --mood-excited: 45 93% 47%;
+    --mood-calm: 199 89% 48%;
+  }
+
+  .dark {
+    --background: 30 28% 12%;
+    --foreground: 36 50% 90%;
+    --card: 30 28% 15%;
+    --card-foreground: 36 50% 90%;
+    --popover: 30 28% 15%;
+    --popover-foreground: 36 50% 90%;
+    --primary: 23 82% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 42 45% 35%;
+    --secondary-foreground: 36 50% 90%;
+    --muted: 30 28% 20%;
+    --muted-foreground: 42 45% 65%;
+    --accent: 23 82% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 36 50% 90%;
+    --border: 30 28% 25%;
+    --input: 30 28% 25%;
+    --ring: 23 82% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+  }
+}
+
+/* Meerkat-specific utilities */
+@layer utilities {
+  .text-meerkat-tan {
+    color: hsl(var(--meerkat-tan));
+  }
+  .text-meerkat-orange {
+    color: hsl(var(--meerkat-orange));
+  }
+  .text-meerkat-brown {
+    color: hsl(var(--meerkat-brown));
+  }
+  .text-meerkat-sand {
+    color: hsl(var(--meerkat-sand));
+  }
+  .text-meerkat-dark {
+    color: hsl(var(--meerkat-dark));
+  }
+
+  .bg-meerkat-tan {
+    background-color: hsl(var(--meerkat-tan));
+  }
+  .bg-meerkat-orange {
+    background-color: hsl(var(--meerkat-orange));
+  }
+  .bg-meerkat-brown {
+    background-color: hsl(var(--meerkat-brown));
+  }
+  .bg-meerkat-sand {
+    background-color: hsl(var(--meerkat-sand));
+  }
+  .bg-meerkat-dark {
+    background-color: hsl(var(--meerkat-dark));
+  }
+
+  .border-meerkat-tan {
+    border-color: hsl(var(--meerkat-tan));
+  }
+  .border-meerkat-orange {
+    border-color: hsl(var(--meerkat-orange));
+  }
+}
+
+/* Custom scrollbar */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--meerkat-tan)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--meerkat-tan));
+    border-radius: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--meerkat-orange));
+  }
+}
+
+/* Voice wave animation */
+.voice-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+}
+
+.voice-wave span {
+  width: 3px;
+  height: 100%;
+  background: currentColor;
+  border-radius: 2px;
+  animation: pulse-wave 0.6s ease-in-out infinite;
+}
+
+.voice-wave span:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.voice-wave span:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.voice-wave span:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.voice-wave span:nth-child(5) {
+  animation-delay: 0.4s;
+}
