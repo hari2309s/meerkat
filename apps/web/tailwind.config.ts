@@ -8,6 +8,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-sans)", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -42,7 +45,6 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Meerkat brand colors
         meerkat: {
           tan: "hsl(var(--meerkat-tan))",
           orange: "hsl(var(--meerkat-orange))",
@@ -50,7 +52,6 @@ const config: Config = {
           sand: "hsl(var(--meerkat-sand))",
           dark: "hsl(var(--meerkat-dark))",
         },
-        // Mood/tone colors
         mood: {
           positive: "hsl(var(--mood-positive))",
           negative: "hsl(var(--mood-negative))",

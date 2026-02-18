@@ -1,18 +1,13 @@
 import type { Metadata } from "next";
-import { DM_Sans, Plus_Jakarta_Sans } from "next/font/google";
+import { Ysabeau_Office } from "next/font/google";
 import "./globals.css";
 
-const dmSans = DM_Sans({
+const ysabeauOffice = Ysabeau_Office({
   subsets: ["latin"],
-  variable: "--font-body",
+  variable: "--font-sans",
   display: "swap",
-});
-
-const clashDisplay = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
-  weight: ["400", "500", "600", "700"],
+  // Full variable weight axis (1–1000)
+  weight: "variable",
 });
 
 export const metadata: Metadata = {
@@ -34,12 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${dmSans.variable} ${clashDisplay.variable} font-sans antialiased`}
-      >
-        {children}
-      </body>
+    <html lang="en" suppressHydrationWarning className={ysabeauOffice.variable}>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   );
 }
