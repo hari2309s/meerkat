@@ -15,7 +15,7 @@ A modern, real-time collaborative workspace platform featuring voice messaging w
 
 ## 👥 Who Is Meerkat For?
 
-**No matter your group size, Meerkat adapts to your needs - from one person standing guard alone to a whole mob watching out for each other.** 🦦
+**No matter your group size, Meerkat adapts to your needs - from one person standing guard alone to a whole mob watching out for each other.**
 
 ## 🏗️ Tech Stack
 
