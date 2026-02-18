@@ -16,7 +16,6 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-meerkat-sand">
       <div className="text-center">
-        <h1 className="text-6xl mb-4">🦦</h1>
         <h2 className="text-3xl font-bold text-meerkat-dark mb-2">
           Welcome to Meerkat!
         </h2>
