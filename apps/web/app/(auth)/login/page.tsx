@@ -57,7 +57,6 @@ export default function LoginPage() {
       subtitle="Sign in to your Meerkat workspace"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Error message */}
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -68,7 +67,6 @@ export default function LoginPage() {
           </motion.div>
         )}
 
-        {/* Email field */}
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="relative">
@@ -89,7 +87,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Password field */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
@@ -118,7 +115,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Submit button */}
         <Button
           type="submit"
           className="w-full h-12 text-base font-semibold bg-meerkat-dark hover:bg-meerkat-dark/80"
@@ -130,14 +126,10 @@ export default function LoginPage() {
               Signing in...
             </>
           ) : (
-            <>
-              <span className="mr-2">🦦</span>
-              Sign in
-            </>
+            "Sign in"
           )}
         </Button>
 
-        {/* Divider */}
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t-2 border-meerkat-tan/30" />
@@ -149,10 +141,12 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Sign up link */}
         <div className="text-center">
           <Link href="/signup">
-            <Button variant="ghost" className="text-meerkat-brown hover:text-meerkat-dark font-medium">
+            <Button
+              variant="ghost"
+              className="text-meerkat-brown hover:text-meerkat-dark font-medium"
+            >
               Create an account
             </Button>
           </Link>

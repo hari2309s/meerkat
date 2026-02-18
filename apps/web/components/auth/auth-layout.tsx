@@ -12,7 +12,7 @@ interface AuthLayoutProps {
 export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
   return (
     <div
-      className="min-h-screen w-full flex items-start sm:items-center justify-start relative overflow-hidden"
+      className="min-h-screen w-full flex items-center justify-center relative overflow-hidden"
       style={{
         background:
           "linear-gradient(135deg, #f5e6d3 0%, #e8d0b0 40%, #d4a574 100%)",
@@ -27,43 +27,39 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         }}
       />
 
-      {/* Meerkats — large, anchored bottom-right, bleeds off screen */}
+      {/* Meerkats — large, anchored bottom-right */}
       <motion.div
         initial={{ opacity: 0, x: 50, y: 10 }}
         animate={{ opacity: 1, x: 0, y: 0 }}
         transition={{ duration: 1.1, delay: 0.15, ease: "easeOut" }}
-        className="absolute bottom-0 right-0 pointer-events-none select-none hidden sm:block"
+        className="absolute bottom-2 right-2 pointer-events-none select-none hidden sm:block"
         style={{ width: "52vw", maxWidth: "660px" }}
       >
         <img
           src="/meerkats.png"
           alt=""
           className="w-full h-auto"
-          style={{
-            filter: "drop-shadow(0 -4px 32px rgba(90,55,20,0.15))",
-          }}
+          style={{ filter: "drop-shadow(0 -4px 32px rgba(90,55,20,0.15))" }}
         />
       </motion.div>
 
-      {/* Mobile meerkats — bottom of page, behind content, faded */}
+      {/* Mobile meerkats */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1.0, delay: 0.2 }}
-        className="fixed bottom-0 right-0 pointer-events-none select-none sm:hidden"
-        style={{ width: "80vw" }}
+        className="absolute bottom-0 right-0 pointer-events-none select-none sm:hidden"
+        style={{ width: "75vw" }}
       >
         <img
           src="/meerkats.png"
           alt=""
-          className="w-full h-auto opacity-35"
-          style={{
-            filter: "drop-shadow(0 -4px 20px rgba(90,55,20,0.12))",
-          }}
+          className="w-full h-auto opacity-40"
+          style={{ filter: "drop-shadow(0 -4px 20px rgba(90,55,20,0.12))" }}
         />
       </motion.div>
 
-      {/* Soft vignette so form stays readable over any overlap */}
+      {/* Soft vignette behind form */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -72,19 +68,19 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         }}
       />
 
-      {/* Form */}
+      {/* Form column */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55, delay: 0.25 }}
-        className="relative z-10 w-full max-w-md px-6 pt-10 pb-6 sm:px-0 sm:pt-0 sm:pb-0 sm:ml-16 md:ml-24 xl:ml-40"
+        className="relative z-10 w-full max-w-md px-6 sm:px-0 sm:ml-16 md:ml-24 xl:ml-40 sm:mr-auto"
       >
-        {/* Wordmark */}
+        {/* Wordmark — centred to the card width */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="mb-8"
+          className="mb-6 text-center"
         >
           <h1
             className="text-4xl font-bold tracking-tight"

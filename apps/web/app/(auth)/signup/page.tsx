@@ -29,7 +29,6 @@ export default function SignUpPage() {
     try {
       const supabase = createClient();
 
-      // Sign up with Supabase
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -45,14 +44,11 @@ export default function SignUpPage() {
       }
 
       if (data.user) {
-        // Check if email confirmation is required
         if (data.user.identities?.length === 0) {
           setError("An account with this email already exists");
           setIsLoading(false);
           return;
         }
-
-        // Redirect to workspace or email confirmation message
         router.push("/");
       }
     } catch (err) {
@@ -68,7 +64,6 @@ export default function SignUpPage() {
       subtitle="Create your account and start collaborating"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Error message */}
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -79,7 +74,6 @@ export default function SignUpPage() {
           </motion.div>
         )}
 
-        {/* Name field */}
         <div className="space-y-2">
           <Label htmlFor="name">Full Name</Label>
           <div className="relative">
@@ -99,7 +93,6 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        {/* Email field */}
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="relative">
@@ -119,7 +112,6 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        {/* Password field */}
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
@@ -141,7 +133,6 @@ export default function SignUpPage() {
           <p className="text-xs text-meerkat-brown/70">At least 6 characters</p>
         </div>
 
-        {/* Submit button */}
         <Button
           type="submit"
           className="w-full h-12 text-base font-semibold"
@@ -153,14 +144,10 @@ export default function SignUpPage() {
               Creating your burrow...
             </>
           ) : (
-            <>
-              <span className="mr-2">🦦</span>
-              Create account
-            </>
+            "Create account"
           )}
         </Button>
 
-        {/* Divider */}
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t-2 border-meerkat-tan/30" />
@@ -172,17 +159,18 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        {/* Sign in link */}
         <div className="text-center">
           <Link href="/login">
-            <Button variant="ghost" className="text-meerkat-brown hover:text-meerkat-dark font-medium">
+            <Button
+              variant="ghost"
+              className="text-meerkat-brown hover:text-meerkat-dark font-medium"
+            >
               Sign in instead
             </Button>
           </Link>
         </div>
       </form>
 
-      {/* Terms and privacy */}
       <p className="mt-8 text-center text-xs text-meerkat-brown/70">
         By creating an account, you agree to our{" "}
         <Link href="/terms" className="underline hover:text-meerkat-dark">
