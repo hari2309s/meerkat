@@ -105,7 +105,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             border: "1.5px solid rgba(212,165,116,0.3)",
           }}
         >
-          <div className="mb-6">
+          <div className="mb-6 text-center">
             <h2 className="text-2xl font-bold" style={{ color: "#3a2718" }}>
               {title}
             </h2>
