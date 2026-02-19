@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { AuthLayout } from "@/components/auth/auth-layout";
@@ -13,17 +13,26 @@ import { Loader2, Mail, Lock } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [formData, setFormData] = useState({ email: "", password: "" });
+
+  // Pick up error/message passed via URL query params
+  // e.g. from /auth/callback?error=... or redirected after signup
+  useEffect(() => {
+    const urlError = searchParams.get("error");
+    const urlMessage = searchParams.get("message");
+    if (urlError) setError(decodeURIComponent(urlError));
+    if (urlMessage) setSuccessMessage(decodeURIComponent(urlMessage));
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       const supabase = createClient();
@@ -34,18 +43,28 @@ export default function LoginPage() {
           password: formData.password,
         });
 
-      if (signInError) {
-        throw signInError;
-      }
+      if (signInError) throw signInError;
 
       if (data.user) {
+        // Session is set — hard navigate so middleware re-evaluates
         router.push("/");
         router.refresh();
       }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Invalid email or password",
-      );
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        // Make Supabase's terse errors friendlier
+        if (err.message.includes("Invalid login credentials")) {
+          setError("Incorrect email or password. Please try again.");
+        } else if (err.message.includes("Email not confirmed")) {
+          setError(
+            "Please confirm your email address before signing in. Check your inbox.",
+          );
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -59,11 +78,21 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-red-50 border-2 border-red-200 text-red-800 rounded-xl p-4 text-sm"
+            className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm"
           >
             {error}
+          </motion.div>
+        )}
+
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-green-50 border border-green-200 text-green-800 rounded-xl p-4 text-sm"
+          >
+            {successMessage}
           </motion.div>
         )}
 
@@ -132,10 +161,13 @@ export default function LoginPage() {
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t-2 border-meerkat-tan/30" />
+            <div className="w-full border-t border-meerkat-tan/40" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="bg-white px-4 text-meerkat-brown">
+            <span
+              className="px-3 text-meerkat-brown/70"
+              style={{ background: "rgba(255,248,240,0.6)" }}
+            >
               New to Meerkat?
             </span>
           </div>
@@ -144,8 +176,9 @@ export default function LoginPage() {
         <div className="text-center">
           <Link href="/signup">
             <Button
-              variant="ghost"
-              className="text-meerkat-brown hover:text-meerkat-dark font-medium"
+              variant="outline"
+              className="w-full font-medium"
+              type="button"
             >
               Create an account
             </Button>
