@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: "Meerkat - Communicate better",
   description:
     "Collaborative workspace with voice intelligence. Perfect for solo users, families, friends, and small teams.",
+  icons: {
+    icon: "/favicon.png",
+  },
   keywords: [
     "collaboration",
     "voice messages",
