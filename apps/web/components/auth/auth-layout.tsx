@@ -13,12 +13,9 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center relative overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(135deg, #f5e6d3 0%, #e8d0b0 40%, #d4a574 100%)",
-      }}
+      style={{ background: "var(--color-auth-bg-gradient)" }}
     >
-      {/* Subtle noise texture */}
+      {/* Noise texture */}
       <div
         className="absolute inset-0 opacity-20 pointer-events-none"
         style={{
@@ -59,13 +56,10 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         />
       </motion.div>
 
-      {/* Soft vignette behind form */}
+      {/* Vignette behind form */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 55% 90% at 18% 50%, rgba(245,230,210,0.6) 0%, transparent 65%)",
-        }}
+        style={{ background: "var(--color-auth-vignette)" }}
       />
 
       {/* Form column */}
@@ -75,7 +69,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         transition={{ duration: 0.55, delay: 0.25 }}
         className="relative z-10 w-full max-w-md px-6 sm:px-0 sm:ml-16 md:ml-24 xl:ml-40 sm:mr-auto"
       >
-        {/* Wordmark — centred to the card width */}
+        {/* Wordmark */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -84,11 +78,14 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         >
           <h1
             className="text-4xl font-bold tracking-tight"
-            style={{ color: "#3a2718" }}
+            style={{ color: "var(--color-auth-wordmark)" }}
           >
             Meerkat
           </h1>
-          <p className="text-sm mt-1 font-medium" style={{ color: "#7a5535" }}>
+          <p
+            className="text-sm mt-1 font-medium"
+            style={{ color: "var(--color-auth-tagline)" }}
+          >
             Communicate better
           </p>
         </motion.div>
@@ -97,19 +94,24 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         <div
           className="rounded-2xl p-7 sm:p-8"
           style={{
-            background: "rgba(255,251,246,0.82)",
+            background: "var(--color-auth-card-bg)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            boxShadow:
-              "0 8px 48px rgba(90,55,20,0.13), 0 1px 0 rgba(255,255,255,0.9) inset",
-            border: "1.5px solid rgba(212,165,116,0.3)",
+            boxShadow: "var(--color-auth-card-shadow)",
+            border: "1.5px solid var(--color-auth-card-border)",
           }}
         >
           <div className="mb-6 text-center">
-            <h2 className="text-2xl font-bold" style={{ color: "#3a2718" }}>
+            <h2
+              className="text-2xl font-bold"
+              style={{ color: "var(--color-auth-wordmark)" }}
+            >
               {title}
             </h2>
-            <p className="text-sm mt-1" style={{ color: "#7a5535" }}>
+            <p
+              className="text-sm mt-1"
+              style={{ color: "var(--color-auth-tagline)" }}
+            >
               {subtitle}
             </p>
           </div>

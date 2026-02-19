@@ -16,13 +16,7 @@ export default async function HomePage() {
   const greeting = user.user_metadata?.preferred_name ?? name;
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        background:
-          "linear-gradient(135deg, #f5e6d3 0%, #e8d0b0 40%, #d4a574 100%)",
-      }}
-    >
+    <div className="min-h-screen page-bg">
       <div
         className="fixed inset-0 opacity-20 pointer-events-none"
         style={{
@@ -35,10 +29,16 @@ export default async function HomePage() {
 
       <main className="relative z-10 max-w-4xl mx-auto px-4">
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-          <h2 className="text-4xl font-bold mb-3" style={{ color: "#3a2718" }}>
+          <h2
+            className="text-4xl font-bold mb-3"
+            style={{ color: "var(--color-text-primary)" }}
+          >
             Welcome back, {greeting}!
           </h2>
-          <p className="text-lg" style={{ color: "#7a5535" }}>
+          <p
+            className="text-lg"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
             Your workspace is ready.
           </p>
         </div>

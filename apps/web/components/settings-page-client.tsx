@@ -9,6 +9,7 @@ import { Button } from "@meerkat/ui";
 import { Input } from "@meerkat/ui";
 import { Label } from "@meerkat/ui";
 import { createClient } from "@/lib/supabase/client";
+import { useTheme } from "@/components/theme-provider";
 import {
   User,
   Bell,
@@ -50,20 +51,25 @@ function SectionCard({
     <div
       className="rounded-2xl p-6"
       style={{
-        background: "rgba(255,248,240,0.55)",
+        background: "var(--color-bg-card)",
         backdropFilter: "blur(20px) saturate(1.5)",
         WebkitBackdropFilter: "blur(20px) saturate(1.5)",
-        border: "1.5px solid rgba(255,255,255,0.5)",
-        boxShadow:
-          "0 4px 24px rgba(90,55,20,0.07), 0 1px 0 rgba(255,255,255,0.6) inset",
+        border: "1.5px solid var(--color-border-card)",
+        boxShadow: "var(--color-shadow-card)",
       }}
     >
       <div className="mb-5">
-        <h3 className="text-base font-semibold" style={{ color: "#3a2718" }}>
+        <h3
+          className="text-base font-semibold"
+          style={{ color: "var(--color-text-primary)" }}
+        >
           {title}
         </h3>
         {subtitle && (
-          <p className="text-sm mt-0.5" style={{ color: "#7a5535" }}>
+          <p
+            className="text-sm mt-0.5"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
             {subtitle}
           </p>
         )}
@@ -85,7 +91,9 @@ function Toggle({
       type="button"
       onClick={() => onChange(!checked)}
       className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none"
-      style={{ background: checked ? "#8B6F47" : "rgba(139,111,71,0.2)" }}
+      style={{
+        background: checked ? "var(--color-avatar-bg)" : "rgba(139,111,71,0.2)",
+      }}
     >
       <span
         className="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200"
@@ -95,25 +103,46 @@ function Toggle({
   );
 }
 
+const THEME_OPTIONS = [
+  {
+    value: "light" as const,
+    label: "Light",
+    preview: "linear-gradient(135deg, #f5e6d3, #d4a574)",
+    cardBg: "rgba(255,248,240,0.9)",
+    labelColor: "#3a2718",
+  },
+  {
+    value: "dark" as const,
+    label: "Dark",
+    preview: "linear-gradient(135deg, #1a0f08, #3a200a)",
+    cardBg: "rgba(30,18,8,0.9)",
+    labelColor: "#e8d5bc",
+  },
+  {
+    value: "system" as const,
+    label: "System",
+    preview:
+      "linear-gradient(135deg, #f5e6d3 0%, #f5e6d3 50%, #1a0f08 50%, #3a200a 100%)",
+    cardBg: "rgba(139,111,71,0.15)",
+    labelColor: "var(--color-text-primary)",
+  },
+] as const;
+
 export function SettingsPageClient({ user }: SettingsPageClientProps) {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const [activeSection, setActiveSection] = useState<Section>("profile");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Profile form — initialised from server-fetched user
   const [name, setName] = useState(user.name);
   const [preferredName, setPreferredName] = useState(user.preferredName);
 
-  // Notification prefs
   const [notifs, setNotifs] = useState({
     emailActivity: true,
     emailDigest: false,
     pushMessages: true,
     pushMentions: true,
   });
-
-  // Appearance
-  const [theme, setTheme] = useState<"light" | "system">("light");
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
@@ -125,10 +154,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
           preferred_name: preferredName.trim() || name,
         },
       });
-
       if (error) throw error;
-
-      // Refresh the server component so the nav + any server-read values update
       router.refresh();
       toast.success("Profile updated", {
         description: "Your changes have been saved.",
@@ -165,7 +191,6 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
     }
   };
 
-  // Derive avatar initials from current preferredName or name
   const avatarInitials = (preferredName || name)
     .split(" ")
     .map((n) => n[0])
@@ -174,13 +199,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
     .slice(0, 2);
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        background:
-          "linear-gradient(135deg, #f5e6d3 0%, #e8d0b0 40%, #d4a574 100%)",
-      }}
-    >
+    <div className="min-h-screen page-bg">
       {/* Noise texture */}
       <div
         className="fixed inset-0 opacity-20 pointer-events-none"
@@ -199,10 +218,16 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
           transition={{ duration: 0.4 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold" style={{ color: "#3a2718" }}>
+          <h1
+            className="text-3xl font-bold"
+            style={{ color: "var(--color-text-primary)" }}
+          >
             Settings
           </h1>
-          <p className="text-sm mt-1" style={{ color: "#7a5535" }}>
+          <p
+            className="text-sm mt-1"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
             Manage your account and preferences
           </p>
         </motion.div>
@@ -218,10 +243,10 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
             <div
               className="rounded-2xl p-1.5"
               style={{
-                background: "rgba(255,248,240,0.45)",
+                background: "var(--color-bg-sidebar)",
                 backdropFilter: "blur(20px) saturate(1.5)",
                 WebkitBackdropFilter: "blur(20px) saturate(1.5)",
-                border: "1.5px solid rgba(255,255,255,0.45)",
+                border: "1.5px solid var(--color-border-nav)",
                 boxShadow: "0 4px 24px rgba(90,55,20,0.07)",
               }}
             >
@@ -234,9 +259,11 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-left"
                     style={{
                       background: active
-                        ? "rgba(255,255,255,0.6)"
+                        ? "rgba(255,255,255,0.15)"
                         : "transparent",
-                      color: active ? "#3a2718" : "#7a5535",
+                      color: active
+                        ? "var(--color-text-primary)"
+                        : "var(--color-text-secondary)",
                       boxShadow: active
                         ? "0 1px 4px rgba(90,55,20,0.08)"
                         : "none",
@@ -280,7 +307,10 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <Label htmlFor="preferred-name">Preferred Name</Label>
-                        <span className="text-xs" style={{ color: "#9a7a55" }}>
+                        <span
+                          className="text-xs"
+                          style={{ color: "var(--color-text-muted)" }}
+                        >
                           (optional)
                         </span>
                       </div>
@@ -290,7 +320,10 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                         onChange={(e) => setPreferredName(e.target.value)}
                         placeholder="What should we call you?"
                       />
-                      <p className="text-xs" style={{ color: "#9a7a55" }}>
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
                         Used to greet you when you sign in
                       </p>
                     </div>
@@ -303,7 +336,10 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                         disabled
                         className="opacity-60 cursor-not-allowed"
                       />
-                      <p className="text-xs" style={{ color: "#9a7a55" }}>
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
                         Email cannot be changed here
                       </p>
                     </div>
@@ -334,20 +370,20 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                   <div className="flex items-center gap-4">
                     <div
                       className="h-16 w-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shrink-0"
-                      style={{ background: "#8B6F47" }}
+                      style={{ background: "var(--color-avatar-bg)" }}
                     >
                       {avatarInitials}
                     </div>
                     <div>
                       <p
                         className="text-sm font-medium"
-                        style={{ color: "#3a2718" }}
+                        style={{ color: "var(--color-text-primary)" }}
                       >
                         {preferredName || name}
                       </p>
                       <p
                         className="text-xs mt-0.5"
-                        style={{ color: "#7a5535" }}
+                        style={{ color: "var(--color-text-secondary)" }}
                       >
                         Custom avatar upload coming soon
                       </p>
@@ -393,13 +429,13 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                       <div>
                         <p
                           className="text-sm font-medium"
-                          style={{ color: "#3a2718" }}
+                          style={{ color: "var(--color-text-primary)" }}
                         >
                           {label}
                         </p>
                         <p
                           className="text-xs mt-0.5"
-                          style={{ color: "#7a5535" }}
+                          style={{ color: "var(--color-text-secondary)" }}
                         >
                           {desc}
                         </p>
@@ -430,47 +466,57 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                 title="Theme"
                 subtitle="Choose how Meerkat looks for you"
               >
-                <div className="grid grid-cols-2 gap-3">
-                  {(["light", "system"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setTheme(t)}
-                      className="relative rounded-xl p-4 text-left transition-all border-2"
-                      style={{
-                        background:
-                          t === "light"
-                            ? "rgba(255,248,240,0.8)"
-                            : "rgba(58,39,24,0.08)",
-                        borderColor:
-                          theme === t ? "#8B6F47" : "rgba(255,255,255,0.3)",
-                      }}
-                    >
-                      <div
-                        className="h-10 rounded-lg mb-3"
-                        style={{
-                          background:
-                            t === "light"
-                              ? "linear-gradient(135deg, #f5e6d3, #d4a574)"
-                              : "linear-gradient(135deg, #2a1a0e, #4a2e14)",
-                        }}
-                      />
-                      <p
-                        className="text-sm font-medium capitalize"
-                        style={{ color: "#3a2718" }}
-                      >
-                        {t === "system" ? "System" : "Light"}
-                      </p>
-                      {theme === t && (
-                        <div
-                          className="absolute top-2.5 right-2.5 h-5 w-5 rounded-full flex items-center justify-center"
-                          style={{ background: "#8B6F47" }}
+                <div className="grid grid-cols-3 gap-3">
+                  {THEME_OPTIONS.map(
+                    ({ value, label, preview, cardBg, labelColor }) => {
+                      const active = theme === value;
+                      return (
+                        <button
+                          key={value}
+                          onClick={() => {
+                            setTheme(value);
+                            toast.success(`Theme set to ${label}`, {
+                              duration: 1500,
+                            });
+                          }}
+                          className="relative rounded-xl p-4 text-left transition-all border-2 focus:outline-none"
+                          style={{
+                            background: cardBg,
+                            borderColor: active
+                              ? "var(--color-avatar-bg)"
+                              : "rgba(139,111,71,0.2)",
+                          }}
                         >
-                          <Check className="h-3 w-3 text-white" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
+                          <div
+                            className="h-10 rounded-lg mb-3"
+                            style={{ background: preview }}
+                          />
+                          <p
+                            className="text-sm font-medium"
+                            style={{ color: labelColor }}
+                          >
+                            {label}
+                          </p>
+                          {active && (
+                            <div
+                              className="absolute top-2.5 right-2.5 h-5 w-5 rounded-full flex items-center justify-center"
+                              style={{ background: "var(--color-avatar-bg)" }}
+                            >
+                              <Check className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    },
+                  )}
                 </div>
+                <p
+                  className="text-xs mt-4"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  Your preference is saved locally and applied on every visit.
+                  System follows your OS setting.
+                </p>
               </SectionCard>
             )}
 
@@ -485,13 +531,13 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                     <div>
                       <p
                         className="text-sm font-medium"
-                        style={{ color: "#3a2718" }}
+                        style={{ color: "var(--color-text-primary)" }}
                       >
                         Change password
                       </p>
                       <p
                         className="text-xs mt-0.5"
-                        style={{ color: "#7a5535" }}
+                        style={{ color: "var(--color-text-secondary)" }}
                       >
                         We'll send a reset link to {user.email}
                       </p>
@@ -510,13 +556,13 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                     <div>
                       <p
                         className="text-sm font-medium"
-                        style={{ color: "#3a2718" }}
+                        style={{ color: "var(--color-text-primary)" }}
                       >
                         Current session
                       </p>
                       <p
                         className="text-xs mt-0.5"
-                        style={{ color: "#7a5535" }}
+                        style={{ color: "var(--color-text-secondary)" }}
                       >
                         This browser — active now
                       </p>
@@ -547,7 +593,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                       </p>
                       <p
                         className="text-xs mt-0.5"
-                        style={{ color: "#7a5535" }}
+                        style={{ color: "var(--color-text-secondary)" }}
                       >
                         Permanently delete your account and all data
                       </p>

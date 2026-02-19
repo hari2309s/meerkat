@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home,
@@ -16,13 +16,12 @@ import {
   User,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { startNavigationProgress } from "@/components/navigation-progress";
 
 interface NavUser {
   name: string;
   email: string;
 }
-
 interface TopNavProps {
   user: NavUser;
 }
@@ -45,17 +44,21 @@ export function TopNav({ user }: TopNavProps) {
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
-  // Close dropdowns on route change
   useEffect(() => {
     setMenuOpen(false);
     setProfileOpen(false);
   }, [pathname]);
 
   const handleSignOut = async () => {
+    startNavigationProgress();
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
+  };
+
+  const handleNavClick = (href: string) => {
+    if (href !== pathname) startNavigationProgress();
   };
 
   const initials = user.name
@@ -67,7 +70,6 @@ export function TopNav({ user }: TopNavProps) {
 
   return (
     <>
-      {/* Top bar */}
       <motion.header
         initial={{ y: -10 }}
         animate={{ y: 0 }}
@@ -78,26 +80,25 @@ export function TopNav({ user }: TopNavProps) {
           className="w-full max-w-4xl rounded-2xl px-4 h-14 flex items-center gap-2 transition-all duration-300"
           style={{
             background: scrolled
-              ? "rgba(245,230,210,0.55)"
-              : "rgba(245,230,210,0.35)",
+              ? "var(--color-bg-nav-scrolled)"
+              : "var(--color-bg-nav)",
             backdropFilter: "blur(24px) saturate(1.8)",
             WebkitBackdropFilter: "blur(24px) saturate(1.8)",
             boxShadow: scrolled
-              ? "0 4px 32px rgba(90,55,20,0.12), 0 1px 0 rgba(255,255,255,0.6) inset"
-              : "0 2px 16px rgba(90,55,20,0.06), 0 1px 0 rgba(255,255,255,0.5) inset",
-            border: "1.5px solid rgba(255,255,255,0.45)",
+              ? "var(--color-shadow-nav-scrolled)"
+              : "var(--color-shadow-nav)",
+            border: "1.5px solid var(--color-border-nav)",
           }}
         >
-          {/* Wordmark */}
           <Link
             href="/"
+            onClick={() => handleNavClick("/")}
             className="font-bold text-lg tracking-tight mr-2 shrink-0"
-            style={{ color: "#3a2718" }}
+            style={{ color: "var(--color-wordmark)" }}
           >
             Meerkat
           </Link>
 
-          {/* Desktop nav links */}
           <nav className="hidden sm:flex items-center gap-1 flex-1">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
@@ -105,12 +106,19 @@ export function TopNav({ user }: TopNavProps) {
                 <Link
                   key={href}
                   href={href}
+                  onClick={() => handleNavClick(href)}
                   className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150"
                   style={{
-                    color: active ? "#3a2718" : "#7a5535",
+                    color: active
+                      ? "var(--color-wordmark)"
+                      : "var(--color-text-secondary)",
                     background: active
-                      ? "rgba(255,255,255,0.45)"
+                      ? "var(--color-nav-active-bg)"
                       : "transparent",
+                    boxShadow: active
+                      ? "var(--color-nav-active-shadow)"
+                      : "none",
+                    fontWeight: active ? 600 : 500,
                   }}
                 >
                   <Icon className="h-4 w-4" />
@@ -120,42 +128,36 @@ export function TopNav({ user }: TopNavProps) {
             })}
           </nav>
 
-          {/* Right side actions */}
           <div className="flex items-center gap-1.5 ml-auto">
-            {/* Search */}
             <button
-              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-xl transition-all hover:bg-white/40"
-              style={{ color: "#7a5535" }}
+              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-xl transition-all hover:opacity-70"
+              style={{ color: "var(--color-text-secondary)" }}
               aria-label="Search"
             >
               <Search className="h-4 w-4" />
             </button>
 
-            {/* Notifications */}
             <button
-              className="relative hidden sm:flex h-8 w-8 items-center justify-center rounded-xl transition-all hover:bg-white/40"
-              style={{ color: "#7a5535" }}
+              className="relative hidden sm:flex h-8 w-8 items-center justify-center rounded-xl transition-all hover:opacity-70"
+              style={{ color: "var(--color-text-secondary)" }}
               aria-label="Notifications"
             >
               <Bell className="h-4 w-4" />
-              {/* Unread dot */}
               <span
                 className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full"
                 style={{ background: "#E67E22" }}
               />
             </button>
 
-            {/* Profile dropdown */}
             <div className="relative">
               <button
                 onClick={() => setProfileOpen((v) => !v)}
-                className="flex items-center gap-2 h-8 pl-1 pr-2 rounded-xl transition-all hover:bg-white/40"
-                style={{ color: "#3a2718" }}
+                className="flex items-center gap-2 h-8 pl-1 pr-2 rounded-xl transition-all hover:opacity-80"
+                style={{ color: "var(--color-text-primary)" }}
               >
-                {/* Avatar */}
                 <div
                   className="h-6 w-6 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
-                  style={{ background: "#8B6F47" }}
+                  style={{ background: "var(--color-avatar-bg)" }}
                 >
                   {initials}
                 </div>
@@ -166,7 +168,7 @@ export function TopNav({ user }: TopNavProps) {
                   className="h-3.5 w-3.5 hidden sm:block transition-transform duration-200"
                   style={{
                     transform: profileOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    color: "#7a5535",
+                    color: "var(--color-text-secondary)",
                   }}
                 />
               </button>
@@ -180,48 +182,50 @@ export function TopNav({ user }: TopNavProps) {
                     transition={{ duration: 0.15 }}
                     className="absolute right-0 top-full mt-2 w-52 rounded-2xl overflow-hidden z-50"
                     style={{
-                      background: "rgba(250,242,232,0.92)",
+                      background: "var(--color-bg-dropdown)",
                       backdropFilter: "blur(20px) saturate(1.6)",
                       WebkitBackdropFilter: "blur(20px) saturate(1.6)",
-                      boxShadow:
-                        "0 8px 32px rgba(90,55,20,0.15), 0 1px 0 rgba(255,255,255,0.8) inset",
-                      border: "1.5px solid rgba(255,255,255,0.5)",
+                      boxShadow: "var(--color-shadow-nav-scrolled)",
+                      border: "1.5px solid var(--color-border-card)",
                     }}
                   >
-                    {/* User info */}
-                    <div className="px-4 py-3 border-b border-meerkat-tan/20">
+                    <div
+                      className="px-4 py-3 border-b"
+                      style={{ borderColor: "var(--color-border-card)" }}
+                    >
                       <p
                         className="text-sm font-semibold truncate"
-                        style={{ color: "#3a2718" }}
+                        style={{ color: "var(--color-text-primary)" }}
                       >
                         {user.name}
                       </p>
                       <p
                         className="text-xs truncate mt-0.5"
-                        style={{ color: "#7a5535" }}
+                        style={{ color: "var(--color-text-secondary)" }}
                       >
                         {user.email}
                       </p>
                     </div>
-
                     <div className="p-1.5">
                       <Link
                         href="/settings"
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all hover:bg-white/50"
-                        style={{ color: "#3a2718" }}
-                        onClick={() => setProfileOpen(false)}
+                        onClick={() => {
+                          handleNavClick("/settings");
+                          setProfileOpen(false);
+                        }}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all hover:opacity-80"
+                        style={{ color: "var(--color-text-primary)" }}
                       >
                         <User
                           className="h-4 w-4"
-                          style={{ color: "#7a5535" }}
+                          style={{ color: "var(--color-text-secondary)" }}
                         />
                         Profile & Settings
                       </Link>
-
                       <button
                         onClick={handleSignOut}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all hover:bg-red-50"
-                        style={{ color: "#c0392b" }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all hover:opacity-80"
+                        style={{ color: "#e05c4a" }}
                       >
                         <LogOut className="h-4 w-4" />
                         Sign out
@@ -232,11 +236,10 @@ export function TopNav({ user }: TopNavProps) {
               </AnimatePresence>
             </div>
 
-            {/* Mobile menu toggle */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="sm:hidden h-8 w-8 flex items-center justify-center rounded-xl hover:bg-white/40 transition-all"
-              style={{ color: "#7a5535" }}
+              className="sm:hidden h-8 w-8 flex items-center justify-center rounded-xl transition-all"
+              style={{ color: "var(--color-text-secondary)" }}
               aria-label="Menu"
             >
               {menuOpen ? (
@@ -248,7 +251,6 @@ export function TopNav({ user }: TopNavProps) {
           </div>
         </div>
 
-        {/* Mobile dropdown menu */}
         <AnimatePresence>
           {menuOpen && (
             <motion.div
@@ -258,11 +260,11 @@ export function TopNav({ user }: TopNavProps) {
               transition={{ duration: 0.18 }}
               className="absolute top-full left-4 right-4 mt-2 rounded-2xl overflow-hidden"
               style={{
-                background: "rgba(250,242,232,0.95)",
+                background: "var(--color-bg-dropdown)",
                 backdropFilter: "blur(20px) saturate(1.6)",
                 WebkitBackdropFilter: "blur(20px) saturate(1.6)",
-                boxShadow: "0 8px 32px rgba(90,55,20,0.14)",
-                border: "1.5px solid rgba(255,255,255,0.5)",
+                boxShadow: "var(--color-shadow-nav-scrolled)",
+                border: "1.5px solid var(--color-border-card)",
               }}
             >
               <div className="p-2">
@@ -272,11 +274,14 @@ export function TopNav({ user }: TopNavProps) {
                     <Link
                       key={href}
                       href={href}
+                      onClick={() => handleNavClick(href)}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
                       style={{
-                        color: active ? "#3a2718" : "#7a5535",
+                        color: active
+                          ? "var(--color-text-primary)"
+                          : "var(--color-text-secondary)",
                         background: active
-                          ? "rgba(255,255,255,0.5)"
+                          ? "var(--color-nav-active-bg)"
                           : "transparent",
                       }}
                     >
@@ -291,7 +296,6 @@ export function TopNav({ user }: TopNavProps) {
         </AnimatePresence>
       </motion.header>
 
-      {/* Spacer so content doesn't sit under the fixed bar */}
       <div className="h-20" />
     </>
   );

@@ -9,10 +9,9 @@ import { Button } from "@meerkat/ui";
 import { Input } from "@meerkat/ui";
 import { Label } from "@meerkat/ui";
 import { createClient } from "@/lib/supabase/client";
+import { startNavigationProgress } from "@/components/navigation-progress";
 import { Loader2, Mail, Lock } from "lucide-react";
 
-// Separated into its own component because useSearchParams()
-// requires a Suspense boundary in Next.js 14 static generation
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,6 +44,8 @@ function LoginForm() {
       if (signInError) throw signInError;
 
       if (data.user) {
+        startNavigationProgress();
+        // Keep isLoading=true — spinner persists until this component unmounts
         router.push("/");
         router.refresh();
       }
@@ -62,7 +63,6 @@ function LoginForm() {
       } else {
         setError("Something went wrong. Please try again.");
       }
-    } finally {
       setIsLoading(false);
     }
   };
@@ -73,7 +73,12 @@ function LoginForm() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm"
+          className="rounded-xl p-4 text-sm"
+          style={{
+            background: "rgba(192,57,43,0.1)",
+            border: "1px solid rgba(192,57,43,0.3)",
+            color: "#c0392b",
+          }}
         >
           {error}
         </motion.div>
@@ -83,7 +88,12 @@ function LoginForm() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-green-50 border border-green-200 text-green-800 rounded-xl p-4 text-sm"
+          className="rounded-xl p-4 text-sm"
+          style={{
+            background: "rgba(22,163,74,0.1)",
+            border: "1px solid rgba(22,163,74,0.3)",
+            color: "#16a34a",
+          }}
         >
           {successMessage}
         </motion.div>
@@ -92,7 +102,10 @@ function LoginForm() {
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-meerkat-brown/50" />
+          <Mail
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 pointer-events-none"
+            style={{ color: "var(--color-text-muted)" }}
+          />
           <Input
             id="email"
             type="email"
@@ -114,13 +127,17 @@ function LoginForm() {
           <Label htmlFor="password">Password</Label>
           <Link
             href="/forgot-password"
-            className="text-sm text-meerkat-brown hover:text-meerkat-dark hover:underline"
+            className="text-sm hover:underline"
+            style={{ color: "var(--color-text-secondary)" }}
           >
             Forgot password?
           </Link>
         </div>
         <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-meerkat-brown/50" />
+          <Lock
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 pointer-events-none"
+            style={{ color: "var(--color-text-muted)" }}
+          />
           <Input
             id="password"
             type="password"
@@ -139,7 +156,7 @@ function LoginForm() {
 
       <Button
         type="submit"
-        className="w-full h-12 text-base font-semibold bg-meerkat-dark hover:bg-meerkat-dark/80"
+        className="w-full h-12 text-base font-semibold"
         disabled={isLoading}
       >
         {isLoading ? (
@@ -153,13 +170,19 @@ function LoginForm() {
       </Button>
 
       <div className="relative my-4">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-meerkat-tan/40" />
+        <div className="absolute inset-0 flex items-center" aria-hidden="true">
+          <div
+            className="w-full border-t"
+            style={{ borderColor: "var(--color-border-card)" }}
+          />
         </div>
         <div className="relative flex justify-center text-sm">
           <span
-            className="px-3 text-meerkat-brown/70"
-            style={{ background: "rgba(255,248,240,0.6)" }}
+            className="px-3"
+            style={{
+              color: "var(--color-text-secondary)",
+              background: "var(--color-auth-card-bg)",
+            }}
           >
             New to Meerkat?
           </span>
@@ -187,7 +210,10 @@ export default function LoginPage() {
     >
       <Suspense
         fallback={
-          <div className="h-64 animate-pulse rounded-xl bg-meerkat-tan/10" />
+          <div
+            className="h-64 animate-pulse rounded-xl"
+            style={{ background: "var(--color-bg-card)" }}
+          />
         }
       >
         <LoginForm />

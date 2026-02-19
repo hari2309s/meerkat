@@ -38,10 +38,8 @@ export default function SignUpPage() {
         options: {
           data: {
             full_name: formData.name,
-            // preferred_name is used for greetings — falls back to full_name if blank
             preferred_name: formData.preferredName.trim() || formData.name,
           },
-          // Points to /auth/confirm which handles the token_hash Supabase sends
           emailRedirectTo: `${window.location.origin}/auth/confirm?next=/`,
         },
       });
@@ -55,15 +53,11 @@ export default function SignUpPage() {
           );
           return;
         }
-
-        // Email confirmation required (Supabase default)
         if (!data.session) {
           setSentToEmail(formData.email);
           setEmailSent(true);
           return;
         }
-
-        // Email confirmation disabled in Supabase dashboard — go straight in
         router.push("/");
         router.refresh();
       }
@@ -97,14 +91,20 @@ export default function SignUpPage() {
             <CheckCircle className="h-16 w-16 text-green-500" />
           </div>
           <div className="space-y-2">
-            <p className="text-meerkat-dark font-medium">
+            <p
+              className="font-medium"
+              style={{ color: "var(--color-text-primary)" }}
+            >
               We&apos;ve sent a confirmation link to:
             </p>
-            <p className="text-meerkat-brown font-semibold break-all">
+            <p
+              className="font-semibold break-all"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
               {sentToEmail}
             </p>
           </div>
-          <p className="text-sm text-meerkat-brown/80">
+          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
             Click the link in the email to activate your account. Check your
             spam folder if you don&apos;t see it within a minute.
           </p>
@@ -132,7 +132,12 @@ export default function SignUpPage() {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 text-sm"
+              className="rounded-xl p-4 text-sm"
+              style={{
+                background: "rgba(192, 57, 43, 0.1)",
+                border: "1px solid rgba(192, 57, 43, 0.3)",
+                color: "#c0392b",
+              }}
             >
               {error}
             </motion.div>
@@ -142,7 +147,10 @@ export default function SignUpPage() {
         <div className="space-y-2">
           <Label htmlFor="name">Full Name</Label>
           <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-meerkat-brown/50" />
+            <User
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 pointer-events-none"
+              style={{ color: "var(--color-text-muted)" }}
+            />
             <Input
               id="name"
               type="text"
@@ -162,10 +170,18 @@ export default function SignUpPage() {
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Label htmlFor="preferredName">Preferred Name</Label>
-            <span className="text-xs text-meerkat-brown/50">(optional)</span>
+            <span
+              className="text-xs"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              (optional)
+            </span>
           </div>
           <div className="relative">
-            <Smile className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-meerkat-brown/50" />
+            <Smile
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 pointer-events-none"
+              style={{ color: "var(--color-text-muted)" }}
+            />
             <Input
               id="preferredName"
               type="text"
@@ -184,7 +200,10 @@ export default function SignUpPage() {
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-meerkat-brown/50" />
+            <Mail
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 pointer-events-none"
+              style={{ color: "var(--color-text-muted)" }}
+            />
             <Input
               id="email"
               type="email"
@@ -204,7 +223,10 @@ export default function SignUpPage() {
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-meerkat-brown/50" />
+            <Lock
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 pointer-events-none"
+              style={{ color: "var(--color-text-muted)" }}
+            />
             <Input
               id="password"
               type="password"
@@ -220,7 +242,9 @@ export default function SignUpPage() {
               autoComplete="new-password"
             />
           </div>
-          <p className="text-xs text-meerkat-brown/70">At least 6 characters</p>
+          <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+            At least 6 characters
+          </p>
         </div>
 
         <Button
@@ -239,13 +263,22 @@ export default function SignUpPage() {
         </Button>
 
         <div className="relative mt-3">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-meerkat-tan/40" />
+          <div
+            className="absolute inset-0 flex items-center"
+            aria-hidden="true"
+          >
+            <div
+              className="w-full border-t"
+              style={{ borderColor: "var(--color-border-card)" }}
+            />
           </div>
           <div className="relative flex justify-center text-sm">
             <span
-              className="px-3 text-meerkat-brown/70"
-              style={{ background: "rgba(255,248,240,0.6)" }}
+              className="px-3"
+              style={{
+                color: "var(--color-text-secondary)",
+                background: "var(--color-auth-card-bg)",
+              }}
             >
               Already have an account?
             </span>
@@ -265,13 +298,24 @@ export default function SignUpPage() {
         </div>
       </form>
 
-      <p className="mt-4 text-center text-xs text-meerkat-brown/60">
+      <p
+        className="mt-4 text-center text-xs"
+        style={{ color: "var(--color-text-muted)" }}
+      >
         By creating an account, you agree to our{" "}
-        <Link href="/terms" className="underline hover:text-meerkat-dark">
+        <Link
+          href="/terms"
+          className="underline hover:opacity-80"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
           Terms of Service
         </Link>{" "}
         and{" "}
-        <Link href="/privacy" className="underline hover:text-meerkat-dark">
+        <Link
+          href="/privacy"
+          className="underline hover:opacity-80"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
           Privacy Policy
         </Link>
       </p>
