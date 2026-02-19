@@ -167,7 +167,11 @@ function LoginForm() {
       </div>
 
       <Link href="/signup">
-        <Button variant="outline" className="w-full font-medium" type="button">
+        <Button
+          variant="outline"
+          className="w-full font-medium mt-4"
+          type="button"
+        >
           Create an account
         </Button>
       </Link>
