@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { TopNav } from "@/components/top-nav";
 import { Button } from "@meerkat/ui";
 import { Input } from "@meerkat/ui";
@@ -94,11 +96,11 @@ function Toggle({
 }
 
 export function SettingsPageClient({ user }: SettingsPageClientProps) {
+  const router = useRouter();
   const [activeSection, setActiveSection] = useState<Section>("profile");
   const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
-  // Profile form state
+  // Profile form — initialised from server-fetched user
   const [name, setName] = useState(user.name);
   const [preferredName, setPreferredName] = useState(user.preferredName);
 
@@ -117,26 +119,59 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
     setIsSaving(true);
     try {
       const supabase = createClient();
-      await supabase.auth.updateUser({
+      const { error } = await supabase.auth.updateUser({
         data: {
           full_name: name,
           preferred_name: preferredName.trim() || name,
         },
       });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+
+      if (error) throw error;
+
+      // Refresh the server component so the nav + any server-read values update
+      router.refresh();
+      toast.success("Profile updated", {
+        description: "Your changes have been saved.",
+      });
+    } catch (err: unknown) {
+      toast.error("Failed to save", {
+        description:
+          err instanceof Error ? err.message : "Something went wrong.",
+      });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleChangePassword = async () => {
-    const supabase = createClient();
-    await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
-    alert("Password reset link sent to your email.");
+  const handleSaveNotifications = () => {
+    toast.success("Notification preferences saved");
   };
+
+  const handleChangePassword = async () => {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+      if (error) throw error;
+      toast.success("Reset link sent", {
+        description: `Check ${user.email} for the password reset link.`,
+      });
+    } catch (err: unknown) {
+      toast.error("Failed to send reset link", {
+        description:
+          err instanceof Error ? err.message : "Something went wrong.",
+      });
+    }
+  };
+
+  // Derive avatar initials from current preferredName or name
+  const avatarInitials = (preferredName || name)
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <div
@@ -155,10 +190,9 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
         }}
       />
 
-      <TopNav user={{ name: user.name, email: user.email }} />
+      <TopNav user={{ name, email: user.email }} />
 
       <main className="relative z-10 max-w-4xl mx-auto px-4 pb-16">
-        {/* Page header */}
         <motion.div
           initial={{ y: 12 }}
           animate={{ y: 0 }}
@@ -174,7 +208,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
         </motion.div>
 
         <div className="flex flex-col sm:flex-row gap-6">
-          {/* Sidebar nav */}
+          {/* Sidebar */}
           <motion.aside
             initial={{ y: 12 }}
             animate={{ y: 0 }}
@@ -217,7 +251,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
             </div>
           </motion.aside>
 
-          {/* Content area */}
+          {/* Content */}
           <motion.div
             key={activeSection}
             initial={{ opacity: 0, y: 8 }}
@@ -242,6 +276,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                         placeholder="Meera Kat"
                       />
                     </div>
+
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <Label htmlFor="preferred-name">Preferred Name</Label>
@@ -276,18 +311,13 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                     <div className="flex justify-end pt-2">
                       <Button
                         onClick={handleSaveProfile}
-                        disabled={isSaving || saved}
+                        disabled={isSaving}
                         className="min-w-[120px]"
                       >
                         {isSaving ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Saving...
-                          </>
-                        ) : saved ? (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Saved!
                           </>
                         ) : (
                           "Save changes"
@@ -306,19 +336,14 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                       className="h-16 w-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shrink-0"
                       style={{ background: "#8B6F47" }}
                     >
-                      {(user.preferredName || user.name)
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .toUpperCase()
-                        .slice(0, 2)}
+                      {avatarInitials}
                     </div>
                     <div>
                       <p
                         className="text-sm font-medium"
                         style={{ color: "#3a2718" }}
                       >
-                        {user.preferredName || user.name}
+                        {preferredName || name}
                       </p>
                       <p
                         className="text-xs mt-0.5"
@@ -387,6 +412,14 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                       />
                     </div>
                   ))}
+                </div>
+                <div className="flex justify-end pt-4 border-t border-meerkat-tan/20 mt-2">
+                  <Button
+                    onClick={handleSaveNotifications}
+                    className="min-w-[120px]"
+                  >
+                    Save preferences
+                  </Button>
                 </div>
               </SectionCard>
             )}

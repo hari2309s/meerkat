@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { Ysabeau_Office } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const ysabeauOffice = Ysabeau_Office({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
-  // Full variable weight axis (1–1000)
   weight: "variable",
 });
 
@@ -30,7 +30,23 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={ysabeauOffice.variable}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        {children}
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: "rgba(250,242,232,0.92)",
+              backdropFilter: "blur(20px)",
+              border: "1.5px solid rgba(255,255,255,0.5)",
+              borderRadius: "14px",
+              color: "#3a2718",
+              fontFamily: "var(--font-sans)",
+              boxShadow: "0 8px 32px rgba(90,55,20,0.15)",
+            },
+          }}
+        />
+      </body>
     </html>
   );
 }
