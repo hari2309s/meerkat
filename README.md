@@ -60,41 +60,46 @@ meerkat/
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/yourusername/meerkat.git
    cd meerkat
    ```
 
 2. **Install dependencies**
+
    ```bash
    pnpm install
    ```
 
 3. **Set up your private mood analyzer package**
-   
+
    Make sure your `mood-and-tone-analyzer` repository is accessible:
+
    ```bash
    # Option 1: Local development
    cd packages/mood-analyzer
    pnpm add file:../../../mood-and-tone-analyzer
-   
+
    # Option 2: Private npm registry
    pnpm add hari2309s-mood-tone-analyzer@latest --registry=<your-registry>
-   
+
    # Option 3: GitHub private repository
    pnpm add git+https://github.com/hari2309s/mood-and-tone-analyzer.git
    ```
 
 4. **Set up Supabase**
-   
+
    a. Create a new project at [supabase.com](https://supabase.com)
-   
+
    b. Copy `.env.example` to `.env.local`:
+
    ```bash
    cp .env.example apps/web/.env.local
    ```
-   
+
    c. Fill in your Supabase credentials:
+
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your-project-url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
@@ -104,21 +109,23 @@ meerkat/
    ```
 
 5. **Initialize the database**
+
    ```bash
    # Generate Prisma client
    pnpm db:generate
-   
+
    # Run migrations
    pnpm db:push
    ```
 
 6. **Run the development server**
+
    ```bash
    pnpm dev
    ```
 
 7. **Open your browser**
-   
+
    Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## 🗄️ Database Setup
@@ -186,6 +193,7 @@ Tailwind is configured at the workspace level and shared across packages. The co
 tRPC is set up for type-safe API calls. Add new routers in `apps/web/lib/trpc/routers/`.
 
 Example:
+
 ```typescript
 // apps/web/lib/trpc/routers/example.ts
 export const exampleRouter = createTRPCRouter({
@@ -206,6 +214,7 @@ Real-time collaboration is handled by Yjs. Documents are automatically persisted
 The project uses Radix UI primitives with Tailwind CSS styling. Components are organized in the `packages/ui` package.
 
 Key components:
+
 - `VoiceRecorder`: Record voice messages
 - `VoiceMessage`: Display and play voice messages with mood indicators
 - Block editor components
@@ -214,6 +223,7 @@ Key components:
 ## 🔐 Authentication
 
 Authentication is handled by Supabase Auth. The middleware automatically:
+
 - Refreshes user sessions
 - Protects authenticated routes
 - Syncs auth state across tabs
@@ -221,11 +231,13 @@ Authentication is handled by Supabase Auth. The middleware automatically:
 ## 📡 Real-time Features
 
 ### CRDT Sync
+
 - Uses Yjs for operational transformation
 - Automatic conflict resolution
 - Offline-first with eventual consistency
 
 ### Supabase Realtime
+
 - Database change subscriptions
 - Broadcast events for ephemeral data
 - User presence
@@ -244,13 +256,14 @@ Authentication is handled by Supabase Auth. The middleware automatically:
 ### Vercel (Recommended)
 
 1. **Connect your repository**
+
    ```bash
    vercel login
    vercel link
    ```
 
 2. **Set environment variables**
-   
+
    In your Vercel project settings, add:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -289,15 +302,15 @@ pnpm test:coverage
 
 ## 📝 Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Yes |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Yes |
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `DIRECT_URL` | Direct PostgreSQL connection | Yes |
-| `NEXT_PUBLIC_YJS_WEBSOCKET_URL` | WebSocket server URL | No |
-| `OPENAI_API_KEY` | OpenAI API key (for transcription) | No |
+| Variable                        | Description                        | Required |
+| ------------------------------- | ---------------------------------- | -------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL               | Yes      |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key             | Yes      |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key          | Yes      |
+| `DATABASE_URL`                  | PostgreSQL connection string       | Yes      |
+| `DIRECT_URL`                    | Direct PostgreSQL connection       | Yes      |
+| `NEXT_PUBLIC_YJS_WEBSOCKET_URL` | WebSocket server URL               | No       |
+| `OPENAI_API_KEY`                | OpenAI API key (for transcription) | No       |
 
 ## 🙏 Acknowledgments
 
