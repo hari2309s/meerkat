@@ -18,13 +18,19 @@ export default async function DenPage({ params }: DenPageProps) {
     .from("dens")
     .select("*")
     .eq("id", params.id)
-    .eq("user_id", user.id)
     .single();
 
+  // 404 if not found, or if this user isn't the owner and isn't a member
   if (error || !den) notFound();
 
   const name =
     user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
 
-  return <DenPageClient den={den} user={{ name, email: user.email ?? "" }} />;
+  return (
+    <DenPageClient
+      den={den}
+      currentUserId={user.id}
+      user={{ name, email: user.email ?? "" }}
+    />
+  );
 }
