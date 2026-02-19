@@ -8,14 +8,11 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default:
-          "bg-meerkat-brown text-white shadow-lg shadow-meerkat-brown/25 hover:bg-meerkat-dark hover:shadow-xl hover:shadow-meerkat-brown/30",
-        secondary:
-          "bg-meerkat-tan text-meerkat-dark shadow-md shadow-meerkat-tan/20 hover:bg-meerkat-tan/90",
-        outline:
-          "border-2 border-meerkat-brown text-meerkat-brown hover:bg-meerkat-brown hover:text-white",
-        ghost: "hover:bg-meerkat-sand hover:text-meerkat-dark",
-        link: "text-meerkat-brown underline-offset-4 hover:underline hover:text-meerkat-dark",
+        default: "btn-default",
+        secondary: "btn-secondary",
+        outline: "btn-outline",
+        ghost: "btn-ghost",
+        link: "btn-link",
       },
       size: {
         default: "h-11 px-6 py-2",
