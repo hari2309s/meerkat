@@ -10,15 +10,7 @@ import { Input } from "@meerkat/ui";
 import { Label } from "@meerkat/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/components/theme-provider";
-import {
-  User,
-  Bell,
-  Shield,
-  Palette,
-  ChevronRight,
-  Check,
-  Loader2,
-} from "lucide-react";
+import { User, Bell, Shield, Palette, Check, Loader2 } from "lucide-react";
 
 interface SettingsPageClientProps {
   user: {
@@ -90,7 +82,7 @@ function Toggle({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none"
+      className="toggle-btn relative inline-flex h-6 w-11 shrink-0 items-center rounded-full focus:outline-none"
       style={{
         background: checked ? "var(--color-avatar-bg)" : "rgba(139,111,71,0.2)",
       }}
@@ -233,7 +225,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
         </motion.div>
 
         <div className="flex flex-col sm:flex-row gap-6">
-          {/* Sidebar */}
+          {/* ── Sidebar ── */}
           <motion.aside
             initial={{ y: 12 }}
             animate={{ y: 0 }}
@@ -256,7 +248,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                   <button
                     key={id}
                     onClick={() => setActiveSection(id)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-left"
+                    className={`settings-nav-item ${active ? "settings-nav-active" : ""} w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-left`}
                     style={{
                       background: active
                         ? "rgba(255,255,255,0.15)"
@@ -265,60 +257,59 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                         ? "var(--color-text-primary)"
                         : "var(--color-text-secondary)",
                       boxShadow: active
-                        ? "0 1px 4px rgba(90,55,20,0.08)"
+                        ? "0 1px 4px rgba(90,55,20,0.1), 0 0 0 1px rgba(255,255,255,0.35) inset"
                         : "none",
                     }}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <Icon
+                      className="h-4 w-4 shrink-0 transition-transform duration-150"
+                      style={{
+                        color: active
+                          ? "var(--color-text-primary)"
+                          : "var(--color-text-muted)",
+                        transform: active ? "scale(1.1)" : "scale(1)",
+                      }}
+                    />
                     {label}
-                    {active && <ChevronRight className="h-3.5 w-3.5 ml-auto" />}
                   </button>
                 );
               })}
             </div>
           </motion.aside>
 
-          {/* Content */}
+          {/* ── Content ── */}
           <motion.div
             key={activeSection}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            className="flex-1 space-y-4"
+            className="flex-1 flex flex-col gap-4"
           >
             {/* ── PROFILE ── */}
             {activeSection === "profile" && (
               <>
                 <SectionCard
-                  title="Personal Information"
-                  subtitle="Update your name and how we greet you"
+                  title="Personal Info"
+                  subtitle="Update your name and display preferences"
                 >
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="full-name">Full Name</Label>
+                      <Label htmlFor="full-name">Full name</Label>
                       <Input
                         id="full-name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Meera Kat"
+                        placeholder="Your full name"
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="preferred-name">Preferred Name</Label>
-                        <span
-                          className="text-xs"
-                          style={{ color: "var(--color-text-muted)" }}
-                        >
-                          (optional)
-                        </span>
-                      </div>
+                      <Label htmlFor="preferred-name">Preferred name</Label>
                       <Input
                         id="preferred-name"
                         value={preferredName}
                         onChange={(e) => setPreferredName(e.target.value)}
-                        placeholder="What should we call you?"
+                        placeholder="What we call you"
                       />
                       <p
                         className="text-xs"
@@ -369,7 +360,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className="h-16 w-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shrink-0"
+                      className="h-16 w-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shrink-0 transition-transform duration-150 hover:scale-105"
                       style={{ background: "var(--color-avatar-bg)" }}
                     >
                       {avatarInitials}
@@ -424,7 +415,14 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                   ].map(({ key, label, desc }) => (
                     <div
                       key={key}
-                      className="flex items-center justify-between py-4 first:pt-0 last:pb-0"
+                      className="flex items-center justify-between py-4 first:pt-0 last:pb-0 rounded-lg px-1 transition-colors duration-150 cursor-pointer"
+                      style={{}}
+                      onClick={() =>
+                        setNotifs((prev) => ({
+                          ...prev,
+                          [key]: !prev[key as keyof typeof notifs],
+                        }))
+                      }
                     >
                       <div>
                         <p
@@ -479,7 +477,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                               duration: 1500,
                             });
                           }}
-                          className="relative rounded-xl p-4 text-left transition-all border-2 focus:outline-none"
+                          className={`theme-option ${active ? "theme-active" : ""} relative rounded-xl p-4 text-left border-2 focus:outline-none`}
                           style={{
                             background: cardBg,
                             borderColor: active
@@ -539,7 +537,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                         className="text-xs mt-0.5"
                         style={{ color: "var(--color-text-secondary)" }}
                       >
-                        We'll send a reset link to {user.email}
+                        We&apos;ll send a reset link to {user.email}
                       </p>
                     </div>
                     <Button variant="outline" onClick={handleChangePassword}>

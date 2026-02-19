@@ -90,15 +90,17 @@ export function TopNav({ user }: TopNavProps) {
             border: "1.5px solid var(--color-border-nav)",
           }}
         >
+          {/* Wordmark */}
           <Link
             href="/"
             onClick={() => handleNavClick("/")}
-            className="font-bold text-lg tracking-tight mr-2 shrink-0"
+            className="font-bold text-lg tracking-tight mr-2 shrink-0 transition-opacity duration-150 hover:opacity-75"
             style={{ color: "var(--color-wordmark)" }}
           >
             Meerkat
           </Link>
 
+          {/* Desktop nav links */}
           <nav className="hidden sm:flex items-center gap-1 flex-1">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
@@ -107,7 +109,7 @@ export function TopNav({ user }: TopNavProps) {
                   key={href}
                   href={href}
                   onClick={() => handleNavClick(href)}
-                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150"
+                  className={`nav-item relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium`}
                   style={{
                     color: active
                       ? "var(--color-wordmark)"
@@ -119,6 +121,8 @@ export function TopNav({ user }: TopNavProps) {
                       ? "var(--color-nav-active-shadow)"
                       : "none",
                     fontWeight: active ? 600 : 500,
+                    // Prevent nav-item hover from overriding active state
+                    pointerEvents: active ? "none" : "auto",
                   }}
                 >
                   <Icon className="h-4 w-4" />
@@ -128,17 +132,20 @@ export function TopNav({ user }: TopNavProps) {
             })}
           </nav>
 
+          {/* Right-side actions */}
           <div className="flex items-center gap-1.5 ml-auto">
+            {/* Search */}
             <button
-              className="hidden sm:flex h-8 w-8 items-center justify-center rounded-xl transition-all hover:opacity-70"
+              className="icon-btn hidden sm:flex h-8 w-8 items-center justify-center rounded-xl"
               style={{ color: "var(--color-text-secondary)" }}
               aria-label="Search"
             >
               <Search className="h-4 w-4" />
             </button>
 
+            {/* Notifications */}
             <button
-              className="relative hidden sm:flex h-8 w-8 items-center justify-center rounded-xl transition-all hover:opacity-70"
+              className="icon-btn relative hidden sm:flex h-8 w-8 items-center justify-center rounded-xl"
               style={{ color: "var(--color-text-secondary)" }}
               aria-label="Notifications"
             >
@@ -149,10 +156,11 @@ export function TopNav({ user }: TopNavProps) {
               />
             </button>
 
+            {/* Profile dropdown trigger */}
             <div className="relative">
               <button
                 onClick={() => setProfileOpen((v) => !v)}
-                className="flex items-center gap-2 h-8 pl-1 pr-2 rounded-xl transition-all hover:opacity-80"
+                className="icon-btn flex items-center gap-2 h-8 pl-1 pr-2 rounded-xl"
                 style={{ color: "var(--color-text-primary)" }}
               >
                 <div
@@ -168,19 +176,20 @@ export function TopNav({ user }: TopNavProps) {
                   className="h-3.5 w-3.5 hidden sm:block transition-transform duration-200"
                   style={{
                     transform: profileOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    color: "var(--color-text-secondary)",
+                    color: "var(--color-text-muted)",
                   }}
                 />
               </button>
 
+              {/* Profile dropdown */}
               <AnimatePresence>
                 {profileOpen && (
                   <motion.div
                     initial={{ opacity: 0, y: -6, scale: 0.97 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full mt-2 w-52 rounded-2xl overflow-hidden z-50"
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="absolute right-0 top-full mt-2 w-52 rounded-2xl overflow-hidden py-1.5"
                     style={{
                       background: "var(--color-bg-dropdown)",
                       backdropFilter: "blur(20px) saturate(1.6)",
@@ -189,8 +198,9 @@ export function TopNav({ user }: TopNavProps) {
                       border: "1.5px solid var(--color-border-card)",
                     }}
                   >
+                    {/* User info header */}
                     <div
-                      className="px-4 py-3 border-b"
+                      className="px-4 py-2.5 border-b mb-1"
                       style={{ borderColor: "var(--color-border-card)" }}
                     >
                       <p
@@ -201,44 +211,48 @@ export function TopNav({ user }: TopNavProps) {
                       </p>
                       <p
                         className="text-xs truncate mt-0.5"
-                        style={{ color: "var(--color-text-secondary)" }}
+                        style={{ color: "var(--color-text-muted)" }}
                       >
                         {user.email}
                       </p>
                     </div>
-                    <div className="p-1.5">
-                      <Link
-                        href="/settings"
-                        onClick={() => {
-                          handleNavClick("/settings");
-                          setProfileOpen(false);
-                        }}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all hover:opacity-80"
-                        style={{ color: "var(--color-text-primary)" }}
-                      >
-                        <User
-                          className="h-4 w-4"
-                          style={{ color: "var(--color-text-secondary)" }}
-                        />
-                        Profile & Settings
-                      </Link>
-                      <button
-                        onClick={handleSignOut}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all hover:opacity-80"
-                        style={{ color: "#e05c4a" }}
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Sign out
-                      </button>
-                    </div>
+
+                    <Link
+                      href="/settings"
+                      onClick={() => handleNavClick("/settings")}
+                      className="dropdown-item w-full flex items-center gap-2.5 px-3 py-2 mx-1.5 rounded-xl text-sm"
+                      style={{
+                        color: "var(--color-text-secondary)",
+                        width: "calc(100% - 12px)",
+                      }}
+                    >
+                      <User
+                        className="h-4 w-4"
+                        style={{ color: "var(--color-text-secondary)" }}
+                      />
+                      Profile & Settings
+                    </Link>
+
+                    <button
+                      onClick={handleSignOut}
+                      className="dropdown-item-danger w-full flex items-center gap-2.5 px-3 py-2 mx-1.5 rounded-xl text-sm transition-all"
+                      style={{
+                        color: "#e05c4a",
+                        width: "calc(100% - 12px)",
+                      }}
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign out
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
+            {/* Mobile menu toggle */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="sm:hidden h-8 w-8 flex items-center justify-center rounded-xl transition-all"
+              className="icon-btn sm:hidden h-8 w-8 flex items-center justify-center rounded-xl"
               style={{ color: "var(--color-text-secondary)" }}
               aria-label="Menu"
             >
@@ -251,6 +265,7 @@ export function TopNav({ user }: TopNavProps) {
           </div>
         </div>
 
+        {/* Mobile menu */}
         <AnimatePresence>
           {menuOpen && (
             <motion.div
@@ -275,7 +290,7 @@ export function TopNav({ user }: TopNavProps) {
                       key={href}
                       href={href}
                       onClick={() => handleNavClick(href)}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
+                      className={`${active ? "" : "dropdown-item"} flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium`}
                       style={{
                         color: active
                           ? "var(--color-text-primary)"
