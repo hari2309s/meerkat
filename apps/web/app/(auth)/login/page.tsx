@@ -190,7 +190,9 @@ function LoginForm() {
         </div>
       </div>
 
-      <Link href={`/signup${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}>
+      <Link
+        href={`/signup${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}
+      >
         <Button
           variant="outline"
           className="w-full font-medium mt-4"

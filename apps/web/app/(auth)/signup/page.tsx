@@ -111,7 +111,9 @@ function SignUpForm() {
             spam folder if you don&apos;t see it within a minute.
           </p>
           <div className="pt-2">
-            <Link href={`/login${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}>
+            <Link
+              href={`/login${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}
+            >
               <Button variant="outline" className="w-full" type="button">
                 Back to sign in
               </Button>
@@ -288,7 +290,9 @@ function SignUpForm() {
         </div>
 
         <div className="mt-4">
-          <Link href={`/login${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}>
+          <Link
+            href={`/login${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}
+          >
             <Button
               variant="outline"
               className="w-full font-medium"
