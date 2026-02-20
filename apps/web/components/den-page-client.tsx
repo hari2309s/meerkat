@@ -1431,7 +1431,7 @@ export function DenPageClient({
               className="mt-1.5 text-sm flex items-center flex-wrap gap-2"
               style={{ color: "var(--color-text-muted)" }}
             >
-              Created{" "}
+              Created on{" "}
               {new Date(den.created_at).toLocaleDateString("en-US", {
                 month: "long",
                 day: "numeric",
