@@ -41,13 +41,19 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Public auth routes — redirect to home if already logged in
+  // Public auth routes — if already logged in, go to ?next= or home
   const authRoutes = ["/login", "/signup", "/forgot-password"];
   if (authRoutes.includes(pathname) && user) {
-    return NextResponse.redirect(new URL("/", request.url));
+    const next = request.nextUrl.searchParams.get("next") ?? "/";
+    // Sanitise: only allow same-origin relative paths
+    const destination =
+      next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    return NextResponse.redirect(new URL(destination, request.url));
   }
 
   // Protected routes — redirect to login if not logged in
+  // /invite/* is intentionally public — the invite page server component
+  // handles its own auth check and redirects to /signup with ?next= set.
   const publicRoutes = [
     "/login",
     "/signup",
@@ -56,7 +62,9 @@ export async function middleware(request: NextRequest) {
     "/auth/confirm",
   ];
   const isPublic =
-    publicRoutes.includes(pathname) || pathname.startsWith("/auth/");
+    publicRoutes.includes(pathname) ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/invite/");
 
   if (!isPublic && !user) {
     return NextResponse.redirect(new URL("/login", request.url));

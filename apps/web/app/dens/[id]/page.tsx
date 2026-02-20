@@ -42,12 +42,41 @@ export default async function DenPage({ params }: DenPageProps) {
   const name =
     user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
 
+  // Use `unknown` intermediate cast — Supabase's inferred type for the profiles
+  // join has a slightly different shape to our DenMember type but the runtime
+  // values are identical.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let membersList = (members ?? []) as unknown as {
+    user_id: string;
+    role: string;
+    joined_at: string;
+    profiles?: { full_name: string | null; email: string } | null;
+  }[];
+
+  if (!membersList.some((m) => m.user_id === den.user_id)) {
+    const { data: ownerProfile } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", den.user_id)
+      .single();
+
+    membersList = [
+      {
+        user_id: den.user_id,
+        role: "owner",
+        joined_at: den.created_at,
+        profiles: ownerProfile ?? { full_name: null, email: "" },
+      },
+      ...membersList,
+    ];
+  }
+
   return (
     <DenPageClient
       den={den}
       currentUserId={user.id}
       user={{ name, email: user.email ?? "" }}
-      members={(members ?? []) as any}
+      members={membersList as unknown as any}
     />
   );
 }
