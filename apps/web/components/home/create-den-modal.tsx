@@ -33,6 +33,14 @@ export function CreateDenModal({
         .select()
         .single();
       if (dbError) throw dbError;
+
+      // Add the creator as owner in den_members so the member count is correct
+      await supabase.from("den_members").insert({
+        den_id: (data as Den).id,
+        user_id: userId,
+        role: "owner",
+      });
+
       return data as Den;
     },
     onSuccess: (den) => {
