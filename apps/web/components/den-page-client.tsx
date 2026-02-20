@@ -160,8 +160,8 @@ function HoverButton({
     <motion.button
       onClick={onClick}
       disabled={disabled}
-      onHoverStart={() => !disabled && setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
+      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       whileHover={!disabled ? { y: -1 } : {}}
       whileTap={!disabled ? { scale: 0.96 } : {}}
       className={`rounded-xl font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
@@ -210,7 +210,6 @@ function RenameModal({
         .update({ name: trimmed })
         .eq("id", den.id);
       if (dbErr) throw dbErr;
-      // Realtime will propagate to other members — no manual broadcast needed
       onRenamed(trimmed);
       toast.success("Den renamed", { description: `Now called "${trimmed}"` });
       onClose();
@@ -308,7 +307,6 @@ function InviteModal({ den, onClose }: { den: Den; onClose: () => void }) {
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${inviteToken}`
     : null;
 
-  // Generate a real invite token on open
   useEffect(() => {
     const generate = async () => {
       setGeneratingLink(true);
@@ -341,11 +339,9 @@ function InviteModal({ den, onClose }: { den: Den; onClose: () => void }) {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-      // Record who was invited by email
       await supabase
         .from("den_invites")
         .insert({ den_id: den.id, invited_by: user.id, email: trimmed });
-      // TODO: trigger email via Supabase Edge Function or Resend
       toast.success(`Invite sent to ${trimmed}`, {
         description: "They'll receive a link to join.",
       });
@@ -567,7 +563,6 @@ function MembersModal({
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
               style={{ background: "var(--color-btn-secondary-bg)" }}
             >
-              {/* Avatar */}
               <div
                 className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
                 style={{ background: "var(--color-avatar-bg)" }}
@@ -600,7 +595,6 @@ function MembersModal({
                   })}
                 </p>
               </div>
-              {/* Role badge */}
               {isMemberOwner && (
                 <span
                   className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
@@ -613,7 +607,6 @@ function MembersModal({
                   Owner
                 </span>
               )}
-              {/* Remove button — owner can remove non-owner members */}
               {isOwner && !isMemberOwner && (
                 <button
                   onClick={() => handleRemove(m.user_id, displayName)}
@@ -732,7 +725,7 @@ function MuteModal({
   );
 }
 
-// ─── Leave Modal ──────────────────────────────────────────────────────────────
+// ─── Confirm Modal ────────────────────────────────────────────────────────────
 
 function ConfirmModal({
   title,
@@ -851,11 +844,10 @@ function MenuRow({
       : "transparent";
 
   return (
-    <motion.button
+    <button
       onClick={disabled ? undefined : onClick}
-      onHoverStart={() => !disabled && setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
-      whileTap={!disabled ? { scale: 0.975 } : {}}
+      onMouseEnter={() => !disabled && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-sm text-left select-none"
       style={{
         color: textColor,
@@ -865,21 +857,23 @@ function MenuRow({
         margin: "0 5px",
         width: "calc(100% - 10px)",
         transition: "background 0.12s ease, color 0.12s ease",
+        border: "none",
+        outline: "none",
       }}
     >
-      <motion.span
-        animate={{
-          scale: hovered && !disabled ? 1.14 : 1,
-          rotate: hovered && !disabled ? (danger ? -10 : 5) : 0,
+      <span
+        style={{
+          display: "flex",
+          flexShrink: 0,
+          transition: "transform 0.15s ease",
+          transform: hovered && !disabled ? "scale(1.14)" : "scale(1)",
         }}
-        transition={{ type: "spring", stiffness: 520, damping: 22 }}
-        style={{ display: "flex", flexShrink: 0 }}
       >
         <Icon
           className="h-4 w-4"
           style={{ color: iconColor, transition: "color 0.12s ease" }}
         />
-      </motion.span>
+      </span>
       <span className="flex-1 min-w-0">
         <span className="block truncate font-medium leading-tight">
           {label}
@@ -895,16 +889,19 @@ function MenuRow({
       </span>
       {badge && <span className="shrink-0 ml-1">{badge}</span>}
       {!disabled && (
-        <motion.span
-          animate={{ x: hovered ? 3 : 0, opacity: hovered ? 0.45 : 0 }}
-          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+        <span
           className="shrink-0 text-xs leading-none"
-          style={{ color: danger ? "#e05c4a" : "var(--color-text-muted)" }}
+          style={{
+            color: danger ? "#e05c4a" : "var(--color-text-muted)",
+            opacity: hovered ? 0.45 : 0,
+            transform: hovered ? "translateX(3px)" : "translateX(0)",
+            transition: "opacity 0.15s ease, transform 0.15s ease",
+          }}
         >
           ›
-        </motion.span>
+        </span>
       )}
-    </motion.button>
+    </button>
   );
 }
 
@@ -971,8 +968,8 @@ function FabActionItem({
       </motion.span>
       <motion.button
         onClick={() => onAction(action.key)}
-        onHoverStart={() => setHovered(true)}
-        onHoverEnd={() => setHovered(false)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         className="h-11 w-11 rounded-2xl flex items-center justify-center relative overflow-hidden shrink-0"
         style={{
           background: action.color,
@@ -1047,6 +1044,7 @@ export function DenPageClient({
   const [navigatingBack, setNavigatingBack] = useState(false);
   const { muted, toggle: toggleMute } = useMuted(den.id);
   const isOwner = den.user_id === currentUserId;
+  const menuRef = useRef<HTMLDivElement>(null);
 
   type ModalType =
     | "rename"
@@ -1062,6 +1060,30 @@ export function DenPageClient({
     setModal(m);
   };
   const closeModal = () => setModal(null);
+
+  // ── Close menu on outside click ───────────────────────────────────────────
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  // ── Close FAB on outside click ────────────────────────────────────────────
+  useEffect(() => {
+    if (!fabOpen) return;
+    const handler = (e: MouseEvent) => {
+      // Let FAB button clicks through
+      if ((e.target as HTMLElement).closest("[data-fab]")) return;
+      setFabOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [fabOpen]);
 
   // ── Realtime subscriptions ────────────────────────────────────────────────
 
@@ -1085,7 +1107,6 @@ export function DenPageClient({
 
   const handleMemberDelete = useCallback(
     (payload: { old: { user_id: string } }) => {
-      // If the current user was removed, kick them out
       if (payload.old.user_id === currentUserId) {
         toast.error("You've been removed from this den", { duration: 4000 });
         startNavigationProgress();
@@ -1101,10 +1122,8 @@ export function DenPageClient({
 
   useEffect(() => {
     const supabase = createClient();
-
     const channel = supabase
       .channel(`den-realtime-${den.id}`)
-      // Den renamed or updated
       .on(
         "postgres_changes",
         {
@@ -1114,7 +1133,6 @@ export function DenPageClient({
           filter: `id=eq.${den.id}`,
         },
         (payload) => {
-          // Only show toast to other members, not the one who renamed
           if ((payload.new as Den).user_id !== currentUserId) {
             handleDenUpdate(payload as unknown as { new: Den });
           } else {
@@ -1122,7 +1140,6 @@ export function DenPageClient({
           }
         },
       )
-      // Den deleted — notify all members
       .on(
         "postgres_changes",
         {
@@ -1133,7 +1150,6 @@ export function DenPageClient({
         },
         handleDenDelete,
       )
-      // New member joined
       .on(
         "postgres_changes",
         {
@@ -1145,7 +1161,6 @@ export function DenPageClient({
         (payload) =>
           handleMemberInsert(payload as unknown as { new: DenMember }),
       )
-      // Member left or was removed
       .on(
         "postgres_changes",
         {
@@ -1160,7 +1175,6 @@ export function DenPageClient({
           ),
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
@@ -1208,7 +1222,6 @@ export function DenPageClient({
       toast.error("Failed to delete", { description: error.message });
       throw error;
     }
-    // Realtime will notify other members automatically
     toast.success(`"${den.name}" deleted`);
     startNavigationProgress();
     router.push("/");
@@ -1230,16 +1243,6 @@ export function DenPageClient({
 
   return (
     <>
-      {(menuOpen || fabOpen) && (
-        <div
-          className="fixed inset-0 z-30"
-          onClick={() => {
-            setMenuOpen(false);
-            setFabOpen(false);
-          }}
-        />
-      )}
-
       <div className="min-h-screen page-bg">
         <div
           className="fixed inset-0 opacity-20 pointer-events-none"
@@ -1251,7 +1254,7 @@ export function DenPageClient({
 
         <TopNav user={user} />
 
-        <main className="relative z-10 max-w-4xl mx-auto px-4 pt-8 pb-32">
+        <main className="max-w-4xl mx-auto px-4 pt-8 pb-32">
           {/* Top bar */}
           <div className="flex items-center justify-between mb-8">
             <button
@@ -1268,11 +1271,10 @@ export function DenPageClient({
               Back to dens
             </button>
 
-            {/* Three-dots menu */}
-            <div className="relative z-40">
+            {/* Three-dots menu — NOTE: no z-index on parent, menu itself uses fixed positioning */}
+            <div ref={menuRef} style={{ position: "relative" }}>
               <motion.button
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   setMenuOpen((v) => !v);
                   setFabOpen(false);
                 }}
@@ -1299,16 +1301,31 @@ export function DenPageClient({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.93, y: -6 }}
                     transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute right-0 top-full mt-2 w-56 rounded-2xl overflow-hidden"
                     style={{
+                      position: "fixed",
+                      top: (() => {
+                        const el = menuRef.current;
+                        if (!el) return 60;
+                        const rect = el.getBoundingClientRect();
+                        return rect.bottom + 8;
+                      })(),
+                      right: (() => {
+                        const el = menuRef.current;
+                        if (!el) return 16;
+                        return (
+                          window.innerWidth - el.getBoundingClientRect().right
+                        );
+                      })(),
+                      width: 224,
+                      zIndex: 9999,
                       background: "var(--color-bg-dropdown)",
                       border: "1.5px solid var(--color-border-card)",
                       boxShadow:
                         "0 14px 44px rgba(0,0,0,0.22), 0 1px 0 rgba(255,255,255,0.08) inset",
                       backdropFilter: "blur(28px) saturate(1.8)",
+                      borderRadius: 16,
                       padding: "6px",
                     }}
-                    onClick={(e) => e.stopPropagation()}
                   >
                     <div className="px-2.5 pt-1.5 pb-1">
                       <span
@@ -1432,7 +1449,6 @@ export function DenPageClient({
                   Owner
                 </span>
               )}
-              {/* Live member count — updates via Realtime */}
               <button
                 onClick={() => openModal("members")}
                 className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-70"
@@ -1496,7 +1512,10 @@ export function DenPageClient({
         </main>
 
         {/* FAB */}
-        <div className="fixed bottom-7 right-7 z-40 flex flex-col items-end gap-3">
+        <div
+          data-fab
+          className="fixed bottom-7 right-7 z-40 flex flex-col items-end gap-3"
+        >
           <AnimatePresence>
             {fabOpen && (
               <motion.div
