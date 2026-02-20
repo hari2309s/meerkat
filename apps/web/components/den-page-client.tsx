@@ -11,7 +11,11 @@ import { startNavigationProgress } from "@/components/navigation-progress";
 import { createClient } from "@/lib/supabase/client";
 
 // Stores
-import { useDenStore, loadMuteState, saveMuteState } from "@/stores/use-den-store";
+import {
+  useDenStore,
+  loadMuteState,
+  saveMuteState,
+} from "@/stores/use-den-store";
 
 // Hooks
 import { useDenPresence } from "@/hooks/use-den-presence";
@@ -125,27 +129,55 @@ export function DenPageClient({
       .channel(`den-realtime-${activeDen.id}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "dens", filter: `id=eq.${activeDen.id}` },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "dens",
+          filter: `id=eq.${activeDen.id}`,
+        },
         (p) => handleDenUpdate(p as unknown as { new: Den }),
       )
       .on(
         "postgres_changes",
-        { event: "DELETE", schema: "public", table: "dens", filter: `id=eq.${activeDen.id}` },
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "dens",
+          filter: `id=eq.${activeDen.id}`,
+        },
         handleDenDelete,
       )
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "den_members", filter: `den_id=eq.${activeDen.id}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "den_members",
+          filter: `den_id=eq.${activeDen.id}`,
+        },
         (p) => handleMemberInsert(p as unknown as { new: DenMember }),
       )
       .on(
         "postgres_changes",
-        { event: "DELETE", schema: "public", table: "den_members", filter: `den_id=eq.${activeDen.id}` },
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "den_members",
+          filter: `den_id=eq.${activeDen.id}`,
+        },
         (p) => handleMemberDelete(p as unknown as { old: { user_id: string } }),
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [activeDen.id, handleDenUpdate, handleDenDelete, handleMemberInsert, handleMemberDelete]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [
+    activeDen.id,
+    handleDenUpdate,
+    handleDenDelete,
+    handleMemberInsert,
+    handleMemberDelete,
+  ]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const handleBack = () => {

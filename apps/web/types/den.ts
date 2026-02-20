@@ -21,8 +21,8 @@ export interface Message {
   den_id: string;
   user_id: string;
   type: MessageType;
-  content: string | null;        // text content or null for voice/media
-  voice_url: string | null;      // storage URL for voice notes
+  content: string | null; // text content or null for voice/media
+  voice_url: string | null; // storage URL for voice notes
   voice_duration: number | null; // seconds
   created_at: string;
   sender?: { full_name: string | null; email: string };

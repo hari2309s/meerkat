@@ -2,45 +2,45 @@ import { create } from "zustand";
 import type { Message } from "@/types/den";
 
 interface ChatState {
-    messages: Message[];
-    isRecording: boolean;
-    recordingSeconds: number;
-    hasMore: boolean;
+  messages: Message[];
+  isRecording: boolean;
+  recordingSeconds: number;
+  hasMore: boolean;
 
-    // Actions
-    setMessages: (messages: Message[]) => void;
-    prependMessages: (messages: Message[]) => void;
-    addMessage: (message: Message) => void;
-    setIsRecording: (recording: boolean) => void;
-    setRecordingSeconds: (seconds: number) => void;
-    setHasMore: (hasMore: boolean) => void;
-    reset: () => void;
+  // Actions
+  setMessages: (messages: Message[]) => void;
+  prependMessages: (messages: Message[]) => void;
+  addMessage: (message: Message) => void;
+  setIsRecording: (recording: boolean) => void;
+  setRecordingSeconds: (seconds: number) => void;
+  setHasMore: (hasMore: boolean) => void;
+  reset: () => void;
 }
 
 const initialState = {
-    messages: [] as Message[],
-    isRecording: false,
-    recordingSeconds: 0,
-    hasMore: false,
+  messages: [] as Message[],
+  isRecording: false,
+  recordingSeconds: 0,
+  hasMore: false,
 };
 
 export const useChatStore = create<ChatState>((set) => ({
-    ...initialState,
+  ...initialState,
 
-    setMessages: (messages) => set({ messages }),
+  setMessages: (messages) => set({ messages }),
 
-    prependMessages: (older) =>
-        set((s) => ({ messages: [...older, ...s.messages] })),
+  prependMessages: (older) =>
+    set((s) => ({ messages: [...older, ...s.messages] })),
 
-    addMessage: (message) =>
-        set((s) => {
-            // Prevent duplicates
-            if (s.messages.find((m) => m.id === message.id)) return s;
-            return { messages: [...s.messages, message] };
-        }),
+  addMessage: (message) =>
+    set((s) => {
+      // Prevent duplicates
+      if (s.messages.find((m) => m.id === message.id)) return s;
+      return { messages: [...s.messages, message] };
+    }),
 
-    setIsRecording: (isRecording) => set({ isRecording }),
-    setRecordingSeconds: (recordingSeconds) => set({ recordingSeconds }),
-    setHasMore: (hasMore) => set({ hasMore }),
-    reset: () => set(initialState),
+  setIsRecording: (isRecording) => set({ isRecording }),
+  setRecordingSeconds: (recordingSeconds) => set({ recordingSeconds }),
+  setHasMore: (hasMore) => set({ hasMore }),
+  reset: () => set(initialState),
 }));
