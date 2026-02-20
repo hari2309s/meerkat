@@ -640,7 +640,6 @@ function MembersModal({
 // ─── Mute Modal ───────────────────────────────────────────────────────────────
 
 function MuteModal({
-  den,
   muted,
   onClose,
   onToggle,
