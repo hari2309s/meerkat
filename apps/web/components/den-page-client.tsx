@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { TopNav } from "@/components/top-nav";
@@ -22,14 +22,18 @@ import {
   Bell,
   BellOff,
   Trash2,
-  LogOut,
   LinkIcon,
   Loader2,
   Check,
   AlertTriangle,
+  Copy,
+  Send,
+  Users,
+  Crown,
+  LogOut,
 } from "lucide-react";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Den {
   id: string;
@@ -38,13 +42,21 @@ interface Den {
   user_id: string;
 }
 
+interface DenMember {
+  user_id: string;
+  role: "owner" | "member";
+  joined_at: string;
+  profiles?: { full_name: string | null; email: string };
+}
+
 interface DenPageClientProps {
   den: Den;
   currentUserId: string;
   user: { name: string; email: string };
+  members: DenMember[];
 }
 
-// ─── Shared Modal Shell ───────────────────────────────────────────────────────
+// ─── Modal Shell ──────────────────────────────────────────────────────────────
 
 function ModalShell({
   onClose,
@@ -55,6 +67,14 @@ function ModalShell({
   children: React.ReactNode;
   maxWidth?: string;
 }) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
@@ -65,24 +85,25 @@ function ModalShell({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(7px)" }}
+        style={{ background: "rgba(0,0,0,0.52)", backdropFilter: "blur(8px)" }}
       />
       <motion.div
-        initial={{ opacity: 0, scale: 0.93, y: 16 }}
+        initial={{ opacity: 0, scale: 0.93, y: 18 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.93, y: 12 }}
-        transition={{ type: "spring", stiffness: 420, damping: 32 }}
+        exit={{ opacity: 0, scale: 0.94, y: 10 }}
+        transition={{ type: "spring", stiffness: 440, damping: 34 }}
         className={`relative w-full ${maxWidth} rounded-2xl p-6`}
         style={{
           background: "var(--color-bg-card)",
           border: "1.5px solid var(--color-border-card)",
-          boxShadow: "var(--color-shadow-card-hover)",
+          boxShadow:
+            "0 24px 64px rgba(0,0,0,0.22), 0 1px 0 rgba(255,255,255,0.06) inset",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="icon-btn absolute right-4 top-4 rounded-lg p-1.5"
+          className="icon-btn absolute right-4 top-4 rounded-xl p-1.5"
           style={{ color: "var(--color-text-muted)" }}
         >
           <X className="h-4 w-4" />
@@ -90,6 +111,64 @@ function ModalShell({
         {children}
       </motion.div>
     </div>
+  );
+}
+
+// ─── HoverButton ──────────────────────────────────────────────────────────────
+
+function HoverButton({
+  variant = "primary",
+  onClick,
+  disabled = false,
+  className = "",
+  children,
+}: {
+  variant?: "primary" | "secondary" | "danger";
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  const styleMap: Record<string, React.CSSProperties> = {
+    primary: {
+      background: hovered
+        ? "var(--color-btn-default-bg-hover)"
+        : "var(--color-btn-default-bg)",
+      color: "var(--color-btn-default-text)",
+      boxShadow: hovered
+        ? "0 6px 20px var(--color-btn-default-shadow)"
+        : "0 3px 12px var(--color-btn-default-shadow)",
+    },
+    secondary: {
+      background: hovered
+        ? "var(--color-btn-secondary-bg-hover)"
+        : "var(--color-btn-secondary-bg)",
+      color: "var(--color-btn-secondary-text)",
+    },
+    danger: {
+      background: hovered ? "#a93226" : "#c0392b",
+      color: "#fff",
+      boxShadow: hovered
+        ? "0 6px 20px rgba(192,57,43,0.45)"
+        : "0 3px 12px rgba(192,57,43,0.28)",
+    },
+  };
+
+  return (
+    <motion.button
+      onClick={onClick}
+      disabled={disabled}
+      onHoverStart={() => !disabled && setHovered(true)}
+      onHoverEnd={() => setHovered(false)}
+      whileHover={!disabled ? { y: -1 } : {}}
+      whileTap={!disabled ? { scale: 0.96 } : {}}
+      className={`rounded-xl font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      style={styleMap[variant]}
+    >
+      {children}
+    </motion.button>
   );
 }
 
@@ -108,7 +187,6 @@ function RenameModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     inputRef.current?.select();
   }, []);
@@ -127,13 +205,14 @@ function RenameModal({
     setError("");
     try {
       const supabase = createClient();
-      const { error: dbError } = await supabase
+      const { error: dbErr } = await supabase
         .from("dens")
         .update({ name: trimmed })
         .eq("id", den.id);
-      if (dbError) throw dbError;
+      if (dbErr) throw dbErr;
+      // Realtime will propagate to other members — no manual broadcast needed
       onRenamed(trimmed);
-      toast.success("Den renamed");
+      toast.success("Den renamed", { description: `Now called "${trimmed}"` });
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to rename.");
@@ -143,18 +222,31 @@ function RenameModal({
 
   return (
     <ModalShell onClose={onClose}>
-      <h2
-        className="text-lg font-bold mb-1"
-        style={{ color: "var(--color-text-primary)" }}
-      >
-        Rename den
-      </h2>
-      <p
-        className="text-sm mb-4"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
-        Give your den a new name.
-      </p>
+      <div className="flex items-center gap-3 mb-5">
+        <div
+          className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "rgba(138,96,53,0.12)" }}
+        >
+          <Pencil
+            className="h-4 w-4"
+            style={{ color: "var(--color-avatar-bg)" }}
+          />
+        </div>
+        <div>
+          <h2
+            className="text-base font-bold"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            Rename den
+          </h2>
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            All members will see the new name instantly
+          </p>
+        </div>
+      </div>
       <input
         ref={inputRef}
         type="text"
@@ -165,6 +257,7 @@ function RenameModal({
         }}
         onKeyDown={(e) => e.key === "Enter" && handleSave()}
         className="w-full rounded-xl px-4 py-3 text-sm font-medium outline-none mb-1"
+        placeholder="Den name"
         autoFocus
       />
       {error ? (
@@ -174,27 +267,29 @@ function RenameModal({
       ) : (
         <div className="mb-3" />
       )}
-      <div className="flex gap-2">
-        <button
+      <div className="flex gap-2 mt-1">
+        <HoverButton
+          variant="secondary"
           onClick={onClose}
-          className="btn-secondary flex-1 rounded-xl py-2.5 text-sm font-medium"
+          className="flex-1 py-2.5 text-sm"
         >
           Cancel
-        </button>
-        <button
+        </HoverButton>
+        <HoverButton
+          variant="primary"
           onClick={handleSave}
           disabled={saving || !value.trim()}
-          className="btn-default flex-1 rounded-xl py-2.5 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+          className="flex-1 py-2.5 text-sm"
         >
           {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <>
-              <Check className="h-4 w-4" />
+              <Check className="h-3.5 w-3.5" />
               Save
             </>
           )}
-        </button>
+        </HoverButton>
       </div>
     </ModalShell>
   );
@@ -203,74 +298,138 @@ function RenameModal({
 // ─── Invite Modal ─────────────────────────────────────────────────────────────
 
 function InviteModal({ den, onClose }: { den: Den; onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
-  const inviteLink = `${typeof window !== "undefined" ? window.location.origin : ""}/invite/den/${den.id}`;
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(inviteLink);
+  const inviteLink = inviteToken
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${inviteToken}`
+    : null;
+
+  // Generate a real invite token on open
+  useEffect(() => {
+    const generate = async () => {
+      setGeneratingLink(true);
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data, error } = await supabase
+          .from("den_invites")
+          .insert({ den_id: den.id, invited_by: user.id })
+          .select("token")
+          .single();
+        if (!error && data) setInviteToken(data.token);
+      } finally {
+        setGeneratingLink(false);
+      }
+    };
+    generate();
+  }, [den.id]);
+
+  const handleSend = async () => {
+    const trimmed = email.trim();
+    if (!trimmed.includes("@")) return;
+    setSending(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      // Record who was invited by email
+      await supabase
+        .from("den_invites")
+        .insert({ den_id: den.id, invited_by: user.id, email: trimmed });
+      // TODO: trigger email via Supabase Edge Function or Resend
+      toast.success(`Invite sent to ${trimmed}`, {
+        description: "They'll receive a link to join.",
+      });
+      setEmail("");
+    } catch {
+      toast.error("Failed to send invite");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!inviteLink) return;
+    await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     toast.success("Invite link copied!");
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleSendInvite = async () => {
-    const trimmed = email.trim();
-    if (!trimmed || !trimmed.includes("@")) return;
-    setSending(true);
-    await new Promise((r) => setTimeout(r, 800)); // placeholder
-    toast.success(`Invite sent to ${trimmed}`);
-    setEmail("");
-    setSending(false);
-  };
-
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-md">
-      <h2
-        className="text-lg font-bold mb-1"
-        style={{ color: "var(--color-text-primary)" }}
-      >
-        Invite to {den.name}
-      </h2>
-      <p
-        className="text-sm mb-5"
-        style={{ color: "var(--color-text-secondary)" }}
-      >
-        Send an invite by email or share the link.
-      </p>
+      <div className="flex items-center gap-3 mb-5">
+        <div
+          className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "rgba(74,127,193,0.12)" }}
+        >
+          <UserPlus className="h-4 w-4" style={{ color: "#4a7fc1" }} />
+        </div>
+        <div>
+          <h2
+            className="text-base font-bold"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            Invite to {den.name}
+          </h2>
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            Links expire in 7 days
+          </p>
+        </div>
+      </div>
 
-      <label
-        className="text-xs font-semibold uppercase tracking-wide mb-1.5 block"
+      <p
+        className="text-xs font-semibold uppercase tracking-wide mb-2"
         style={{ color: "var(--color-text-muted)" }}
       >
         Invite by email
-      </label>
-      <div className="flex gap-2 mb-4">
+      </p>
+      <div className="flex gap-2 mb-5">
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSendInvite()}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
           placeholder="friend@example.com"
           className="flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
+          autoFocus
         />
-        <button
-          onClick={handleSendInvite}
-          disabled={sending || !email.trim().includes("@")}
-          className="btn-default rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+        <HoverButton
+          variant="primary"
+          onClick={handleSend}
+          disabled={sending || !email.includes("@")}
+          className="px-4 py-2.5 text-sm shrink-0"
         >
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send"}
-        </button>
+          {sending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <>
+              <Send className="h-3.5 w-3.5" />
+              Send
+            </>
+          )}
+        </HoverButton>
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-5">
         <div
           className="flex-1 h-px"
           style={{ background: "var(--color-border-card)" }}
         />
         <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-          or
+          or share a link
         </span>
         <div
           className="flex-1 h-px"
@@ -278,12 +437,6 @@ function InviteModal({ den, onClose }: { den: Den; onClose: () => void }) {
         />
       </div>
 
-      <label
-        className="text-xs font-semibold uppercase tracking-wide mb-1.5 block"
-        style={{ color: "var(--color-text-muted)" }}
-      >
-        Share invite link
-      </label>
       <div
         className="flex items-center gap-2 rounded-xl px-3 py-2.5 mb-3"
         style={{
@@ -292,37 +445,295 @@ function InviteModal({ den, onClose }: { den: Den; onClose: () => void }) {
         }}
       >
         <LinkIcon
-          className="h-4 w-4 shrink-0"
+          className="h-3.5 w-3.5 shrink-0"
           style={{ color: "var(--color-text-muted)" }}
         />
-        <span
-          className="text-xs font-mono flex-1 truncate"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
-          {inviteLink}
-        </span>
+        {generatingLink ? (
+          <span
+            className="text-xs flex-1"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            Generating link…
+          </span>
+        ) : (
+          <span
+            className="text-xs font-mono flex-1 truncate"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            {inviteLink ?? "—"}
+          </span>
+        )}
       </div>
-      <button
-        onClick={handleCopyLink}
-        className="btn-default w-full rounded-xl py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
+      <HoverButton
+        variant="primary"
+        onClick={handleCopy}
+        disabled={!inviteLink || generatingLink}
+        className="w-full py-2.5 text-sm"
       >
         {copied ? (
           <>
-            <Check className="h-4 w-4" />
+            <Check className="h-3.5 w-3.5" />
             Copied!
           </>
         ) : (
           <>
-            <LinkIcon className="h-4 w-4" />
+            <Copy className="h-3.5 w-3.5" />
             Copy invite link
           </>
         )}
-      </button>
+      </HoverButton>
     </ModalShell>
   );
 }
 
-// ─── Confirm Modal ────────────────────────────────────────────────────────────
+// ─── Members Modal ────────────────────────────────────────────────────────────
+
+function MembersModal({
+  den,
+  members,
+  currentUserId,
+  isOwner,
+  onClose,
+  onMemberRemoved,
+}: {
+  den: Den;
+  members: DenMember[];
+  currentUserId: string;
+  isOwner: boolean;
+  onClose: () => void;
+  onMemberRemoved: (userId: string) => void;
+}) {
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  const handleRemove = async (userId: string, displayName: string) => {
+    setRemoving(userId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("den_members")
+        .delete()
+        .eq("den_id", den.id)
+        .eq("user_id", userId);
+      if (error) throw error;
+      onMemberRemoved(userId);
+      toast.success(`${displayName} removed from ${den.name}`);
+    } catch (err: unknown) {
+      toast.error("Failed to remove member", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  return (
+    <ModalShell onClose={onClose} maxWidth="max-w-md">
+      <div className="flex items-center gap-3 mb-5">
+        <div
+          className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "rgba(138,96,53,0.12)" }}
+        >
+          <Users
+            className="h-4 w-4"
+            style={{ color: "var(--color-avatar-bg)" }}
+          />
+        </div>
+        <div>
+          <h2
+            className="text-base font-bold"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            Members
+          </h2>
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            {members.length} {members.length === 1 ? "person" : "people"} in{" "}
+            {den.name}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-1 max-h-72 overflow-y-auto scrollbar-thin -mx-1 px-1">
+        {members.map((m) => {
+          const displayName =
+            m.profiles?.full_name ?? m.profiles?.email ?? m.user_id.slice(0, 8);
+          const isYou = m.user_id === currentUserId;
+          const isMemberOwner = m.role === "owner";
+          return (
+            <div
+              key={m.user_id}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+              style={{ background: "var(--color-btn-secondary-bg)" }}
+            >
+              {/* Avatar */}
+              <div
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
+                style={{ background: "var(--color-avatar-bg)" }}
+              >
+                {displayName[0]?.toUpperCase() ?? "?"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-sm font-medium truncate"
+                  style={{ color: "var(--color-text-primary)" }}
+                >
+                  {displayName}
+                  {isYou && (
+                    <span
+                      className="ml-1.5 text-xs font-normal"
+                      style={{ color: "var(--color-text-muted)" }}
+                    >
+                      (you)
+                    </span>
+                  )}
+                </p>
+                <p
+                  className="text-xs truncate"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  {new Date(m.joined_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+              {/* Role badge */}
+              {isMemberOwner && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
+                  style={{
+                    background: "rgba(138,96,53,0.14)",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  <Crown className="h-3 w-3" />
+                  Owner
+                </span>
+              )}
+              {/* Remove button — owner can remove non-owner members */}
+              {isOwner && !isMemberOwner && (
+                <button
+                  onClick={() => handleRemove(m.user_id, displayName)}
+                  disabled={removing === m.user_id}
+                  className="icon-btn h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ color: "#e05c4a" }}
+                  aria-label={`Remove ${displayName}`}
+                >
+                  {removing === m.user_id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <X className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Mute Modal ───────────────────────────────────────────────────────────────
+
+function MuteModal({
+  den,
+  muted,
+  onClose,
+  onToggle,
+}: {
+  den: Den;
+  muted: boolean;
+  onClose: () => void;
+  onToggle: () => void;
+}) {
+  const handleConfirm = () => {
+    onToggle();
+    toast.success(muted ? "Den unmuted" : "Den muted", {
+      description: muted
+        ? "You'll receive notifications again."
+        : "You won't be notified for new activity.",
+      duration: 3000,
+    });
+    onClose();
+  };
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="flex items-center gap-3 mb-5">
+        <div
+          className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: "rgba(120,120,120,0.1)" }}
+        >
+          {muted ? (
+            <Bell
+              className="h-4 w-4"
+              style={{ color: "var(--color-text-secondary)" }}
+            />
+          ) : (
+            <BellOff
+              className="h-4 w-4"
+              style={{ color: "var(--color-text-secondary)" }}
+            />
+          )}
+        </div>
+        <div>
+          <h2
+            className="text-base font-bold"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            {muted ? "Unmute den" : "Mute den"}
+          </h2>
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            Only affects you — not other members
+          </p>
+        </div>
+      </div>
+      <p
+        className="text-sm mb-6 leading-relaxed"
+        style={{ color: "var(--color-text-secondary)" }}
+      >
+        {muted
+          ? "You'll start receiving notifications for new messages and activity in this den."
+          : "You won't receive notifications from this den. You can still read messages when you visit."}
+      </p>
+      <div className="flex gap-2">
+        <HoverButton
+          variant="secondary"
+          onClick={onClose}
+          className="flex-1 py-2.5 text-sm"
+        >
+          Cancel
+        </HoverButton>
+        <HoverButton
+          variant="primary"
+          onClick={handleConfirm}
+          className="flex-1 py-2.5 text-sm"
+        >
+          {muted ? (
+            <>
+              <Bell className="h-3.5 w-3.5" />
+              Unmute
+            </>
+          ) : (
+            <>
+              <BellOff className="h-3.5 w-3.5" />
+              Mute den
+            </>
+          )}
+        </HoverButton>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Leave Modal ──────────────────────────────────────────────────────────────
 
 function ConfirmModal({
   title,
@@ -338,7 +749,6 @@ function ConfirmModal({
   onConfirm: () => Promise<void>;
 }) {
   const [loading, setLoading] = useState(false);
-
   const handleConfirm = async () => {
     setLoading(true);
     try {
@@ -357,63 +767,149 @@ function ConfirmModal({
         <AlertTriangle className="h-5 w-5" style={{ color: "#e05c4a" }} />
       </div>
       <h2
-        className="text-lg font-bold mb-1.5"
+        className="text-lg font-bold mb-2"
         style={{ color: "var(--color-text-primary)" }}
       >
         {title}
       </h2>
       <p
-        className="text-sm mb-6"
+        className="text-sm mb-6 leading-relaxed"
         style={{ color: "var(--color-text-secondary)" }}
       >
         {description}
       </p>
       <div className="flex gap-2">
-        <button
+        <HoverButton
+          variant="secondary"
           onClick={onClose}
-          className="btn-secondary flex-1 rounded-xl py-2.5 text-sm font-medium"
+          className="flex-1 py-2.5 text-sm"
         >
           Cancel
-        </button>
-        <button
+        </HoverButton>
+        <HoverButton
+          variant="danger"
           onClick={handleConfirm}
           disabled={loading}
-          className="flex-1 rounded-xl py-2.5 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60 transition-all hover:-translate-y-px active:scale-[0.97]"
-          style={{
-            background: "#c0392b",
-            color: "#fff",
-            boxShadow: "0 4px 14px rgba(192,57,43,0.35)",
-          }}
+          className="flex-1 py-2.5 text-sm"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             confirmLabel
           )}
-        </button>
+        </HoverButton>
       </div>
     </ModalShell>
   );
 }
 
-// ─── Mute hook (persists to localStorage per den) ────────────────────────────
+// ─── Menu Row ─────────────────────────────────────────────────────────────────
 
-function useMuted(denId: string) {
-  const key = `muted_den_${denId}`;
-  const [muted, setMutedState] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem(key) === "1" : false,
+function MenuRow({
+  icon: Icon,
+  label,
+  sublabel,
+  danger = false,
+  disabled = false,
+  badge,
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  sublabel?: string;
+  danger?: boolean;
+  disabled?: boolean;
+  badge?: React.ReactNode;
+  onClick: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  const textColor = disabled
+    ? "var(--color-text-muted)"
+    : danger
+      ? hovered
+        ? "#ff6e5a"
+        : "#e05c4a"
+      : hovered
+        ? "var(--color-text-primary)"
+        : "var(--color-text-secondary)";
+
+  const iconColor = disabled
+    ? "var(--color-text-muted)"
+    : danger
+      ? hovered
+        ? "#ff6e5a"
+        : "#e05c4a"
+      : hovered
+        ? "var(--color-avatar-bg)"
+        : "var(--color-text-muted)";
+
+  const bgColor =
+    hovered && !disabled
+      ? danger
+        ? "rgba(224,92,74,0.1)"
+        : "rgba(138,96,53,0.09)"
+      : "transparent";
+
+  return (
+    <motion.button
+      onClick={disabled ? undefined : onClick}
+      onHoverStart={() => !disabled && setHovered(true)}
+      onHoverEnd={() => setHovered(false)}
+      whileTap={!disabled ? { scale: 0.975 } : {}}
+      className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-sm text-left select-none"
+      style={{
+        color: textColor,
+        background: bgColor,
+        opacity: disabled ? 0.38 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+        margin: "0 5px",
+        width: "calc(100% - 10px)",
+        transition: "background 0.12s ease, color 0.12s ease",
+      }}
+    >
+      <motion.span
+        animate={{
+          scale: hovered && !disabled ? 1.14 : 1,
+          rotate: hovered && !disabled ? (danger ? -10 : 5) : 0,
+        }}
+        transition={{ type: "spring", stiffness: 520, damping: 22 }}
+        style={{ display: "flex", flexShrink: 0 }}
+      >
+        <Icon
+          className="h-4 w-4"
+          style={{ color: iconColor, transition: "color 0.12s ease" }}
+        />
+      </motion.span>
+      <span className="flex-1 min-w-0">
+        <span className="block truncate font-medium leading-tight">
+          {label}
+        </span>
+        {sublabel && (
+          <span
+            className="block text-xs mt-0.5 truncate font-normal leading-tight"
+            style={{ color: "var(--color-text-muted)", opacity: 0.8 }}
+          >
+            {sublabel}
+          </span>
+        )}
+      </span>
+      {badge && <span className="shrink-0 ml-1">{badge}</span>}
+      {!disabled && (
+        <motion.span
+          animate={{ x: hovered ? 3 : 0, opacity: hovered ? 0.45 : 0 }}
+          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+          className="shrink-0 text-xs leading-none"
+          style={{ color: danger ? "#e05c4a" : "var(--color-text-muted)" }}
+        >
+          ›
+        </motion.span>
+      )}
+    </motion.button>
   );
-  const toggle = () => {
-    setMutedState((v) => {
-      const next = !v;
-      localStorage.setItem(key, next ? "1" : "0");
-      return next;
-    });
-  };
-  return { muted, toggle };
 }
 
-// ─── FAB actions ─────────────────────────────────────────────────────────────
+// ─── FAB ─────────────────────────────────────────────────────────────────────
 
 const FAB_ACTIONS = [
   { key: "voice", icon: Mic, label: "Voice message", color: "#d4673a" },
@@ -428,104 +924,6 @@ const FAB_ACTIONS = [
   { key: "document", icon: FileText, label: "Document", color: "#8f52b8" },
 ] as const;
 
-// ─── Menu Row ─────────────────────────────────────────────────────────────────
-
-function MenuRow({
-  icon: Icon,
-  label,
-  sublabel,
-  danger = false,
-  disabled = false,
-  active = false,
-  onClick,
-}: {
-  icon: React.ElementType;
-  label: string;
-  sublabel?: string;
-  danger?: boolean;
-  disabled?: boolean;
-  active?: boolean;
-  onClick: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-
-  const baseColor = disabled
-    ? "var(--color-text-muted)"
-    : danger
-      ? hovered
-        ? "#ff6b57"
-        : "#e05c4a"
-      : active
-        ? "var(--color-text-primary)"
-        : hovered
-          ? "var(--color-text-primary)"
-          : "var(--color-text-secondary)";
-
-  const iconColor = disabled
-    ? "var(--color-text-muted)"
-    : danger
-      ? hovered
-        ? "#ff6b57"
-        : "#e05c4a"
-      : hovered
-        ? "var(--color-text-secondary)"
-        : "var(--color-text-muted)";
-
-  const hoverBg = danger ? "rgba(224,92,74,0.11)" : "rgba(184,144,106,0.12)";
-
-  return (
-    <motion.button
-      onClick={onClick}
-      disabled={disabled}
-      onHoverStart={() => !disabled && setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
-      whileTap={!disabled ? { scale: 0.972 } : {}}
-      className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left select-none"
-      style={{
-        color: baseColor,
-        marginLeft: 6,
-        marginRight: 6,
-        width: "calc(100% - 12px)",
-        background: hovered && !disabled ? hoverBg : "transparent",
-        opacity: disabled ? 0.4 : 1,
-        cursor: disabled ? "not-allowed" : "pointer",
-        transition: "background 0.13s ease, color 0.13s ease",
-      }}
-    >
-      <motion.span
-        animate={{
-          x: hovered && !disabled ? 1.5 : 0,
-          scale: hovered && !disabled ? 1.08 : 1,
-        }}
-        transition={{ type: "spring", stiffness: 400, damping: 24 }}
-        className="shrink-0 mt-px"
-        style={{ display: "flex" }}
-      >
-        <Icon
-          className="h-4 w-4"
-          style={{
-            color: iconColor,
-            transition: "color 0.13s ease",
-          }}
-        />
-      </motion.span>
-      <span>
-        {label}
-        {sublabel && (
-          <span
-            className="block text-xs font-normal mt-0.5 leading-tight"
-            style={{ color: "var(--color-text-muted)", opacity: 0.75 }}
-          >
-            {sublabel}
-          </span>
-        )}
-      </span>
-    </motion.button>
-  );
-}
-
-// ─── FAB Action Item ──────────────────────────────────────────────────────────
-
 function FabActionItem({
   action,
   index,
@@ -536,31 +934,25 @@ function FabActionItem({
   onAction: (key: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14, scale: 0.86 }}
+      initial={{ opacity: 0, y: 16, scale: 0.84 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 8, scale: 0.9 }}
+      exit={{ opacity: 0, y: 10, scale: 0.88 }}
       transition={{
         delay: index * 0.045,
         type: "spring",
-        stiffness: 440,
-        damping: 26,
+        stiffness: 460,
+        damping: 28,
       }}
       className="flex items-center gap-3"
     >
-      {/* Label pill — brightens on hover */}
       <motion.span
-        initial={{ opacity: 0, x: 10 }}
-        animate={{
-          opacity: 1,
-          x: 0,
-          scale: hovered ? 1.04 : 1,
-        }}
-        exit={{ opacity: 0, x: 6 }}
-        transition={{ delay: index * 0.045 + 0.06 }}
-        className="text-xs font-semibold px-2.5 py-1.5 rounded-xl pointer-events-none select-none"
+        initial={{ opacity: 0, x: 12 }}
+        animate={{ opacity: 1, x: 0, scale: hovered ? 1.04 : 1 }}
+        exit={{ opacity: 0, x: 8 }}
+        transition={{ delay: index * 0.045 + 0.055 }}
+        className="text-xs font-semibold px-2.5 py-1.5 rounded-xl pointer-events-none select-none whitespace-nowrap"
         style={{
           background: hovered
             ? "var(--color-bg-card)"
@@ -570,41 +962,37 @@ function FabActionItem({
             : "var(--color-text-secondary)",
           border: `1px solid ${hovered ? "var(--color-border-card-hover)" : "var(--color-border-card)"}`,
           boxShadow: hovered
-            ? `0 4px 16px rgba(0,0,0,0.2), 0 0 0 2px ${action.color}30`
-            : "0 2px 10px rgba(0,0,0,0.15)",
-          backdropFilter: "blur(14px)",
-          transition:
-            "background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+            ? `0 4px 18px rgba(0,0,0,0.22), 0 0 0 2px ${action.color}28`
+            : "0 2px 10px rgba(0,0,0,0.14)",
+          backdropFilter: "blur(16px)",
+          transition: "all 0.16s ease",
         }}
       >
         {action.label}
       </motion.span>
-
-      {/* Colored action button */}
       <motion.button
         onClick={() => onAction(action.key)}
         onHoverStart={() => setHovered(true)}
         onHoverEnd={() => setHovered(false)}
-        className="h-11 w-11 rounded-2xl flex items-center justify-center relative overflow-hidden"
+        className="h-11 w-11 rounded-2xl flex items-center justify-center relative overflow-hidden shrink-0"
         style={{
           background: action.color,
           boxShadow: hovered
-            ? `0 6px 26px ${action.color}90, 0 0 0 3px ${action.color}28`
-            : `0 4px 18px ${action.color}55`,
+            ? `0 8px 28px ${action.color}88, 0 0 0 3px ${action.color}24`
+            : `0 4px 16px ${action.color}55`,
           transition: "box-shadow 0.18s ease",
         }}
-        whileHover={{ scale: 1.14, y: -2 }}
+        whileHover={{ scale: 1.13, y: -2.5 }}
         whileTap={{ scale: 0.9 }}
         aria-label={action.label}
       >
-        {/* Shine overlay */}
         <motion.div
-          className="absolute inset-0 rounded-2xl"
+          className="absolute inset-0"
           animate={{ opacity: hovered ? 1 : 0 }}
           transition={{ duration: 0.15 }}
           style={{
             background:
-              "linear-gradient(135deg, rgba(255,255,255,0.22) 0%, transparent 60%)",
+              "linear-gradient(135deg, rgba(255,255,255,0.24) 0%, transparent 55%)",
           }}
         />
         <action.icon className="h-5 w-5 text-white relative z-10" />
@@ -613,46 +1001,185 @@ function FabActionItem({
   );
 }
 
+// ─── Muted badge + hook ───────────────────────────────────────────────────────
+
+function MutedBadge() {
+  return (
+    <span
+      className="text-xs font-medium px-2 py-0.5 rounded-full"
+      style={{
+        background: "rgba(120,120,120,0.14)",
+        color: "var(--color-text-muted)",
+      }}
+    >
+      On
+    </span>
+  );
+}
+
+function useMuted(denId: string) {
+  const key = `muted_den_${denId}`;
+  const [muted, setMuted] = useState(false);
+  useEffect(() => {
+    setMuted(localStorage.getItem(key) === "1");
+  }, [key]);
+  const toggle = () =>
+    setMuted((v) => {
+      const n = !v;
+      localStorage.setItem(key, n ? "1" : "0");
+      return n;
+    });
+  return { muted, toggle };
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function DenPageClient({
   den: initialDen,
   currentUserId,
   user,
+  members: initialMembers,
 }: DenPageClientProps) {
   const router = useRouter();
   const [den, setDen] = useState(initialDen);
+  const [members, setMembers] = useState<DenMember[]>(initialMembers);
   const [fabOpen, setFabOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [navigatingBack, setNavigatingBack] = useState(false);
   const { muted, toggle: toggleMute } = useMuted(den.id);
-
   const isOwner = den.user_id === currentUserId;
 
-  const [modal, setModal] = useState<
-    "rename" | "invite" | "leave" | "delete" | null
-  >(null);
-
-  const openModal = (m: typeof modal) => {
+  type ModalType =
+    | "rename"
+    | "invite"
+    | "members"
+    | "mute"
+    | "leave"
+    | "delete"
+    | null;
+  const [modal, setModal] = useState<ModalType>(null);
+  const openModal = (m: ModalType) => {
     setMenuOpen(false);
     setModal(m);
   };
+  const closeModal = () => setModal(null);
+
+  // ── Realtime subscriptions ────────────────────────────────────────────────
+
+  const handleDenUpdate = useCallback((payload: { new: Den }) => {
+    setDen(payload.new);
+    toast.info(`Den renamed to "${payload.new.name}"`, { duration: 2500 });
+  }, []);
+
+  const handleDenDelete = useCallback(() => {
+    toast.error("This den was deleted by the owner", { duration: 4000 });
+    startNavigationProgress();
+    router.push("/");
+  }, [router]);
+
+  const handleMemberInsert = useCallback((payload: { new: DenMember }) => {
+    setMembers((prev) => {
+      if (prev.find((m) => m.user_id === payload.new.user_id)) return prev;
+      return [...prev, payload.new];
+    });
+  }, []);
+
+  const handleMemberDelete = useCallback(
+    (payload: { old: { user_id: string } }) => {
+      // If the current user was removed, kick them out
+      if (payload.old.user_id === currentUserId) {
+        toast.error("You've been removed from this den", { duration: 4000 });
+        startNavigationProgress();
+        router.push("/");
+        return;
+      }
+      setMembers((prev) =>
+        prev.filter((m) => m.user_id !== payload.old.user_id),
+      );
+    },
+    [currentUserId, router],
+  );
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel(`den-realtime-${den.id}`)
+      // Den renamed or updated
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "dens",
+          filter: `id=eq.${den.id}`,
+        },
+        (payload) => {
+          // Only show toast to other members, not the one who renamed
+          if ((payload.new as Den).user_id !== currentUserId) {
+            handleDenUpdate(payload as unknown as { new: Den });
+          } else {
+            setDen(payload.new as Den);
+          }
+        },
+      )
+      // Den deleted — notify all members
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "dens",
+          filter: `id=eq.${den.id}`,
+        },
+        handleDenDelete,
+      )
+      // New member joined
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "den_members",
+          filter: `den_id=eq.${den.id}`,
+        },
+        (payload) =>
+          handleMemberInsert(payload as unknown as { new: DenMember }),
+      )
+      // Member left or was removed
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "den_members",
+          filter: `den_id=eq.${den.id}`,
+        },
+        (payload) =>
+          handleMemberDelete(
+            payload as unknown as { old: { user_id: string } },
+          ),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [
+    den.id,
+    currentUserId,
+    handleDenUpdate,
+    handleDenDelete,
+    handleMemberInsert,
+    handleMemberDelete,
+  ]);
+
+  // ── Actions ───────────────────────────────────────────────────────────────
 
   const handleBack = () => {
     setNavigatingBack(true);
     startNavigationProgress();
     router.push("/");
-  };
-
-  const handleMuteToggle = () => {
-    toggleMute();
-    setMenuOpen(false);
-    toast.success(muted ? "Den unmuted" : "Den muted", {
-      description: muted
-        ? "You'll receive notifications again."
-        : "You won't be notified until you unmute.",
-      duration: 2500,
-    });
   };
 
   const handleLeave = async () => {
@@ -663,7 +1190,7 @@ export function DenPageClient({
       .eq("den_id", den.id)
       .eq("user_id", currentUserId);
     if (error) {
-      toast.error("Failed to leave den", { description: error.message });
+      toast.error("Failed to leave", { description: error.message });
       throw error;
     }
     toast.success(`You left ${den.name}`);
@@ -679,29 +1206,31 @@ export function DenPageClient({
       .eq("id", den.id)
       .eq("user_id", currentUserId);
     if (error) {
-      toast.error("Failed to delete den", { description: error.message });
+      toast.error("Failed to delete", { description: error.message });
       throw error;
     }
-    toast.success(`${den.name} deleted`);
+    // Realtime will notify other members automatically
+    toast.success(`"${den.name}" deleted`);
     startNavigationProgress();
     router.push("/");
   };
 
   const handleFabAction = (key: string) => {
     setFabOpen(false);
-    const labels: Record<string, string> = {
+    const messages: Record<string, string> = {
       voice: "Voice recorder coming soon",
       text: "Text composer coming soon",
       photo: "Photo picker coming soon",
       camera: "Camera coming soon",
       document: "Document picker coming soon",
     };
-    toast(labels[key] ?? "Coming soon", { duration: 2000 });
+    toast(messages[key] ?? "Coming soon", { duration: 2200 });
   };
+
+  const memberCount = members.length;
 
   return (
     <>
-      {/* Tap-away overlay */}
       {(menuOpen || fabOpen) && (
         <div
           className="fixed inset-0 z-30"
@@ -724,12 +1253,12 @@ export function DenPageClient({
         <TopNav user={user} />
 
         <main className="relative z-10 max-w-4xl mx-auto px-4 pt-8 pb-32">
-          {/* ── Top bar ── */}
+          {/* Top bar */}
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={handleBack}
               disabled={navigatingBack}
-              className="link-subtle inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 -ml-3 rounded-lg disabled:opacity-60"
+              className="link-subtle inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 -ml-3 rounded-xl disabled:opacity-60"
               style={{ color: "var(--color-text-secondary)" }}
             >
               {navigatingBack ? (
@@ -740,72 +1269,112 @@ export function DenPageClient({
               Back to dens
             </button>
 
-            {/* ── Three-dots menu ── */}
+            {/* Three-dots menu */}
             <div className="relative z-40">
-              <button
+              <motion.button
                 onClick={(e) => {
                   e.stopPropagation();
                   setMenuOpen((v) => !v);
                   setFabOpen(false);
                 }}
                 className="icon-btn h-9 w-9 flex items-center justify-center rounded-xl"
-                style={{ color: "var(--color-text-secondary)" }}
+                whileTap={{ scale: 0.9 }}
+                style={{
+                  color: menuOpen
+                    ? "var(--color-text-primary)"
+                    : "var(--color-text-secondary)",
+                  background: menuOpen
+                    ? "var(--color-nav-item-hover-bg)"
+                    : "transparent",
+                  transition: "background 0.15s ease, color 0.15s ease",
+                }}
                 aria-label="Den options"
               >
                 <MoreHorizontal className="h-5 w-5" />
-              </button>
+              </motion.button>
 
               <AnimatePresence>
                 {menuOpen && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.93, y: -8 }}
+                    initial={{ opacity: 0, scale: 0.91, y: -12 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.93, y: -6 }}
-                    transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute right-0 top-full mt-2 w-56 rounded-2xl py-1.5 overflow-hidden"
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute right-0 top-full mt-2 w-56 rounded-2xl overflow-hidden"
                     style={{
                       background: "var(--color-bg-dropdown)",
                       border: "1.5px solid var(--color-border-card)",
                       boxShadow:
-                        "0 10px 36px rgba(0,0,0,0.24), 0 1px 0 rgba(255,255,255,0.05) inset",
-                      backdropFilter: "blur(24px) saturate(1.7)",
+                        "0 14px 44px rgba(0,0,0,0.22), 0 1px 0 rgba(255,255,255,0.08) inset",
+                      backdropFilter: "blur(28px) saturate(1.8)",
+                      padding: "6px",
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {/* Rename — owner only */}
+                    <div className="px-2.5 pt-1.5 pb-1">
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-widest"
+                        style={{
+                          color: "var(--color-text-muted)",
+                          opacity: 0.6,
+                        }}
+                      >
+                        Manage
+                      </span>
+                    </div>
+
                     <MenuRow
                       icon={Pencil}
                       label="Rename den"
                       disabled={!isOwner}
-                      sublabel={
-                        !isOwner ? "Only the owner can rename" : undefined
-                      }
-                      onClick={() => isOwner && openModal("rename")}
+                      sublabel={!isOwner ? "Owner only" : undefined}
+                      onClick={() => openModal("rename")}
                     />
-
-                    {/* Invite members */}
                     <MenuRow
                       icon={UserPlus}
                       label="Invite members"
                       onClick={() => openModal("invite")}
                     />
-
-                    {/* Mute / unmute */}
+                    <MenuRow
+                      icon={Users}
+                      label="View members"
+                      badge={
+                        <span
+                          className="text-xs font-medium px-1.5 py-0.5 rounded-full"
+                          style={{
+                            background: "rgba(138,96,53,0.14)",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          {memberCount}
+                        </span>
+                      }
+                      onClick={() => openModal("members")}
+                    />
                     <MenuRow
                       icon={muted ? Bell : BellOff}
                       label={muted ? "Unmute den" : "Mute den"}
-                      active={muted}
-                      sublabel={muted ? "Notifications paused" : undefined}
-                      onClick={handleMuteToggle}
+                      badge={muted ? <MutedBadge /> : undefined}
+                      onClick={() => openModal("mute")}
                     />
 
-                    {/* Divider */}
                     <div
-                      className="my-1.5 mx-3 h-px"
-                      style={{ background: "var(--color-border-card)" }}
+                      className="my-1.5 mx-1"
+                      style={{
+                        height: 1,
+                        background: "var(--color-border-card)",
+                      }}
                     />
 
-                    {/* Leave — non-owners only */}
+                    <div className="px-2.5 pt-0.5 pb-1">
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-widest"
+                        style={{ color: "rgba(224,92,74,0.5)" }}
+                      >
+                        Danger zone
+                      </span>
+                    </div>
+
                     {!isOwner && (
                       <MenuRow
                         icon={LogOut}
@@ -814,25 +1383,22 @@ export function DenPageClient({
                         onClick={() => openModal("leave")}
                       />
                     )}
-
-                    {/* Delete — owner only */}
                     <MenuRow
                       icon={Trash2}
                       label="Delete den"
                       danger
                       disabled={!isOwner}
-                      sublabel={
-                        !isOwner ? "Only the owner can delete" : undefined
-                      }
-                      onClick={() => isOwner && openModal("delete")}
+                      sublabel={!isOwner ? "Owner only" : undefined}
+                      onClick={() => openModal("delete")}
                     />
+                    <div className="h-1" />
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
           </div>
 
-          {/* ── Den header ── */}
+          {/* Den header */}
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -857,15 +1423,28 @@ export function DenPageClient({
               })}
               {isOwner && (
                 <span
-                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
                   style={{
-                    background: "rgba(138,96,53,0.14)",
+                    background: "rgba(138,96,53,0.12)",
                     color: "var(--color-text-secondary)",
                   }}
                 >
+                  <Crown className="h-3 w-3" />
                   Owner
                 </span>
               )}
+              {/* Live member count — updates via Realtime */}
+              <button
+                onClick={() => openModal("members")}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-70"
+                style={{
+                  background: "rgba(138,96,53,0.08)",
+                  color: "var(--color-text-muted)",
+                }}
+              >
+                <Users className="h-3 w-3" />
+                {memberCount} {memberCount === 1 ? "member" : "members"}
+              </button>
               {muted && (
                 <span
                   className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
@@ -881,7 +1460,7 @@ export function DenPageClient({
             </p>
           </motion.div>
 
-          {/* ── Empty state ── */}
+          {/* Empty state */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -908,16 +1487,16 @@ export function DenPageClient({
               {den.name} is ready
             </p>
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-              Tap the{" "}
+              Tap{" "}
               <strong style={{ color: "var(--color-text-secondary)" }}>
                 +
               </strong>{" "}
-              button to send a voice message, text, or media.
+              to send a voice message, text, or media.
             </p>
           </motion.div>
         </main>
 
-        {/* ── Floating Action Button ── */}
+        {/* FAB */}
         <div className="fixed bottom-7 right-7 z-40 flex flex-col items-end gap-3">
           <AnimatePresence>
             {fabOpen && (
@@ -939,8 +1518,6 @@ export function DenPageClient({
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Main FAB */}
           <motion.button
             onClick={() => {
               setFabOpen((v) => !v);
@@ -970,42 +1547,61 @@ export function DenPageClient({
         </div>
       </div>
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       <AnimatePresence>
         {modal === "rename" && (
           <RenameModal
             den={den}
-            onClose={() => setModal(null)}
-            onRenamed={(newName) => setDen({ ...den, name: newName })}
+            onClose={closeModal}
+            onRenamed={(name) => setDen({ ...den, name })}
           />
         )}
       </AnimatePresence>
-
       <AnimatePresence>
-        {modal === "invite" && (
-          <InviteModal den={den} onClose={() => setModal(null)} />
+        {modal === "invite" && <InviteModal den={den} onClose={closeModal} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {modal === "members" && (
+          <MembersModal
+            den={den}
+            members={members}
+            currentUserId={currentUserId}
+            isOwner={isOwner}
+            onClose={closeModal}
+            onMemberRemoved={(uid) =>
+              setMembers((prev) => prev.filter((m) => m.user_id !== uid))
+            }
+          />
         )}
       </AnimatePresence>
-
+      <AnimatePresence>
+        {modal === "mute" && (
+          <MuteModal
+            den={den}
+            muted={muted}
+            onClose={closeModal}
+            onToggle={toggleMute}
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {modal === "leave" && (
           <ConfirmModal
             title={`Leave ${den.name}?`}
-            description="You'll lose access to this den and all its content. You'd need a new invite to rejoin."
+            description="You'll lose access to this den. You'd need a new invite to rejoin."
             confirmLabel="Leave den"
-            onClose={() => setModal(null)}
+            onClose={closeModal}
             onConfirm={handleLeave}
           />
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {modal === "delete" && (
           <ConfirmModal
-            title={`Delete ${den.name}?`}
-            description="This will permanently delete the den and all its messages and media. This cannot be undone."
+            title={`Delete "${den.name}"?`}
+            description="This will permanently delete the den for all members. Everyone will be notified and removed. This cannot be undone."
             confirmLabel="Delete forever"
-            onClose={() => setModal(null)}
+            onClose={closeModal}
             onConfirm={handleDelete}
           />
         )}
