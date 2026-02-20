@@ -12,8 +12,9 @@ export default async function InvitePage({ params }: InvitePageProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Not logged in — redirect to login with return URL
-  if (!user) redirect(`/login?next=/invite/${params.token}`);
+  // Not logged in — send to signup (they likely don't have an account yet).
+  // Preserve the invite URL as ?next= so they land back here after auth.
+  if (!user) redirect(`/signup?next=/invite/${params.token}`);
 
   // Look up the invite
   const { data: invite, error } = await supabase

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { TopNav } from "@/components/top-nav";
 import { startNavigationProgress } from "@/components/navigation-progress";
@@ -49,6 +50,7 @@ export function DenPageClient({
   members: initialMembers,
 }: DenPageClientProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // ── Zustand store ─────────────────────────────────────────────────────────
   const {
@@ -198,6 +200,8 @@ export function DenPageClient({
       throw error;
     }
     toast.success(`You left ${activeDen.name}`);
+    // Remove cached den list so the home page refetches immediately
+    queryClient.removeQueries({ queryKey: ["dens", currentUserId] });
     startNavigationProgress();
     router.push("/");
   };
@@ -214,6 +218,8 @@ export function DenPageClient({
       throw error;
     }
     toast.success(`"${activeDen.name}" deleted`);
+    // Remove cached den list so the home page refetches immediately
+    queryClient.removeQueries({ queryKey: ["dens", currentUserId] });
     startNavigationProgress();
     router.push("/");
   };

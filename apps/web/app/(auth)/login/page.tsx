@@ -15,6 +15,7 @@ import { Loader2, Mail, Lock } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const nextUrl = searchParams.get("next") ?? "/";
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -46,7 +47,7 @@ function LoginForm() {
       if (data.user) {
         startNavigationProgress();
         // Keep isLoading=true — spinner persists until this component unmounts
-        router.push("/");
+        router.push(nextUrl);
         router.refresh();
       }
     } catch (err: unknown) {
@@ -189,7 +190,7 @@ function LoginForm() {
         </div>
       </div>
 
-      <Link href="/signup">
+      <Link href={`/signup${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}>
         <Button
           variant="outline"
           className="w-full font-medium mt-4"

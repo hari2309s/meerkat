@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuthLayout } from "@/components/auth/auth-layout";
@@ -11,8 +11,10 @@ import { Label } from "@meerkat/ui";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, Lock, User, CheckCircle, Smile } from "lucide-react";
 
-export default function SignUpPage() {
+function SignUpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextUrl = searchParams.get("next") ?? "/";
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
@@ -40,7 +42,7 @@ export default function SignUpPage() {
             full_name: formData.name,
             preferred_name: formData.preferredName.trim() || formData.name,
           },
-          emailRedirectTo: `${window.location.origin}/auth/confirm?next=/`,
+          emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(nextUrl)}`,
         },
       });
 
@@ -58,7 +60,7 @@ export default function SignUpPage() {
           setEmailSent(true);
           return;
         }
-        router.push("/");
+        router.push(nextUrl);
         router.refresh();
       }
     } catch (err: unknown) {
@@ -109,7 +111,7 @@ export default function SignUpPage() {
             spam folder if you don&apos;t see it within a minute.
           </p>
           <div className="pt-2">
-            <Link href="/login">
+            <Link href={`/login${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}>
               <Button variant="outline" className="w-full" type="button">
                 Back to sign in
               </Button>
@@ -286,7 +288,7 @@ export default function SignUpPage() {
         </div>
 
         <div className="mt-4">
-          <Link href="/login">
+          <Link href={`/login${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}>
             <Button
               variant="outline"
               className="w-full font-medium"
@@ -320,5 +322,20 @@ export default function SignUpPage() {
         </Link>
       </p>
     </AuthLayout>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          className="h-96 animate-pulse rounded-xl"
+          style={{ background: "var(--color-bg-card)" }}
+        />
+      }
+    >
+      <SignUpForm />
+    </Suspense>
   );
 }
