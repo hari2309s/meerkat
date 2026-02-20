@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { Suspense } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { NavigationProgress } from "@/components/navigation-progress";
+import { QueryProvider } from "@/providers/query-provider";
 import "./globals.css";
 
 const ysabeauOffice = Ysabeau_Office({
@@ -54,27 +55,29 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased">
-        <ThemeProvider>
-          {/* Needs Suspense because NavigationProgress uses useSearchParams */}
-          <Suspense fallback={null}>
-            <NavigationProgress />
-          </Suspense>
-          {children}
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              style: {
-                background: "var(--color-bg-dropdown)",
-                backdropFilter: "blur(20px)",
-                border: "1.5px solid var(--color-border-card)",
-                borderRadius: "14px",
-                color: "var(--color-text-primary)",
-                fontFamily: "var(--font-sans)",
-                boxShadow: "var(--color-shadow-nav-scrolled)",
-              },
-            }}
-          />
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            {/* Needs Suspense because NavigationProgress uses useSearchParams */}
+            <Suspense fallback={null}>
+              <NavigationProgress />
+            </Suspense>
+            {children}
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                style: {
+                  background: "var(--color-bg-dropdown)",
+                  backdropFilter: "blur(20px)",
+                  border: "1.5px solid var(--color-border-card)",
+                  borderRadius: "14px",
+                  color: "var(--color-text-primary)",
+                  fontFamily: "var(--font-sans)",
+                  boxShadow: "var(--color-shadow-nav-scrolled)",
+                },
+              }}
+            />
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );
