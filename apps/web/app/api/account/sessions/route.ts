@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 // ── Lightweight UA parser ────────────────────────────────────────────────────
@@ -83,10 +83,17 @@ async function getLocation(rawIp: string): Promise<string> {
 // ── Supabase helpers ────────────────────────────────────────────────────────
 function makeSupabase() {
   const cookieStore = cookies();
+  const headerStore = headers();
+
+  const ip = headerStore.get("x-real-ip") || headerStore.get("x-forwarded-for");
+
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        headers: ip ? { "x-forwarded-for": ip } : undefined,
+      },
       cookies: {
         get(name: string) {
           return cookieStore.get(name)?.value;
@@ -103,9 +110,18 @@ function makeSupabase() {
 }
 
 function makeAdmin() {
+  const headerStore = headers();
+
+  const ip = headerStore.get("x-real-ip") || headerStore.get("x-forwarded-for");
+
   return createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      global: {
+        headers: ip ? { "x-forwarded-for": ip } : undefined,
+      },
+    },
   );
 }
 

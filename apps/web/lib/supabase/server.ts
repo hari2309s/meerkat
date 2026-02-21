@@ -1,13 +1,18 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
-
+import { cookies, headers } from "next/headers";
 export function createClient() {
   const cookieStore = cookies();
+  const headerStore = headers();
+
+  const ip = headerStore.get("x-real-ip") || headerStore.get("x-forwarded-for");
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        headers: ip ? { "x-forwarded-for": ip } : undefined,
+      },
       cookies: {
         get(name: string) {
           return cookieStore.get(name)?.value;
