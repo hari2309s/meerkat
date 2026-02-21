@@ -32,9 +32,18 @@ export function useDenPresence(
       trackingCount.set(topic, (trackingCount.get(topic) || 0) + 1);
     }
 
-    const updatePresenceState = (channel: RealtimeChannel) => {
-      const state = channel.presenceState<{ userId: string }>();
-      const userIds = new Set(Object.keys(state));
+    const updatePresenceState = (currentChannel: RealtimeChannel) => {
+      const state = currentChannel.presenceState<{ userId: string }>();
+      const userIds = new Set<string>();
+
+      // Extract all users from the presence state
+      Object.keys(state).forEach((presenceKey) => {
+        state[presenceKey]?.forEach((presence) => {
+          if (presence.userId) userIds.add(presence.userId);
+        });
+        // Sometimes the key itself is the userId depending on config
+        userIds.add(presenceKey);
+      });
 
       // If ANY active component wants to track presence, ensure the local user is included
       if ((trackingCount.get(topic) || 0) > 0) {
