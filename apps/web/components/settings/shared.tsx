@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Loader2, X } from "lucide-react";
+import { useEffect } from "react";
 
 // ── SectionCard ───────────────────────────────────────────────────────────────
 
@@ -93,6 +94,16 @@ export function ConfirmModal({
   confirmVariant?: "danger" | "default";
   loading?: boolean;
 }) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && open) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
     <AnimatePresence>

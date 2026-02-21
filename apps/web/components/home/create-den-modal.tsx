@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { X, Plus, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -23,6 +23,16 @@ export function CreateDenModal({
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const mutation = useMutation({
     mutationFn: async (trimmed: string) => {

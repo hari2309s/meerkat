@@ -129,187 +129,189 @@ function SessionsCard() {
   };
 
   return (
-    <SectionCard title="Sessions" subtitle="Manage where you're signed in">
-      {loading ? (
-        <div
-          className="flex items-center justify-center py-8 gap-2"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Loading sessions…</span>
-        </div>
-      ) : sessions.length === 0 ? (
-        <p
-          className="text-sm py-4 text-center"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          No sessions found
-        </p>
-      ) : (
-        <div
-          className="divide-y"
-          style={{ borderColor: "var(--color-border-card)" }}
-        >
-          {sessions.map((s) => {
-            const DeviceIcon =
-              s.device === "iPhone" || s.device === "Android Phone"
-                ? Smartphone
-                : s.device === "iPad" || s.device === "Android Tablet"
-                  ? Tablet
-                  : Monitor;
+    <>
+      <SectionCard title="Sessions" subtitle="Manage where you're signed in">
+        {loading ? (
+          <div
+            className="flex items-center justify-center py-8 gap-2"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Loading sessions…</span>
+          </div>
+        ) : sessions.length === 0 ? (
+          <p
+            className="text-sm py-4 text-center"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            No sessions found
+          </p>
+        ) : (
+          <div
+            className="divide-y"
+            style={{ borderColor: "var(--color-border-card)" }}
+          >
+            {sessions.map((s) => {
+              const DeviceIcon =
+                s.device === "iPhone" || s.device === "Android Phone"
+                  ? Smartphone
+                  : s.device === "iPad" || s.device === "Android Tablet"
+                    ? Tablet
+                    : Monitor;
 
-            const diffMin = Math.floor(
-              (Date.now() - new Date(s.lastActiveAt).getTime()) / 60000,
-            );
-            const relativeTime =
-              diffMin < 1
-                ? "Just now"
-                : diffMin < 60
-                  ? `${diffMin}m ago`
-                  : diffMin < 1440
-                    ? `${Math.floor(diffMin / 60)}h ago`
-                    : `${Math.floor(diffMin / 1440)}d ago`;
+              const diffMin = Math.floor(
+                (Date.now() - new Date(s.lastActiveAt).getTime()) / 60000,
+              );
+              const relativeTime =
+                diffMin < 1
+                  ? "Just now"
+                  : diffMin < 60
+                    ? `${diffMin}m ago`
+                    : diffMin < 1440
+                      ? `${Math.floor(diffMin / 60)}h ago`
+                      : `${Math.floor(diffMin / 1440)}d ago`;
 
-            return (
-              <div
-                key={s.id}
-                className="flex items-start justify-between py-4 first:pt-0 gap-3"
-              >
-                {/* Device icon */}
+              return (
                 <div
-                  className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                  style={{
-                    background: s.isCurrent
-                      ? "rgba(184,144,106,0.18)"
-                      : "rgba(139,111,71,0.1)",
-                  }}
+                  key={s.id}
+                  className="flex items-start justify-between py-4 first:pt-0 gap-3"
                 >
-                  <DeviceIcon
-                    className="h-4 w-4"
+                  {/* Device icon */}
+                  <div
+                    className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
                     style={{
-                      color: s.isCurrent
-                        ? "var(--color-avatar-bg)"
-                        : "var(--color-text-muted)",
+                      background: s.isCurrent
+                        ? "rgba(184,144,106,0.18)"
+                        : "rgba(139,111,71,0.1)",
                     }}
-                  />
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p
-                      className="text-sm font-medium truncate"
-                      style={{ color: "var(--color-text-primary)" }}
-                    >
-                      {s.browser} on {s.os}
-                    </p>
-                    {s.isCurrent && (
-                      <span
-                        className="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
-                        style={{
-                          background: "rgba(34,197,94,0.12)",
-                          color: "#16a34a",
-                        }}
-                      >
-                        Current
-                      </span>
-                    )}
+                  >
+                    <DeviceIcon
+                      className="h-4 w-4"
+                      style={{
+                        color: s.isCurrent
+                          ? "var(--color-avatar-bg)"
+                          : "var(--color-text-muted)",
+                      }}
+                    />
                   </div>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    {s.location && (
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p
+                        className="text-sm font-medium truncate"
+                        style={{ color: "var(--color-text-primary)" }}
+                      >
+                        {s.browser} on {s.os}
+                      </p>
+                      {s.isCurrent && (
+                        <span
+                          className="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
+                          style={{
+                            background: "rgba(34,197,94,0.12)",
+                            color: "#16a34a",
+                          }}
+                        >
+                          Current
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      {s.location && (
+                        <span
+                          className="flex items-center gap-1 text-xs"
+                          style={{ color: "var(--color-text-muted)" }}
+                        >
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          {s.location}
+                        </span>
+                      )}
                       <span
                         className="flex items-center gap-1 text-xs"
                         style={{ color: "var(--color-text-muted)" }}
                       >
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        {s.location}
+                        <Clock className="h-3 w-3 shrink-0" />
+                        {relativeTime}
                       </span>
-                    )}
-                    <span
-                      className="flex items-center gap-1 text-xs"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      <Clock className="h-3 w-3 shrink-0" />
-                      {relativeTime}
-                    </span>
+                    </div>
                   </div>
+
+                  {/* Action */}
+                  {s.isCurrent ? (
+                    <span
+                      className="text-xs font-medium px-2.5 py-1 rounded-full shrink-0 mt-0.5"
+                      style={{
+                        background: "rgba(34,197,94,0.12)",
+                        color: "#16a34a",
+                      }}
+                    >
+                      Active
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleRevoke(s.id)}
+                      disabled={revokingId === s.id}
+                      className="shrink-0 mt-0.5 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border transition-opacity hover:opacity-75 disabled:opacity-50"
+                      style={{
+                        borderColor: "rgba(192,57,43,0.25)",
+                        color: "#c0392b",
+                        background: "rgba(192,57,43,0.06)",
+                      }}
+                    >
+                      {revokingId === s.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
+                      Revoke
+                    </button>
+                  )}
                 </div>
-
-                {/* Action */}
-                {s.isCurrent ? (
-                  <span
-                    className="text-xs font-medium px-2.5 py-1 rounded-full shrink-0 mt-0.5"
-                    style={{
-                      background: "rgba(34,197,94,0.12)",
-                      color: "#16a34a",
-                    }}
-                  >
-                    Active
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => handleRevoke(s.id)}
-                    disabled={revokingId === s.id}
-                    className="shrink-0 mt-0.5 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium border transition-opacity hover:opacity-75 disabled:opacity-50"
-                    style={{
-                      borderColor: "rgba(192,57,43,0.25)",
-                      color: "#c0392b",
-                      background: "rgba(192,57,43,0.06)",
-                    }}
-                  >
-                    {revokingId === s.id ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3 w-3" />
-                    )}
-                    Revoke
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Sign out all */}
-      <div
-        className="pt-4 border-t mt-2"
-        style={{ borderColor: "var(--color-border-card)" }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p
-              className="text-sm font-medium"
-              style={{ color: "var(--color-text-primary)" }}
-            >
-              Sign out everywhere
-            </p>
-            <p
-              className="text-xs mt-0.5"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
-              Signs you out of all browsers and devices
-            </p>
+              );
+            })}
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setSignOutAllOpen(true)}
-            disabled={isSigningOut}
-          >
-            {isSigningOut ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing out…
-              </>
-            ) : (
-              <>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign out all
-              </>
-            )}
-          </Button>
+        )}
+
+        {/* Sign out all */}
+        <div
+          className="pt-4 border-t mt-2"
+          style={{ borderColor: "var(--color-border-card)" }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--color-text-primary)" }}
+              >
+                Sign out everywhere
+              </p>
+              <p
+                className="text-xs mt-0.5"
+                style={{ color: "var(--color-text-secondary)" }}
+              >
+                Signs you out of all browsers and devices
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setSignOutAllOpen(true)}
+              disabled={isSigningOut}
+            >
+              {isSigningOut ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing out…
+                </>
+              ) : (
+                <>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign out all
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-      </div>
+      </SectionCard>
 
       <ConfirmModal
         open={signOutAllOpen}
@@ -321,7 +323,7 @@ function SessionsCard() {
         confirmVariant="danger"
         loading={isSigningOut}
       />
-    </SectionCard>
+    </>
   );
 }
 
