@@ -58,13 +58,24 @@ CREATE INDEX idx_messages_created_at ON messages(created_at);
 
 -- --------------------------------------------------------------------------
 -- Create a public view of users so PostgREST can query sender details 
+-- This view runs as security definer (since we removed security_invoker=true)
+-- but restricts the returned users to only those who share a den with the 
+-- currently authenticated user.
 -- --------------------------------------------------------------------------
-CREATE OR REPLACE VIEW public.users WITH (security_invoker=true) AS
+CREATE OR REPLACE VIEW public.users AS
 SELECT
-  id,
-  email,
-  raw_user_meta_data->>'full_name' AS full_name
-FROM auth.users;
+  u.id,
+  u.email,
+  u.raw_user_meta_data->>'full_name' AS full_name
+FROM auth.users u
+WHERE EXISTS (
+  -- The logged-in user and the queried user share at least one den
+  SELECT 1 
+  FROM den_members dm1
+  JOIN den_members dm2 ON dm1.den_id = dm2.den_id
+  WHERE dm1.user_id = auth.uid() 
+    AND dm2.user_id = u.id
+);
 
--- Allow the API the ability to query the view securely
+-- Allow the API the ability to query the view securely.
 GRANT SELECT ON public.users TO authenticated;
