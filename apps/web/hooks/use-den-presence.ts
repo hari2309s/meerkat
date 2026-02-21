@@ -28,23 +28,22 @@ export function useDenPresence(
 
     channelRef.current = channel;
 
+    const updatePresence = () => {
+      const state = channel.presenceState<{ userId: string }>();
+      const userIds = new Set(Object.keys(state));
+      if (trackPresence) {
+        userIds.add(currentUserId);
+      }
+      setOnlineUsers(denId, Array.from(userIds));
+    };
+
     channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<{ userId: string }>();
-        const userIds = Object.keys(state);
-        setOnlineUsers(denId, userIds);
-      })
+      .on("presence", { event: "sync" }, updatePresence)
       .on("presence", { event: "join" }, ({ key }) => {
-        const state = channel.presenceState<{ userId: string }>();
-        const userIds = Object.keys(state);
-        setOnlineUsers(denId, userIds);
+        updatePresence();
         void key; // suppress unused warning
       })
-      .on("presence", { event: "leave" }, () => {
-        const state = channel.presenceState<{ userId: string }>();
-        const userIds = Object.keys(state);
-        setOnlineUsers(denId, userIds);
-      })
+      .on("presence", { event: "leave" }, updatePresence)
       .subscribe(async (status) => {
         if (status === "SUBSCRIBED" && trackPresence) {
           await channel.track({ userId: currentUserId });
