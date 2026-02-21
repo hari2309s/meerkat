@@ -146,7 +146,10 @@ function ConfirmModal({
           {/* Backdrop */}
           <motion.div
             className="absolute inset-0"
-            style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
+            style={{
+              background: "rgba(0,0,0,0.45)",
+              backdropFilter: "blur(4px)",
+            }}
             onClick={onClose}
           />
           <motion.div
@@ -210,9 +213,9 @@ function ConfirmModal({
                   confirmVariant === "danger"
                     ? { background: "#c0392b", color: "#fff" }
                     : {
-                      background: "var(--color-btn-default-bg)",
-                      color: "var(--color-btn-default-text)",
-                    }
+                        background: "var(--color-btn-default-bg)",
+                        color: "var(--color-btn-default-text)",
+                      }
                 }
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -880,7 +883,10 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
               associated data. <strong>This cannot be undone.</strong>
             </p>
             <div className="space-y-1.5">
-              <p className="text-xs font-medium" style={{ color: "var(--color-text-primary)" }}>
+              <p
+                className="text-xs font-medium"
+                style={{ color: "var(--color-text-primary)" }}
+              >
                 Type <strong>{user.email}</strong> to confirm
               </p>
               <input
