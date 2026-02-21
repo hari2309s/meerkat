@@ -24,7 +24,9 @@ AS $$
     s.not_after
   FROM auth.sessions s
   WHERE s.user_id = p_user_id
-  ORDER BY s.updated_at DESC;
+    AND (s.not_after IS NULL OR s.not_after > NOW())
+  ORDER BY s.updated_at DESC
+  LIMIT 5;
 $$;
 
 REVOKE ALL ON FUNCTION public.get_user_sessions FROM PUBLIC;
