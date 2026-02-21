@@ -34,6 +34,7 @@ function getDenGradient(index: number) {
 interface DenCardProps {
   den: Den;
   index: number;
+  currentUserId: string;
   navigatingId: string | null;
   onNavigate: (den: Den) => void;
 }
@@ -42,10 +43,13 @@ interface DenCardProps {
 // ref to its direct children to measure layout. Without it you get the
 // "Function components cannot be given refs" console warning.
 export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
-  function DenCard({ den, index, navigatingId, onNavigate }, ref) {
+  function DenCard({ den, index, currentUserId, navigatingId, onNavigate }, ref) {
     const Icon = getDenIcon(den.name);
     const isNavigating = navigatingId === den.id;
-    const onlineCount = usePresenceStore((s) => s.onlineByDen[den.id] ?? 0);
+    const onlineUsers = usePresenceStore((s) => s.onlineUsersByDen[den.id]);
+    const onlineCount = onlineUsers
+      ? Math.max(0, onlineUsers.has(currentUserId) ? onlineUsers.size - 1 : onlineUsers.size)
+      : 0;
 
     return (
       <motion.button

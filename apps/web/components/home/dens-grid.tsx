@@ -84,6 +84,7 @@ export function DensGrid({ userId }: DensGridProps) {
                   key={den.id}
                   den={den}
                   index={index}
+                  currentUserId={userId}
                   navigatingId={navigatingId}
                   onNavigate={handleDenClick}
                 />
