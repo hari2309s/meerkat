@@ -108,7 +108,33 @@ export function DenPageClient({
   }, [router]);
 
   const handleMemberInsert = useCallback(
-    (payload: { new: DenMember }) => addMember(payload.new),
+    async (payload: { new: DenMember & { den_id: string } }) => {
+      // The realtime payload only has the fields in den_members, not the joined `profiles`
+      // We need to fetch the profile to display their name properly in the UI.
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("den_members")
+        .select(
+          `
+        user_id,
+        role,
+        joined_at,
+        profiles:user_id (
+          full_name,
+          email
+        )
+      `,
+        )
+        .eq("den_id", payload.new.den_id)
+        .eq("user_id", payload.new.user_id)
+        .single();
+
+      if (data) {
+        addMember(data as unknown as DenMember);
+      } else {
+        addMember(payload.new);
+      }
+    },
     [addMember],
   );
 
@@ -157,7 +183,10 @@ export function DenPageClient({
           table: "den_members",
           filter: `den_id=eq.${activeDen.id}`,
         },
-        (p) => handleMemberInsert(p as unknown as { new: DenMember }),
+        (p) =>
+          handleMemberInsert(
+            p as unknown as { new: DenMember & { den_id: string } },
+          ),
       )
       .on(
         "postgres_changes",
