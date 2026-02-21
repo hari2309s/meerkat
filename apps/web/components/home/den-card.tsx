@@ -87,22 +87,30 @@ export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
         </div>
 
         <p
-          className="text-sm font-semibold leading-tight"
+          className="text-sm font-semibold leading-tight mb-1.5 truncate"
           style={{ color: "var(--color-text-primary)" }}
         >
           {den.name}
         </p>
 
-        {/* Online count badge */}
-        {onlineCount > 0 && (
-          <div
-            className="absolute top-2.5 right-2.5 flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-            style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e" }}
-          >
-            <Circle className="h-1.5 w-1.5 fill-current" />
-            {onlineCount}
+        <div
+          className="flex items-center gap-3 mt-auto text-[11px] font-medium"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          {/* Member count */}
+          <div className="flex items-center gap-1">
+            <Users className="h-3 w-3 opacity-60" />
+            <span>{den.members?.[0]?.count ?? 1}</span>
           </div>
-        )}
+
+          {/* Online count */}
+          {onlineCount > 0 && (
+            <div className="flex items-center gap-1" style={{ color: "#22c55e" }}>
+              <Circle className="h-2 w-2 fill-current opacity-80" />
+              <span>{onlineCount}</span>
+            </div>
+          )}
+        </div>
 
         {/* Hover shimmer */}
         <div

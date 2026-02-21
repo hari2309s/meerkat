@@ -11,12 +11,11 @@ import { DenCard } from "@/components/home/den-card";
 import { CreateDenModal } from "@/components/home/create-den-modal";
 import type { Den } from "@/types/den";
 
-async function fetchUserDens(userId: string): Promise<Den[]> {
+async function fetchUserDens(): Promise<Den[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("dens")
-    .select("*")
-    .eq("user_id", userId)
+    .select("*, members:den_members(count)")
     .order("created_at", { ascending: true });
   return (data as Den[]) ?? [];
 }
@@ -32,7 +31,7 @@ export function DensGrid({ userId }: DensGridProps) {
 
   const { data: dens = [], isLoading } = useQuery({
     queryKey: ["dens", userId],
-    queryFn: () => fetchUserDens(userId),
+    queryFn: () => fetchUserDens(),
   });
 
   const handleDenClick = (den: Den) => {

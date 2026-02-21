@@ -5,6 +5,7 @@ export interface Den {
   name: string;
   created_at: string;
   user_id: string;
+  members?: [{ count: number }];
 }
 
 export interface DenMember {
