@@ -54,11 +54,11 @@ export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
     const onlineUsers = usePresenceStore((s) => s.onlineUsersByDen[den.id]);
     const onlineCount = onlineUsers
       ? Math.max(
-        0,
-        onlineUsers.has(currentUserId)
-          ? onlineUsers.size - 1
-          : onlineUsers.size,
-      )
+          0,
+          onlineUsers.has(currentUserId)
+            ? onlineUsers.size - 1
+            : onlineUsers.size,
+        )
       : 0;
 
     return (
