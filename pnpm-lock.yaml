@@ -29,6 +29,9 @@ importers:
       '@meerkat/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@meerkat/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@supabase/ssr':
         specifier: ^0.1.0
         version: 0.1.0(@supabase/supabase-js@2.95.3)
@@ -151,6 +154,15 @@ importers:
       tailwindcss:
         specifier: ^3.4.1
         version: 3.4.19
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
+  packages/utils:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.5
+        version: 20.19.33
       typescript:
         specifier: ^5.3.3
         version: 5.9.3

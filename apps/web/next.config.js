@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: [
     "@meerkat/ui",
+    "@meerkat/utils",
     "@meerkat/crdt",
     "@meerkat/voice",
     "@meerkat/database",
