@@ -105,7 +105,10 @@ export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
 
           {/* Online count */}
           {onlineCount > 0 && (
-            <div className="flex items-center gap-1" style={{ color: "#22c55e" }}>
+            <div
+              className="flex items-center gap-1"
+              style={{ color: "#22c55e" }}
+            >
               <Circle className="h-2 w-2 fill-current opacity-80" />
               <span>{onlineCount}</span>
             </div>
