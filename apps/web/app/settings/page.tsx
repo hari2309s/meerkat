@@ -22,6 +22,7 @@ export default async function SettingsPage() {
         name,
         preferredName,
         email: user.email ?? "",
+        notifPrefs: user.user_metadata?.notification_prefs,
       }}
     />
   );
