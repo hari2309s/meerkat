@@ -43,12 +43,20 @@ interface DenCardProps {
 // ref to its direct children to measure layout. Without it you get the
 // "Function components cannot be given refs" console warning.
 export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
-  function DenCard({ den, index, currentUserId, navigatingId, onNavigate }, ref) {
+  function DenCard(
+    { den, index, currentUserId, navigatingId, onNavigate },
+    ref,
+  ) {
     const Icon = getDenIcon(den.name);
     const isNavigating = navigatingId === den.id;
     const onlineUsers = usePresenceStore((s) => s.onlineUsersByDen[den.id]);
     const onlineCount = onlineUsers
-      ? Math.max(0, onlineUsers.has(currentUserId) ? onlineUsers.size - 1 : onlineUsers.size)
+      ? Math.max(
+          0,
+          onlineUsers.has(currentUserId)
+            ? onlineUsers.size - 1
+            : onlineUsers.size,
+        )
       : 0;
 
     return (
