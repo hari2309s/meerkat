@@ -47,7 +47,13 @@ export function InvitePageClient({
   const [joining, setJoining] = useState(false);
 
   const handleJoin = async () => {
-    if (!den || !currentUserId || !inviteId || !token) return;
+    if (!den || !currentUserId || !inviteId || !token) {
+      toast.error("Something went wrong", {
+        description:
+          "Could not load invite details. Please refresh the page and try again.",
+      });
+      return;
+    }
     setJoining(true);
     try {
       const supabase = createClient();

@@ -58,20 +58,30 @@ export default async function InvitePage({ params }: InvitePageProps) {
     .single();
 
   if (existingMember) {
+    const rawDenForMember = invite.dens;
+    const denForMember = (
+      Array.isArray(rawDenForMember) ? rawDenForMember[0] : rawDenForMember
+    ) as { name?: string } | null;
     return (
       <InvitePageClient
         status="already_member"
         denId={invite.den_id}
-        denName={(invite.dens as any)?.name}
+        denName={denForMember?.name}
       />
     );
   }
 
-  const den = invite.dens as unknown as {
+  // Supabase returns an array for foreign key joins — normalise to a single object.
+  const rawDen = invite.dens;
+  const den = (Array.isArray(rawDen) ? rawDen[0] : rawDen) as {
     id: string;
     name: string;
     user_id: string;
-  };
+  } | null;
+
+  if (!den) {
+    return <InvitePageClient status="invalid" />;
+  }
 
   return (
     <InvitePageClient
