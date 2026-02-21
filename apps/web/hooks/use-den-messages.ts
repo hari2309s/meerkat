@@ -22,7 +22,7 @@ async function fetchMessages(denId: string): Promise<Message[]> {
       voice_url,
       voice_duration,
       created_at,
-      sender:user_id (
+      sender:users!user_id (
         full_name,
         email
       )

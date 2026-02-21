@@ -55,3 +55,16 @@ CREATE INDEX idx_messages_den_id ON messages(den_id);
 
 -- Create an index for faster ordering by created_at
 CREATE INDEX idx_messages_created_at ON messages(created_at);
+
+-- --------------------------------------------------------------------------
+-- Create a public view of users so PostgREST can query sender details 
+-- --------------------------------------------------------------------------
+CREATE OR REPLACE VIEW public.users WITH (security_invoker=true) AS
+SELECT
+  id,
+  email,
+  raw_user_meta_data->>'full_name' AS full_name
+FROM auth.users;
+
+-- Allow the API the ability to query the view securely
+GRANT SELECT ON public.users TO authenticated;
