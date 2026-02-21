@@ -1,3 +1,6 @@
+-- Drop existing messages table if it exists (since the previous execution created it with auth.users)
+DROP TABLE IF EXISTS messages;
+
 -- Create messages table
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
