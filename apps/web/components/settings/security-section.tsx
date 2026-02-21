@@ -72,6 +72,7 @@ function SessionsCard() {
   const [loading, setLoading] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutAllOpen, setSignOutAllOpen] = useState(false);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -292,7 +293,7 @@ function SessionsCard() {
           </div>
           <Button
             variant="outline"
-            onClick={handleSignOutAll}
+            onClick={() => setSignOutAllOpen(true)}
             disabled={isSigningOut}
           >
             {isSigningOut ? (
@@ -309,6 +310,17 @@ function SessionsCard() {
           </Button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={signOutAllOpen}
+        onClose={() => !isSigningOut && setSignOutAllOpen(false)}
+        onConfirm={handleSignOutAll}
+        title="Sign out everywhere?"
+        body="This will sign you out of Meerkat on all your devices, including this one. You will need to sign in again everywhere."
+        confirmLabel="Sign out all"
+        confirmVariant="danger"
+        loading={isSigningOut}
+      />
     </SectionCard>
   );
 }

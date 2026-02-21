@@ -67,7 +67,6 @@ async function getLocation(rawIp: string): Promise<string> {
   try {
     const res = await fetch(
       `http://ip-api.com/json/${ip}?fields=status,city,regionName,country`,
-      { next: { revalidate: 3600 } },
     );
     if (!res.ok) return ip;
     const data = await res.json();
@@ -171,7 +170,8 @@ export async function GET() {
   const withCurrent = enriched
     .filter((s) => !s.notAfter || new Date(s.notAfter).getTime() > now)
     .slice(0, 5)
-    .map((s) => ({ ...s, isCurrent: s.id === currentSessionId }));
+    .map((s) => ({ ...s, isCurrent: s.id === currentSessionId }))
+    .sort((a, b) => (a.isCurrent === b.isCurrent ? 0 : a.isCurrent ? -1 : 1));
   return NextResponse.json({ sessions: withCurrent });
 }
 
