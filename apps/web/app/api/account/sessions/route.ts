@@ -67,6 +67,7 @@ async function getLocation(rawIp: string): Promise<string> {
   try {
     const res = await fetch(
       `http://ip-api.com/json/${ip}?fields=status,city,regionName,country`,
+      { cache: "no-store" },
     );
     if (!res.ok) return ip;
     const data = await res.json();
