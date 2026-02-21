@@ -16,8 +16,16 @@ export default async function InvitePage({ params }: InvitePageProps) {
   // Preserve the invite URL as ?next= so they land back here after auth.
   if (!user) redirect(`/signup?next=/invite/${params.token}`);
 
-  // Look up the invite
-  const { data: invite, error } = await supabase
+  // Look up the invite bypassing RLS using the service role key.
+  // We need this because the user is not yet a member, so RLS on `dens` hides the joined data.
+  const { createClient: createAdminClient } =
+    await import("@supabase/supabase-js");
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data: invite, error } = await supabaseAdmin
     .from("den_invites")
     .select(
       `
