@@ -1,0 +1,25 @@
+{
+  "name": "@meerkat/utils",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared utility functions for the Meerkat monorepo",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ua-parser": "./src/ua-parser.ts",
+    "./geo": "./src/geo.ts",
+    "./jwt": "./src/jwt.ts",
+    "./time": "./src/time.ts",
+    "./string": "./src/string.ts",
+    "./storage": "./src/storage.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "lint": "eslint . --ext .ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "typescript": "^5.3.3"
+  }
+}
