@@ -5,12 +5,126 @@ import { createClient } from "@/lib/supabase/client";
 import { usePresenceStore } from "@/stores/use-presence-store";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
-// Global maps to coordinate presence across all mounted components for a given den
-const sharedChannels = new Map<
-  string,
-  { channel: RealtimeChannel; count: number; isJoined: boolean }
->();
-const trackingCount = new Map<string, number>();
+class PresenceManager {
+  private channels = new Map<string, RealtimeChannel>();
+  private refCount = new Map<string, number>();
+  private trackCount = new Map<string, number>();
+  private supabase = createClient();
+  private cleanupTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+  private updateStore(
+    topic: string,
+    denId: string,
+    currentUserId: string,
+    channel: RealtimeChannel,
+  ) {
+    const state = channel.presenceState<{ userId: string }>();
+    const userIds = new Set<string>();
+
+    Object.keys(state).forEach((key) => {
+      state[key]?.forEach((p) => {
+        if (p.userId) userIds.add(p.userId);
+      });
+      userIds.add(key);
+    });
+
+    if ((this.trackCount.get(topic) || 0) > 0) {
+      userIds.add(currentUserId);
+    }
+
+    usePresenceStore.getState().setOnlineUsers(denId, Array.from(userIds));
+  }
+
+  subscribe(denId: string, userId: string, track: boolean) {
+    const topic = `presence:den:${denId}`;
+
+    if (track) {
+      this.trackCount.set(topic, (this.trackCount.get(topic) || 0) + 1);
+    }
+    this.refCount.set(topic, (this.refCount.get(topic) || 0) + 1);
+
+    if (this.cleanupTimeouts.has(topic)) {
+      clearTimeout(this.cleanupTimeouts.get(topic));
+      this.cleanupTimeouts.delete(topic);
+    }
+
+    let channel = this.channels.get(topic);
+    if (!channel) {
+      channel = this.supabase.channel(topic, {
+        config: { presence: { key: userId } },
+      });
+      this.channels.set(topic, channel);
+
+      channel
+        .on("presence", { event: "sync" }, () =>
+          this.updateStore(topic, denId, userId, channel!),
+        )
+        .on("presence", { event: "join" }, () =>
+          this.updateStore(topic, denId, userId, channel!),
+        )
+        .on("presence", { event: "leave" }, () =>
+          this.updateStore(topic, denId, userId, channel!),
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            this.updateStore(topic, denId, userId, channel!);
+            if ((this.trackCount.get(topic) || 0) > 0) {
+              channel!.track({ userId }).catch(() => {});
+            }
+          }
+        });
+    } else {
+      this.updateStore(topic, denId, userId, channel);
+
+      // Using internal state to check if subscribed. 'joined' is standard in Phoenix.
+      // @ts-ignore
+      const isJoined = channel.state === "joined";
+      if (track && isJoined) {
+        channel.track({ userId }).catch(() => {});
+      }
+    }
+  }
+
+  unsubscribe(denId: string, userId: string, track: boolean) {
+    const topic = `presence:den:${denId}`;
+
+    if (track) {
+      const tc = (this.trackCount.get(topic) || 1) - 1;
+      this.trackCount.set(topic, tc);
+
+      const channel = this.channels.get(topic);
+      // @ts-ignore
+      const isJoined = channel && channel.state === "joined";
+      if (tc <= 0 && isJoined) {
+        channel.untrack().catch(() => {});
+      }
+    }
+
+    const rc = (this.refCount.get(topic) || 1) - 1;
+    this.refCount.set(topic, rc);
+
+    if (rc <= 0) {
+      const timeout = setTimeout(() => {
+        if ((this.refCount.get(topic) || 0) <= 0) {
+          const channel = this.channels.get(topic);
+          if (channel) {
+            this.supabase.removeChannel(channel).catch(() => {});
+            this.channels.delete(topic);
+          }
+        }
+      }, 3000); // 3 second grace period
+      this.cleanupTimeouts.set(topic, timeout);
+    }
+
+    const currentChannel = this.channels.get(topic);
+    if (currentChannel) {
+      this.updateStore(topic, denId, userId, currentChannel);
+    }
+  }
+}
+
+// Single global instance
+const presenceManager = new PresenceManager();
 
 /**
  * Subscribes to a Supabase Realtime presence channel for a single den.
@@ -25,100 +139,10 @@ export function useDenPresence(
   useEffect(() => {
     if (!denId || !currentUserId) return;
 
-    const topic = `presence:den:${denId}`;
-    const supabase = createClient();
-
-    if (trackPresence) {
-      trackingCount.set(topic, (trackingCount.get(topic) || 0) + 1);
-    }
-
-    const updatePresenceState = (currentChannel: RealtimeChannel) => {
-      const state = currentChannel.presenceState<{ userId: string }>();
-      const userIds = new Set<string>();
-
-      // Extract all users from the presence state
-      Object.keys(state).forEach((presenceKey) => {
-        state[presenceKey]?.forEach((presence) => {
-          if (presence.userId) userIds.add(presence.userId);
-        });
-        // Sometimes the key itself is the userId depending on config
-        userIds.add(presenceKey);
-      });
-
-      // If ANY active component wants to track presence, ensure the local user is included
-      if ((trackingCount.get(topic) || 0) > 0) {
-        userIds.add(currentUserId);
-      }
-
-      usePresenceStore.getState().setOnlineUsers(denId, Array.from(userIds));
-    };
-
-    let entry = sharedChannels.get(topic);
-
-    if (!entry) {
-      const channel = supabase.channel(topic, {
-        config: { presence: { key: currentUserId } },
-      });
-
-      entry = { channel, count: 0, isJoined: false };
-      sharedChannels.set(topic, entry);
-
-      channel
-        .on("presence", { event: "sync" }, () => updatePresenceState(channel))
-        .on("presence", { event: "join" }, () => updatePresenceState(channel))
-        .on("presence", { event: "leave" }, () => updatePresenceState(channel))
-        .subscribe(async (status) => {
-          if (status === "SUBSCRIBED") {
-            const current = sharedChannels.get(topic);
-            if (current) current.isJoined = true;
-
-            updatePresenceState(channel);
-
-            if ((trackingCount.get(topic) || 0) > 0) {
-              await channel.track({ userId: currentUserId }).catch(() => {});
-            }
-          } else if (status === "CLOSED" || status === "CHANNEL_ERROR") {
-            const current = sharedChannels.get(topic);
-            if (current) current.isJoined = false;
-          }
-        });
-    } else {
-      // Channel already exists: instantly update UI with known state
-      updatePresenceState(entry.channel);
-
-      // If the channel is already connected and we are tracking, ensure we broadcast
-      if (trackPresence && entry.isJoined) {
-        entry.channel.track({ userId: currentUserId }).catch(() => {});
-      }
-    }
-
-    entry.count++;
+    presenceManager.subscribe(denId, currentUserId, trackPresence);
 
     return () => {
-      if (trackPresence) {
-        trackingCount.set(topic, (trackingCount.get(topic) || 1) - 1);
-      }
-
-      const currentEntry = sharedChannels.get(topic);
-      if (currentEntry) {
-        currentEntry.count--;
-
-        if (currentEntry.count <= 0) {
-          // No more components are using this channel, remove completely
-          supabase.removeChannel(currentEntry.channel);
-          sharedChannels.delete(topic);
-        } else if (
-          (trackingCount.get(topic) || 0) === 0 &&
-          currentEntry.isJoined
-        ) {
-          // Others are still listening (e.g. Home page), but no one tracking. Untrack locally.
-          currentEntry.channel.untrack().catch(() => {});
-          updatePresenceState(currentEntry.channel);
-        } else {
-          // Partial unmount, refresh state
-          updatePresenceState(currentEntry.channel);
-        }
-      }
+      presenceManager.unsubscribe(denId, currentUserId, trackPresence);
     };
   }, [denId, currentUserId, trackPresence]);
 }
