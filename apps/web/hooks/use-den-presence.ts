@@ -8,7 +8,11 @@ import { usePresenceStore } from "@/stores/use-presence-store";
  * Subscribes to a Supabase Realtime presence channel for a single den.
  * Tracks which user IDs are currently online and syncs to usePresenceStore.
  */
-export function useDenPresence(denId: string, currentUserId: string) {
+export function useDenPresence(
+  denId: string,
+  currentUserId: string,
+  trackPresence: boolean = true,
+) {
   const { setOnlineUsers } = usePresenceStore();
   const channelRef = useRef<ReturnType<
     ReturnType<typeof createClient>["channel"]
@@ -42,7 +46,7 @@ export function useDenPresence(denId: string, currentUserId: string) {
         setOnlineUsers(denId, userIds);
       })
       .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
+        if (status === "SUBSCRIBED" && trackPresence) {
           await channel.track({ userId: currentUserId });
         }
       });
@@ -50,5 +54,5 @@ export function useDenPresence(denId: string, currentUserId: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [denId, currentUserId, setOnlineUsers]);
+  }, [denId, currentUserId, trackPresence, setOnlineUsers]);
 }

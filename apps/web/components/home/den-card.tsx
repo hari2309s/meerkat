@@ -4,6 +4,7 @@ import { forwardRef } from "react";
 import { motion } from "framer-motion";
 import { Heart, Users, Briefcase, Star, Loader2, Circle } from "lucide-react";
 import { usePresenceStore } from "@/stores/use-presence-store";
+import { useDenPresence } from "@/hooks/use-den-presence";
 import type { Den } from "@/types/den";
 
 function getDenIcon(name: string) {
@@ -47,16 +48,17 @@ export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
     { den, index, currentUserId, navigatingId, onNavigate },
     ref,
   ) {
+    useDenPresence(den.id, currentUserId, false);
     const Icon = getDenIcon(den.name);
     const isNavigating = navigatingId === den.id;
     const onlineUsers = usePresenceStore((s) => s.onlineUsersByDen[den.id]);
     const onlineCount = onlineUsers
       ? Math.max(
-          0,
-          onlineUsers.has(currentUserId)
-            ? onlineUsers.size - 1
-            : onlineUsers.size,
-        )
+        0,
+        onlineUsers.has(currentUserId)
+          ? onlineUsers.size - 1
+          : onlineUsers.size,
+      )
       : 0;
 
     return (
