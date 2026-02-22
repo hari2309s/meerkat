@@ -1,10 +1,3 @@
-export type UploadStatus =
-  | "idle"
-  | "uploading"
-  | "processing"
-  | "complete"
-  | "error";
-
 export interface ApiSuccess<T> {
   data: T;
   error: null;
