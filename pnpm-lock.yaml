@@ -112,6 +112,28 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  packages/config:
+    dependencies:
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
+    devDependencies:
+      tailwindcss:
+        specifier: ^3.4.1
+        version: 3.4.19
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
+  packages/types:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.5
+        version: 20.19.33
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   packages/ui:
     dependencies:
       '@radix-ui/react-label':

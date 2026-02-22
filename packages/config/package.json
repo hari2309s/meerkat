@@ -1,0 +1,33 @@
+{
+  "name": "@meerkat/config",
+  "version": "1.0.0",
+  "description": "Shared configs and app configuration for the Meerkat monorepo",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean && rm -rf dist",
+    "type-check": "tsc --noEmit"
+  },
+  "license": "ISC",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tailwind": "./src/tailwind.ts",
+    "./typescript/base": "./src/typescript/base.json",
+    "./typescript/node": "./src/typescript/node.json",
+    "./typescript/library": "./src/typescript/library.json",
+    "./typescript/react": "./src/typescript/react.json"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3"
+  }
+}
