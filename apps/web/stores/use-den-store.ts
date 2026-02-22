@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { Den, DenMember, ModalType } from "@/types/den";
 
+// Mute-persistence helpers have moved to @meerkat/utils/storage.
+// Re-exported here so existing imports from this file keep working without changes.
+export { loadMuteState, saveMuteState } from "@meerkat/utils/storage";
+
 interface DenState {
   den: Den | null;
   members: DenMember[];
@@ -68,14 +72,3 @@ export const useDenStore = create<DenState>((set) => ({
   setNavigatingBack: (navigatingBack) => set({ navigatingBack }),
   reset: () => set(initialState),
 }));
-
-// ─── Mute persistence helper ───────────────────────────────────────────────────
-
-export function loadMuteState(denId: string): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(`muted_den_${denId}`) === "1";
-}
-
-export function saveMuteState(denId: string, muted: boolean) {
-  localStorage.setItem(`muted_den_${denId}`, muted ? "1" : "0");
-}
