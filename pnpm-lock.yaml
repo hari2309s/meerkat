@@ -171,6 +171,9 @@ importers:
       '@types/react':
         specifier: ^18.0.0
         version: 18.3.28
+      fake-indexeddb:
+        specifier: ^5.0.2
+        version: 5.0.2
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2841,6 +2844,11 @@ packages:
       onetime: 6.0.0
       signal-exit: 4.1.0
       strip-final-newline: 3.0.0
+    dev: true
+
+  /fake-indexeddb@5.0.2:
+    resolution: {integrity: sha512-cB507r5T3D55DfclY01GLkninZLfU7HXV/mhVRTnTRm5k2u+fY7Fof2dBkr80p5t7G7dlA/G5dI87QiMdPpMCQ==}
+    engines: {node: '>=18'}
     dev: true
 
   /fast-deep-equal@3.1.3:
