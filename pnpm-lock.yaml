@@ -127,9 +127,9 @@ importers:
 
   packages/types:
     devDependencies:
-      '@types/node':
-        specifier: ^20.11.5
-        version: 20.19.33
+      '@meerkat/config':
+        specifier: workspace:*
+        version: link:../config
       typescript:
         specifier: ^5.3.3
         version: 5.9.3

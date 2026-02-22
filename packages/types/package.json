@@ -1,0 +1,30 @@
+{
+  "name": "@meerkat/types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for the Meerkat monorepo",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean && rm -rf dist",
+    "type-check": "tsc --noEmit"
+  },
+  "license": "ISC",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "devDependencies": {
+    "@meerkat/config": "workspace:*",
+    "typescript": "^5.3.3"
+  }
+}
