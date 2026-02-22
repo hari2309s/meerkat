@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { InvitePageClient } from "@/components/invite-page-client";
 
 interface InvitePageProps {
@@ -18,12 +19,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
 
   // Look up the invite bypassing RLS using the service role key.
   // We need this because the user is not yet a member, so RLS on `dens` hides the joined data.
-  const { createClient: createAdminClient } =
-    await import("@supabase/supabase-js");
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  const supabaseAdmin = createAdminClient();
 
   const { data: invite, error } = await supabaseAdmin
     .from("den_invites")
@@ -48,7 +44,6 @@ export default async function InvitePage({ params }: InvitePageProps) {
 
   // Already accepted
   if (invite.accepted_at) {
-    // If already a member, just redirect
     return <InvitePageClient status="already_used" denId={invite.den_id} />;
   }
 

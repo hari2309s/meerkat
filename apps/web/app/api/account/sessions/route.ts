@@ -1,27 +1,9 @@
-import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { headers } from "next/headers";
-import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { NextResponse } from "next/server";
 import { parseUA } from "@meerkat/utils/ua-parser";
 import { getLocation } from "@meerkat/utils/geo";
 import { sessionIdFromJWT } from "@meerkat/utils/jwt";
-
-// ── Admin client (needs service role — not available in shared server helper) ──
-
-function makeAdmin() {
-  const headerStore = headers();
-  const ip = headerStore.get("x-real-ip") || headerStore.get("x-forwarded-for");
-
-  return createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      global: {
-        headers: ip ? { "x-forwarded-for": ip } : undefined,
-      },
-    },
-  );
-}
 
 // ── GET /api/account/sessions ───────────────────────────────────────────────
 
@@ -36,7 +18,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const adminClient = makeAdmin();
+  const adminClient = createAdminClient();
 
   // Use SECURITY DEFINER RPC — auth schema is not accessible via PostgREST directly.
   // Run migrations/sessions_rpc_functions.sql to create these functions first.
@@ -49,6 +31,7 @@ export async function GET() {
   }
 
   const enriched = await Promise.all(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (rows ?? []).map(async (s: any) => {
       const { browser, os, device } = parseUA(s.user_agent);
       const location = await getLocation(s.ip ?? "");
@@ -68,7 +51,7 @@ export async function GET() {
   );
 
   // Decode the current session ID from the JWT so we can mark it exactly —
-  // not by recency, which is wrong when the phone refreshed more recently.
+  // not by recency, which is wrong when another device refreshed more recently.
   const currentSessionId = sessionIdFromJWT(session.access_token);
   const now = Date.now();
   const withCurrent = enriched
@@ -99,8 +82,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Missing session id" }, { status: 400 });
   }
 
-  const adminClient = makeAdmin();
-
+  const adminClient = createAdminClient();
   const { error } = await adminClient.rpc("delete_user_session", {
     p_session_id: sessionId,
     p_user_id: user.id,
