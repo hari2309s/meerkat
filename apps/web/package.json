@@ -10,6 +10,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@meerkat/config": "workspace:*",
+    "@meerkat/types": "workspace:*",
     "@meerkat/ui": "workspace:*",
     "@meerkat/utils": "workspace:*",
     "@supabase/ssr": "^0.1.0",

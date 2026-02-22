@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: [
+    "@meerkat/types",
+    "@meerkat/config",
     "@meerkat/ui",
     "@meerkat/utils",
     "@meerkat/crdt",
@@ -19,7 +21,6 @@ const nextConfig = {
     ],
   },
   webpack: (config) => {
-    // Yjs needs this
     config.externals.push({
       "utf-8-validate": "commonjs utf-8-validate",
       bufferutil: "commonjs bufferutil",

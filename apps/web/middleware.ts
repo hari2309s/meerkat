@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { clientEnv } from "@meerkat/config";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -9,8 +10,8 @@ export async function middleware(request: NextRequest) {
   });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+    clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         get(name: string) {
@@ -45,15 +46,12 @@ export async function middleware(request: NextRequest) {
   const authRoutes = ["/login", "/signup", "/forgot-password"];
   if (authRoutes.includes(pathname) && user) {
     const next = request.nextUrl.searchParams.get("next") ?? "/";
-    // Sanitise: only allow same-origin relative paths
     const destination =
       next.startsWith("/") && !next.startsWith("//") ? next : "/";
     return NextResponse.redirect(new URL(destination, request.url));
   }
 
   // Protected routes — redirect to login if not logged in
-  // /invite/* is intentionally public — the invite page server component
-  // handles its own auth check and redirects to /signup with ?next= set.
   const publicRoutes = [
     "/login",
     "/signup",
@@ -75,13 +73,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimisation)
-     * - favicon.ico
-     * - public folder files (images, fonts etc.)
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$).*)",
   ],
 };
