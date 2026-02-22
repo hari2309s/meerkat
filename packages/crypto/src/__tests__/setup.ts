@@ -6,9 +6,9 @@ import { webcrypto } from "node:crypto";
  * can sometimes miss it in the global scope of tests.
  */
 if (!globalThis.crypto) {
-    Object.defineProperty(globalThis, "crypto", {
-        value: webcrypto,
-        writable: false,
-        configurable: true,
-    });
+  Object.defineProperty(globalThis, "crypto", {
+    value: webcrypto,
+    writable: false,
+    configurable: true,
+  });
 }

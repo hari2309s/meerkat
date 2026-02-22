@@ -55,7 +55,6 @@ export async function encryptBlob(
     data as BufferSource,
   );
 
-
   return {
     alg: "AES-GCM-256",
     iv: toBase64(iv),
@@ -90,7 +89,7 @@ export async function decryptBlob(
   if (blob.alg !== "AES-GCM-256") {
     throw new Error(
       `@meerkat/crypto: decryptBlob — unsupported algorithm "${blob.alg}". ` +
-      `Only "AES-GCM-256" is supported.`,
+        `Only "AES-GCM-256" is supported.`,
     );
   }
 
@@ -102,7 +101,6 @@ export async function decryptBlob(
     key,
     ciphertext as BufferSource,
   );
-
 
   return new Uint8Array(plaintext);
 }

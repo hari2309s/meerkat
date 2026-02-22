@@ -78,15 +78,17 @@ export interface VoiceMemoData {
   durationSeconds: number;
   createdAt: number; // Unix ms
   /** Analysis results from @meerkat/analyzer (if available). */
-  analysis?: {
-    transcript: string;
-    mood: string;
-    tone: string;
-    valence: number;
-    arousal: number;
-    confidence: number;
-    analysedAt: number; // Unix ms
-  } | undefined;
+  analysis?:
+    | {
+        transcript: string;
+        mood: string;
+        tone: string;
+        valence: number;
+        arousal: number;
+        confidence: number;
+        analysedAt: number; // Unix ms
+      }
+    | undefined;
 }
 
 /** A single entry in the local mood journal. */

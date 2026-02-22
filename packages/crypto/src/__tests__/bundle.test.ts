@@ -152,7 +152,6 @@ describe("encryptBundle / decryptBundle", () => {
     expect(() => decryptBundle(tampered, kp.secretKey)).toThrow(
       "decryption failed",
     );
-
   });
 
   it("throws on unrecognised algorithm tag", () => {
