@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@meerkat/web",
     "build": "turbo run build",
     "start": "turbo run start",
     "lint": "turbo run lint",
@@ -18,7 +19,7 @@
     "db:generate": "turbo run db:generate",
     "db:push": "turbo run db:push",
     "db:migrate": "turbo run db:migrate",
-    "db:studio": "pnpm --filter @workspace/database db:studio"
+    "db:studio": "pnpm --filter @meerkat/database db:studio"
   },
   "devDependencies": {
     "@types/node": "^20.11.5",

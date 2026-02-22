@@ -26,6 +26,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@meerkat/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@meerkat/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@meerkat/ui':
         specifier: workspace:*
         version: link:../../packages/ui
