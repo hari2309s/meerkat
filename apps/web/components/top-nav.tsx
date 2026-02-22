@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { startNavigationProgress } from "@/components/navigation-progress";
+import { getInitials } from "@meerkat/utils/string";
 
 interface NavUser {
   name: string;
@@ -73,12 +74,7 @@ export function TopNav({ user }: TopNavProps) {
     if (href !== pathname) startNavigationProgress();
   };
 
-  const initials = user.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = getInitials(user.name);
 
   return (
     <>
@@ -122,7 +118,7 @@ export function TopNav({ user }: TopNavProps) {
                   key={href}
                   href={href}
                   onClick={() => handleNavClick(href)}
-                  className={`nav-item relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium`}
+                  className="nav-item relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium"
                   style={{
                     color: active
                       ? "var(--color-wordmark)"
@@ -134,7 +130,6 @@ export function TopNav({ user }: TopNavProps) {
                       ? "var(--color-nav-active-shadow)"
                       : "none",
                     fontWeight: active ? 600 : 500,
-                    // Prevent nav-item hover from overriding active state
                     pointerEvents: active ? "none" : "auto",
                   }}
                 >
@@ -177,7 +172,7 @@ export function TopNav({ user }: TopNavProps) {
                 style={{ color: "var(--color-text-primary)" }}
               >
                 <div
-                  className="h-6 w-6 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
+                  className="h-6 w-6 rounded-md flex items-center justify-center text-xs font-bold text-white shrink-0"
                   style={{ background: "var(--color-avatar-bg)" }}
                 >
                   {initials}
@@ -309,7 +304,7 @@ export function TopNav({ user }: TopNavProps) {
                           ? "var(--color-text-primary)"
                           : "var(--color-text-secondary)",
                         background: active
-                          ? "var(--color-nav-active-bg)"
+                          ? "rgba(255,255,255,0.1)"
                           : "transparent",
                       }}
                     >
@@ -318,12 +313,27 @@ export function TopNav({ user }: TopNavProps) {
                     </Link>
                   );
                 })}
+
+                <div
+                  className="border-t mt-1 pt-1"
+                  style={{ borderColor: "var(--color-border-card)" }}
+                >
+                  <button
+                    onClick={handleSignOut}
+                    className="dropdown-item-danger flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium w-full"
+                    style={{ color: "#e05c4a" }}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </motion.header>
 
+      {/* Spacer so content doesn't sit under the fixed nav */}
       <div className="h-20" />
     </>
   );
