@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { MessageSquare } from "lucide-react";
 import { useChatStore } from "@/stores/use-chat-store";
 import { VoiceNoteMessage } from "@/components/den/voice-note-message";
+import { formatMessageTime } from "@meerkat/utils/time";
+import { getSenderName } from "@meerkat/utils/string";
 import type { Den } from "@/types/den";
 
 interface ChatAreaProps {
@@ -69,10 +71,7 @@ function TextMessage({
           className={`text-xs px-1 ${isOwn ? "text-right" : ""}`}
           style={{ color: "var(--color-text-muted)" }}
         >
-          {new Date(createdAt).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-          })}
+          {formatMessageTime(createdAt)}
         </span>
       </div>
     </motion.div>
@@ -127,8 +126,7 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
   return (
     <div className="flex flex-col gap-4 pb-4">
       {messages.map((msg) => {
-        const senderName =
-          msg.sender?.full_name ?? msg.sender?.email ?? "Unknown";
+        const senderName = getSenderName(msg.sender);
         const isOwn = msg.user_id === currentUserId;
 
         if (msg.type === "voice") {

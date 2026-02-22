@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Crown, Users, BellOff, Circle } from "lucide-react";
 import { usePresenceStore } from "@/stores/use-presence-store";
+import { formatFullDate } from "@meerkat/utils/time";
 import type { Den } from "@/types/den";
 
 interface DenHeaderProps {
@@ -39,12 +40,7 @@ export function DenHeader({
         className="mt-1.5 text-sm flex items-center flex-wrap gap-2"
         style={{ color: "var(--color-text-muted)" }}
       >
-        Created on{" "}
-        {new Date(den.created_at).toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        })}
+        Created on {formatFullDate(den.created_at)}
         {isOwner && (
           <span
             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"

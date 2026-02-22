@@ -3,22 +3,19 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Play, Pause, Mic } from "lucide-react";
+import { formatDuration } from "@meerkat/utils/time";
+import { getSenderName } from "@meerkat/utils/string";
 import type { Message } from "@/types/den";
 
 interface VoiceNoteMessageProps {
   message: Message;
 }
 
-function formatDuration(seconds: number) {
-  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
 export function VoiceNoteMessage({ message }: VoiceNoteMessageProps) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const senderName =
-    message.sender?.full_name ?? message.sender?.email ?? "Unknown";
+  const senderName = getSenderName(message.sender);
 
   const togglePlay = () => {
     const audio = audioRef.current;

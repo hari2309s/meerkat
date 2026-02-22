@@ -16,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { SectionCard, ConfirmModal } from "@/components/settings/shared";
+import { relativeTime } from "@meerkat/utils/time";
 import type { SessionInfo, SettingsUser } from "@/components/settings/types";
 
 // ── Password card ─────────────────────────────────────────────────────────────
@@ -159,18 +160,6 @@ function SessionsCard() {
                     ? Tablet
                     : Monitor;
 
-              const diffMin = Math.floor(
-                (Date.now() - new Date(s.lastActiveAt).getTime()) / 60000,
-              );
-              const relativeTime =
-                diffMin < 1
-                  ? "Just now"
-                  : diffMin < 60
-                    ? `${diffMin}m ago`
-                    : diffMin < 1440
-                      ? `${Math.floor(diffMin / 60)}h ago`
-                      : `${Math.floor(diffMin / 1440)}d ago`;
-
               return (
                 <div
                   key={s.id}
@@ -231,7 +220,7 @@ function SessionsCard() {
                         style={{ color: "var(--color-text-muted)" }}
                       >
                         <Clock className="h-3 w-3 shrink-0" />
-                        {relativeTime}
+                        {relativeTime(s.lastActiveAt)}
                       </span>
                     </div>
                   </div>

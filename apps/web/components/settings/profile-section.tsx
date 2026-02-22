@@ -9,6 +9,7 @@ import { Label } from "@meerkat/ui";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import { SectionCard } from "@/components/settings/shared";
+import { getInitials } from "@meerkat/utils/string";
 import type { SettingsUser } from "@/components/settings/types";
 
 export function ProfileSection({ user }: { user: SettingsUser }) {
@@ -17,12 +18,7 @@ export function ProfileSection({ user }: { user: SettingsUser }) {
   const [preferredName, setPreferredName] = useState(user.preferredName);
   const [isSaving, setIsSaving] = useState(false);
 
-  const avatarInitials = (preferredName || name)
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const avatarInitials = getInitials(preferredName || name);
 
   const handleSave = async () => {
     setIsSaving(true);

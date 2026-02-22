@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Mic, Square, Send, X, Loader2 } from "lucide-react";
 import { ModalShell } from "@/components/ui/modal-shell";
 import { useChatStore } from "@/stores/use-chat-store";
+import { formatTime } from "@meerkat/utils/time";
 
 interface VoiceNoteRecorderProps {
   onClose: () => void;
@@ -89,9 +90,6 @@ export function VoiceNoteRecorder({ onClose, onSend }: VoiceNoteRecorderProps) {
     setSeconds(0);
     setPhase("idle");
   };
-
-  const formatTime = (s: number) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   return (
     <ModalShell onClose={onClose} maxWidth="max-w-sm">
