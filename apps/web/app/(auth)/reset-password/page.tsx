@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AuthLayout } from "@/components/auth/auth-layout";
-import { Button } from "@meerkat/ui";
-import { Input } from "@meerkat/ui";
-import { Label } from "@meerkat/ui";
+import { Button, Input, Label } from "@meerkat/ui";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Lock, CheckCircle } from "lucide-react";
 import Link from "next/link";

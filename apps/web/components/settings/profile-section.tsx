@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@meerkat/ui";
-import { Input } from "@meerkat/ui";
-import { Label } from "@meerkat/ui";
+import { Button, Input, Label } from "@meerkat/ui";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import { SectionCard } from "@/components/settings/shared";

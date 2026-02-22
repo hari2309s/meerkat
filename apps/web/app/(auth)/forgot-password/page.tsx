@@ -4,9 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuthLayout } from "@/components/auth/auth-layout";
-import { Button } from "@meerkat/ui";
-import { Input } from "@meerkat/ui";
-import { Label } from "@meerkat/ui";
+import { Button, Input, Label } from "@meerkat/ui";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, CheckCircle, ArrowLeft } from "lucide-react";
 
