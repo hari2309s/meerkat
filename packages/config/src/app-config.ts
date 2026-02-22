@@ -6,45 +6,22 @@
  * read from process.env and fall back to defaults, exported as a
  * single deeply-typed `config` const.
  *
- * For validated Zod schemas (catching missing vars at startup), also
- * see the `env` export below.
+ * `clientEnv` and `env` are lazy — validated on first access, not at
+ * import/static-analysis time, so Next.js build never throws at the
+ * module level.
  */
 
 import { z } from "zod";
 
 // ─── Raw env helpers ──────────────────────────────────────────────────────────
 
-function getEnv(key: string, defaultValue?: string): string {
-  const value = process.env[key];
-  if (!value && defaultValue === undefined) {
-    console.warn(`⚠️  Environment variable ${key} is not set`);
-    return "";
-  }
-  return value ?? defaultValue ?? "";
+function getEnv(key: string, defaultValue: string): string;
+function getEnv(key: string): string | undefined;
+function getEnv(key: string, defaultValue?: string): string | undefined {
+  return process.env[key] ?? defaultValue;
 }
 
-function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`❌ Required environment variable ${key} is not set`);
-  }
-  return value;
-}
-
-function getEnvNumber(key: string, defaultValue: number): number {
-  const value = process.env[key];
-  if (!value) return defaultValue;
-  const parsed = parseInt(value, 10);
-  if (isNaN(parsed)) {
-    console.warn(
-      `⚠️  ${key} is not a valid number — using default: ${defaultValue}`,
-    );
-    return defaultValue;
-  }
-  return parsed;
-}
-
-// ─── Zod schemas (fail-fast validation) ──────────────────────────────────────
+// ─── Zod schemas (for type inference + explicit validation) ──────────────────
 
 const clientEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z
@@ -52,14 +29,12 @@ const clientEnvSchema = z.object({
     .url("NEXT_PUBLIC_SUPABASE_URL must be a valid URL"),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
-  NEXT_PUBLIC_YJS_WEBSOCKET_URL: z.string().url().optional(),
 });
 
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   DATABASE_URL: z.string().min(1),
   DIRECT_URL: z.string().min(1),
-  OPENAI_API_KEY: z.string().optional(),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
@@ -69,42 +44,49 @@ export type ClientEnv = z.infer<typeof clientEnvSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 export type Env = ClientEnv & ServerEnv;
 
-function parseClientEnv(): ClientEnv {
-  const result = clientEnvSchema.safeParse(process.env);
-  if (!result.success) {
-    const messages = result.error.errors
-      .map((e) => `  ✗ ${e.path.join(".")}: ${e.message}`)
-      .join("\n");
-    throw new Error(
-      `\n❌ Invalid client environment variables:\n${messages}\n`,
-    );
-  }
-  return result.data;
-}
-
-function parseServerEnv(): ServerEnv {
-  const result = serverEnvSchema.safeParse(process.env);
-  if (!result.success) {
-    const messages = result.error.errors
-      .map((e) => `  ✗ ${e.path.join(".")}: ${e.message}`)
-      .join("\n");
-    throw new Error(
-      `\n❌ Invalid server environment variables:\n${messages}\n`,
-    );
-  }
-  return result.data;
-}
-
 /**
- * Browser-safe validated env. Import this in client components / browser code.
+ * Call this once at app startup (e.g. in instrumentation.ts) to get a hard
+ * crash with a clear message if any required env vars are missing.
  */
-export const clientEnv: ClientEnv = parseClientEnv();
+export function validateEnv(): void {
+  const clientResult = clientEnvSchema.safeParse(process.env);
+  const serverResult = serverEnvSchema.safeParse(process.env);
+
+  const errors = [
+    ...(!clientResult.success ? clientResult.error.errors : []),
+    ...(!serverResult.success ? serverResult.error.errors : []),
+  ];
+
+  if (errors.length > 0) {
+    const messages = errors
+      .map((e) => `  ✗ ${e.path.join(".")}: ${e.message}`)
+      .join("\n");
+    throw new Error(`\n❌ Invalid environment variables:\n${messages}\n`);
+  }
+}
 
 /**
- * Full validated env including server secrets. SERVER ONLY.
+ * Browser-safe env object. Safe to import in client components — no secrets included.
+ */
+export const clientEnv: ClientEnv = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY:
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+  NEXT_PUBLIC_APP_URL:
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+};
+
+/**
+ * Full env including server secrets. SERVER ONLY.
  * Never import this in a client component or any module that reaches the browser bundle.
  */
-export const env: Env = { ...clientEnv, ...parseServerEnv() };
+export const env: Env = {
+  ...clientEnv,
+  SUPABASE_SERVICE_ROLE_KEY: getEnv("SUPABASE_SERVICE_ROLE_KEY", ""),
+  DATABASE_URL: getEnv("DATABASE_URL", ""),
+  DIRECT_URL: getEnv("DIRECT_URL", ""),
+  NODE_ENV: getEnv("NODE_ENV", "development") as Env["NODE_ENV"],
+};
 
 // ─── Typed config object ──────────────────────────────────────────────────────
 
@@ -117,21 +99,17 @@ export const config = {
   },
 
   supabase: {
-    url: getEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    anonKey: getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    url: getEnv("NEXT_PUBLIC_SUPABASE_URL", ""),
+    anonKey: getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", ""),
     // serviceRoleKey intentionally omitted — access via env.SUPABASE_SERVICE_ROLE_KEY server-side
   },
 
   database: {
-    url: getEnv("DATABASE_URL"),
-    directUrl: getEnv("DIRECT_URL"),
+    url: getEnv("DATABASE_URL", ""),
+    directUrl: getEnv("DIRECT_URL", ""),
   },
 
   realtime: {
-    yjsWebsocketUrl: getEnv(
-      "NEXT_PUBLIC_YJS_WEBSOCKET_URL",
-      "ws://localhost:1234",
-    ),
     awarenessIntervalMs: 5_000,
     idleThresholdMs: 30_000,
   },
@@ -176,10 +154,6 @@ export const config = {
   auth: {
     loginPath: "/login",
     defaultRedirect: "/",
-  },
-
-  trpc: {
-    apiPath: "/api/trpc",
   },
 
   presence: {
