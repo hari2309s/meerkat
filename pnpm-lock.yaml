@@ -144,7 +144,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.0.0
-        version: 1.6.1(@types/node@20.19.33)(jsdom@22.1.0)
+        version: 1.6.1(@types/node@20.19.33)(happy-dom@20.7.0)
 
   packages/config:
     dependencies:
@@ -219,7 +219,35 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.2.0
-        version: 1.6.1(@types/node@20.19.33)(jsdom@22.1.0)
+        version: 1.6.1(@types/node@20.19.33)(happy-dom@20.7.0)
+
+  packages/keys:
+    dependencies:
+      '@meerkat/crypto':
+        specifier: workspace:*
+        version: link:../crypto
+      '@meerkat/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      '@meerkat/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(typescript@5.9.3)
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.33)(happy-dom@20.7.0)
 
   packages/local-store:
     dependencies:
@@ -253,7 +281,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.0.0
-        version: 1.6.1(@types/node@20.19.33)(jsdom@22.1.0)
+        version: 1.6.1(@types/node@20.19.33)(happy-dom@20.7.0)
 
   packages/types:
     devDependencies:

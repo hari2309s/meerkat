@@ -91,16 +91,16 @@ idle → requesting → recording → stopping → preview → saving → done
          error          error                error      error
 ```
 
-| Phase | Meaning |
-|-------|---------|
-| `idle` | Nothing happening |
-| `requesting` | Waiting for mic permission |
-| `recording` | Actively recording, `seconds` ticking |
-| `stopping` | MediaRecorder stopping, assembling blob |
-| `preview` | `audioBlob` + `audioUrl` ready, awaiting user action |
-| `saving` | Running analyse → encrypt → upload → store |
-| `done` | Saved successfully |
-| `error` | See `errorMessage` |
+| Phase        | Meaning                                              |
+| ------------ | ---------------------------------------------------- |
+| `idle`       | Nothing happening                                    |
+| `requesting` | Waiting for mic permission                           |
+| `recording`  | Actively recording, `seconds` ticking                |
+| `stopping`   | MediaRecorder stopping, assembling blob              |
+| `preview`    | `audioBlob` + `audioUrl` ready, awaiting user action |
+| `saving`     | Running analyse → encrypt → upload → store           |
+| `done`       | Saved successfully                                   |
+| `error`      | See `errorMessage`                                   |
 
 ---
 
@@ -114,14 +114,21 @@ React hook for playing back voice memos. Works in two modes.
 import { useVoicePlayer } from "@meerkat/voice";
 
 function PreviewPlayer({ audioUrl }: { audioUrl: string }) {
-  const { isPlaying, progress, currentSeconds, durationSeconds, togglePlayPause } =
-    useVoicePlayer({ audioUrl });
+  const {
+    isPlaying,
+    progress,
+    currentSeconds,
+    durationSeconds,
+    togglePlayPause,
+  } = useVoicePlayer({ audioUrl });
 
   return (
     <div>
       <button onClick={togglePlayPause}>{isPlaying ? "⏸" : "▶"}</button>
       <progress value={progress} max={1} />
-      <span>{Math.floor(currentSeconds)}s / {Math.floor(durationSeconds)}s</span>
+      <span>
+        {Math.floor(currentSeconds)}s / {Math.floor(durationSeconds)}s
+      </span>
     </div>
   );
 }
@@ -139,7 +146,10 @@ function StoredMemoPlayer({ blobRef, namespaceKey }) {
       // 1. Fetch encrypted bytes from Supabase Storage (via tRPC)
       const { data, iv } = await trpc.voice.getEncryptedBlob.query({ blobRef });
       // 2. Decrypt on-device
-      const bytes = await decryptBlob({ alg: "AES-GCM-256", data, iv }, namespaceKey);
+      const bytes = await decryptBlob(
+        { alg: "AES-GCM-256", data, iv },
+        namespaceKey,
+      );
       // 3. Create a temporary object URL
       const blob = new Blob([bytes], { type: "audio/webm" });
       return URL.createObjectURL(blob);
@@ -148,9 +158,7 @@ function StoredMemoPlayer({ blobRef, namespaceKey }) {
 
   if (isLoading) return <span>Loading…</span>;
 
-  return (
-    <button onClick={togglePlayPause}>{isPlaying ? "⏸" : "▶"}</button>
-  );
+  return <button onClick={togglePlayPause}>{isPlaying ? "⏸" : "▶"}</button>;
 }
 ```
 
@@ -174,8 +182,8 @@ const saved = await saveVoiceNote(audioBlob, durationSeconds, {
   allowAnalysisFailure: true, // default — saves without mood if analysis fails
 });
 
-console.log(saved.memoId);       // ID in local-store
-console.log(saved.blobRef);      // Supabase Storage path
+console.log(saved.memoId); // ID in local-store
+console.log(saved.blobRef); // Supabase Storage path
 console.log(saved.analysis?.mood); // "happy" | "sad" | etc.
 ```
 
@@ -183,12 +191,12 @@ console.log(saved.analysis?.mood); // "happy" | "sad" | etc.
 
 ## Privacy guarantees
 
-| What | Where it goes |
-|------|--------------|
-| Raw audio blob | Only in memory — never persisted unencrypted |
-| Analysis (transcript, mood) | IndexedDB via `private.ydoc` — never leaves device |
-| Encrypted audio | Supabase Storage — server cannot decrypt |
-| `encryptionKey` | Never sent to server — derived from the den's namespace key |
+| What                        | Where it goes                                               |
+| --------------------------- | ----------------------------------------------------------- |
+| Raw audio blob              | Only in memory — never persisted unencrypted                |
+| Analysis (transcript, mood) | IndexedDB via `private.ydoc` — never leaves device          |
+| Encrypted audio             | Supabase Storage — server cannot decrypt                    |
+| `encryptionKey`             | Never sent to server — derived from the den's namespace key |
 
 The `uploadEncryptedBlob` function is **caller-provided** intentionally — this package has no Supabase import. The server receives only ciphertext.
 
@@ -202,10 +210,12 @@ voice.upload.mutate(async ({ data, iv }) => {
   // data and iv are the base64 fields from EncryptedBlob
   // Store them in Supabase Storage — server cannot decrypt
   const path = `dens/${denId}/audio/${crypto.randomUUID()}.enc`;
-  await supabase.storage.from("blobs").upload(path, Buffer.from(data, "base64"), {
-    contentType: "application/octet-stream",
-    metadata: { iv }, // store iv alongside for retrieval
-  });
+  await supabase.storage
+    .from("blobs")
+    .upload(path, Buffer.from(data, "base64"), {
+      contentType: "application/octet-stream",
+      metadata: { iv }, // store iv alongside for retrieval
+    });
   return { blobRef: path };
 });
 ```
@@ -228,11 +238,11 @@ voice.upload.mutate(async ({ data, iv }) => {
 
 ### Dependencies
 
-| Package | Used for |
-|---------|----------|
-| `@meerkat/analyzer` | On-device transcription + emotion classification |
-| `@meerkat/crypto` | `encryptBlob()` — AES-GCM-256 encryption |
+| Package                | Used for                                         |
+| ---------------------- | ------------------------------------------------ |
+| `@meerkat/analyzer`    | On-device transcription + emotion classification |
+| `@meerkat/crypto`      | `encryptBlob()` — AES-GCM-256 encryption         |
 | `@meerkat/local-store` | `addVoiceMemo()` — IndexedDB persistence via Yjs |
-| `@meerkat/types` | Shared domain types |
+| `@meerkat/types`       | Shared domain types                              |
 
 This package has **no Supabase dependency**. The upload function is injected by the caller, keeping the server boundary clean.
