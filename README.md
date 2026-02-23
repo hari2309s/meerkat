@@ -2,50 +2,50 @@
 
 A modern, real-time collaborative workspace platform featuring voice messaging with mood and tone analysis.
 
-## 🚀 Features
+![pnpm](https://img.shields.io/badge/pnpm-Workspace-orange?logo=pnpm)
+![TurboRepo](https://img.shields.io/badge/TurboRepo-Monorepo-EF4444?logo=turborepo)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)
+![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)
+![tRPC](https://img.shields.io/badge/tRPC-API-2596BE?logo=trpc)
+![Zod](https://img.shields.io/badge/Zod-Schema-3E67B1)
+![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![Framer Motion](https://img.shields.io/badge/Framer_Motion-Animations-0055FF?logo=framer)
+![Vercel](https://img.shields.io/badge/Vercel-Hosting-black?logo=vercel)
+![Tailwind](https://img.shields.io/badge/Tailwind-CSS-06B6D4?logo=tailwindcss)
+![Yjs](https://img.shields.io/badge/Yjs-CRDT-orange)
+![Supabase](https://img.shields.io/badge/Supabase-Auth_&_Storage-3ECF8E?logo=supabase)
+![TweetNaCl](https://img.shields.io/badge/TweetNaCl-Encryption-5C4EE5)
+![License](https://img.shields.io/badge/License-ISC-blue)
 
-- **Real-time Collaboration**: Built on Yjs CRDT for conflict-free synchronization
-- **Voice Messages**: Record, playback, and analyze voice messages
-- **Mood & Tone Analysis**: Automatic detection of emotional content in voice messages
-- **Block-based Editor**: Flexible content blocks (text, headings, lists, voice, images, etc.)
-- **Workspaces**: Organize content into separate workspaces
-- **User Presence**: See who's online and where they're working
-- **Comments & Threads**: Discuss content with threaded comments
-- **Offline-first**: Work offline with automatic sync when reconnected
+A note-taking and real-time collaboration app for your crew — voice, text, solo, or together. Your content lives on your device, encrypted by default. Visitors connect directly to you; when you're offline, the door closes.
 
-## 👥 Who Is Meerkat For?
+## ✨ Features
 
-**No matter your group size, Meerkat adapts to your needs - from one person standing guard alone to a whole mob watching out for each other.**
+- **Local-first Storage**: Notes and voice memos are written to IndexedDB first. The app works fully offline.
+- **End-to-end Encryption**: All content is encrypted on-device via `@meerkat/crypto` before anything touches a network or storage.
+- **Voice Memos**: Record, store, and play back voice notes — all within your den.
+- **Block-based Editor**: Flexible content blocks — text, headings, lists, voice, and more.
+- **On-device Mood Analysis**: Voice memo transcription and emotion classification run entirely in the browser. No audio is ever sent to a server.
+- **CRDT Sync**: Conflict-free document synchronisation via Yjs, with a private/shared doc split.
+- **Animated UI**: Smooth transitions and real-time feedback powered by Framer Motion.
+- **Type-Safe Pipeline**: End-to-end TypeScript with Zod validation and shared types across the monorepo.
 
-## 🏗️ Tech Stack
-
-- **Framework**: Next.js 14+ (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Animation**: Framer Motion
-- **CRDT**: Yjs
-- **Monorepo**: PNPM + Turborepo
-- **API**: tRPC
-- **Database**: PostgreSQL (Supabase)
-- **ORM**: Prisma
-- **Storage**: Supabase Storage
-- **Realtime**: Supabase Realtime + Yjs WebSocket
-- **Deployment**: Vercel
-
-## 📁 Project Structure
+## 🏗️ Monorepo Structure
 
 ```
 meerkat/
 ├── apps/
-│   └── web/                    # Main Next.js application
+│   └── web/                # Next.js 15 application (App Router)
 ├── packages/
-│   ├── shared/                 # Shared utilities
-│   ├── crdt/                   # CRDT implementation (Yjs)
-│   ├── voice/                  # Voice recording/playback
-│   ├── mood-analyzer/          # Mood/tone analysis wrapper
-│   ├── database/               # Prisma ORM + Supabase
-│   └── ui/                     # Shared UI components
-└── supabase/                   # Supabase configuration
+│   ├── crypto/             # All encryption — nothing leaves the device without passing through here
+│   ├── local-store/        # IndexedDB-backed Yjs documents with private/shared doc split
+│   ├── crdt/               # Orchestration layer — wires local-store together, exposes the den API
+│   ├── voice/              # Voice recording, playback, and storage lifecycle
+│   ├── types/              # Shared domain types across the monorepo
+│   ├── ui/                 # Shared component library
+│   ├── utils/              # General utilities (time formatting, UA parsing, etc.)
+│   └── config/             # Environment validation and shared config
 ```
 
 ## 🚀 Getting Started
@@ -54,266 +54,37 @@ meerkat/
 
 - Node.js >= 18.0.0
 - PNPM >= 8.0.0
-- Supabase account
+- Supabase account (for auth and encrypted blob storage)
 - Vercel account (for deployment)
 
 ### Installation
 
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/yourusername/meerkat.git
-   cd meerkat
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   pnpm install
-   ```
-
-3. **Set up your private mood analyzer package**
-
-   Make sure your `mood-and-tone-analyzer` repository is accessible:
-
-   ```bash
-   # Option 1: Local development
-   cd packages/mood-analyzer
-   pnpm add file:../../../mood-and-tone-analyzer
-
-   # Option 2: Private npm registry
-   pnpm add hari2309s-mood-tone-analyzer@latest --registry=<your-registry>
-
-   # Option 3: GitHub private repository
-   pnpm add git+https://github.com/hari2309s/mood-and-tone-analyzer.git
-   ```
-
-4. **Set up Supabase**
-
-   a. Create a new project at [supabase.com](https://supabase.com)
-
-   b. Copy `.env.example` to `.env.local`:
-
-   ```bash
-   cp .env.example apps/web/.env.local
-   ```
-
-   c. Fill in your Supabase credentials:
-
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your-project-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-   DATABASE_URL=your-database-url
-   DIRECT_URL=your-direct-url
-   ```
-
-5. **Initialize the database**
-
-   ```bash
-   # Generate Prisma client
-   pnpm db:generate
-
-   # Run migrations
-   pnpm db:push
-   ```
-
-6. **Run the development server**
-
-   ```bash
-   pnpm dev
-   ```
-
-7. **Open your browser**
-
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## 🗄️ Database Setup
-
-### Using Supabase CLI (Recommended)
-
 ```bash
-# Install Supabase CLI
-pnpm add -g supabase
-
-# Login to Supabase
-supabase login
-
-# Link your project
-supabase link --project-ref your-project-ref
-
-# Run migrations
-supabase db push
+git clone https://github.com/hari2309s/meerkat.git
+cd meerkat
+pnpm install
 ```
 
-### Manual Setup
-
-1. Go to your Supabase project's SQL Editor
-2. Copy and paste the contents of `supabase/migrations/20240101000000_initial_schema.sql`
-3. Execute the SQL
-
-## 📦 Package Scripts
+### Environment Setup
 
 ```bash
-# Development
-pnpm dev              # Start all apps in development mode
-pnpm dev:web          # Start only the web app
-
-# Building
-pnpm build            # Build all packages and apps
-pnpm type-check       # Type check all packages
-
-# Database
-pnpm db:generate      # Generate Prisma client
-pnpm db:push          # Push schema to database
-pnpm db:migrate       # Run migrations
-pnpm db:studio        # Open Prisma Studio
-
-# Linting & Formatting
-pnpm lint             # Lint all packages
-pnpm format           # Format code with Prettier
-
-# Cleaning
-pnpm clean            # Clean all build artifacts
+cp apps/web/.env.example apps/web/.env.local
 ```
 
-## 🔧 Configuration
+Fill in your Supabase project URL and anon key.
 
-### Tailwind CSS
-
-Tailwind is configured at the workspace level and shared across packages. The configuration includes:
-
-- Custom color scheme with mood/tone colors
-- Animation utilities for voice recording
-- Custom scrollbar styles
-- Framer Motion integration
-
-### tRPC
-
-tRPC is set up for type-safe API calls. Add new routers in `apps/web/lib/trpc/routers/`.
-
-Example:
-
-```typescript
-// apps/web/lib/trpc/routers/example.ts
-export const exampleRouter = createTRPCRouter({
-  hello: publicProcedure
-    .input(z.object({ name: z.string() }))
-    .query(({ input }) => {
-      return { greeting: `Hello ${input.name}` };
-    }),
-});
-```
-
-### CRDT (Yjs)
-
-Real-time collaboration is handled by Yjs. Documents are automatically persisted to IndexedDB and synced via WebSocket.
-
-## 🎨 UI Components
-
-The project uses Radix UI primitives with Tailwind CSS styling. Components are organized in the `packages/ui` package.
-
-Key components:
-
-- `VoiceRecorder`: Record voice messages
-- `VoiceMessage`: Display and play voice messages with mood indicators
-- Block editor components
-- Collaboration UI (user presence, cursors)
-
-## 🔐 Authentication
-
-Authentication is handled by Supabase Auth. The middleware automatically:
-
-- Refreshes user sessions
-- Protects authenticated routes
-- Syncs auth state across tabs
-
-## 📡 Real-time Features
-
-### CRDT Sync
-
-- Uses Yjs for operational transformation
-- Automatic conflict resolution
-- Offline-first with eventual consistency
-
-### Supabase Realtime
-
-- Database change subscriptions
-- Broadcast events for ephemeral data
-- User presence
-
-## 🎙️ Voice Message Flow
-
-1. **Recording**: User records audio using `VoiceRecorder` component
-2. **Upload**: Audio blob is uploaded to Supabase Storage
-3. **Processing**: Server-side function triggers mood/tone analysis
-4. **Analysis**: Private package analyzes audio for mood and tone
-5. **Storage**: Results are cached in `voice_analysis_cache` table
-6. **Display**: `VoiceMessage` component shows audio with mood indicator
-
-## 🚀 Deployment
-
-### Vercel (Recommended)
-
-1. **Connect your repository**
-
-   ```bash
-   vercel login
-   vercel link
-   ```
-
-2. **Set environment variables**
-
-   In your Vercel project settings, add:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `DATABASE_URL`
-   - `DIRECT_URL`
-
-3. **Deploy**
-   ```bash
-   vercel --prod
-   ```
-
-### Manual Deployment
+### Development
 
 ```bash
-# Build all packages
+pnpm dev
+```
+
+### Build
+
+```bash
 pnpm build
-
-# Deploy the web app
-cd apps/web
-vercel --prod
 ```
 
-## 🧪 Testing
+## 🔐 How Privacy Works
 
-```bash
-# Run tests
-pnpm test
-
-# Run tests in watch mode
-pnpm test:watch
-
-# Generate coverage
-pnpm test:coverage
-```
-
-## 📝 Environment Variables
-
-| Variable                        | Description                        | Required |
-| ------------------------------- | ---------------------------------- | -------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL               | Yes      |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key             | Yes      |
-| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key          | Yes      |
-| `DATABASE_URL`                  | PostgreSQL connection string       | Yes      |
-| `DIRECT_URL`                    | Direct PostgreSQL connection       | Yes      |
-| `NEXT_PUBLIC_YJS_WEBSOCKET_URL` | WebSocket server URL               | No       |
-| `OPENAI_API_KEY`                | OpenAI API key (for transcription) | No       |
-
-## 🙏 Acknowledgments
-
-- [Yjs](https://yjs.dev) for CRDT implementation
-- [Supabase](https://supabase.com) for backend infrastructure
-- [Vercel](https://vercel.com) for hosting
+Meerkat uses Supabase **only** for identity (auth) and encrypted blob storage. Your content never leaves your device unencrypted. The `@meerkat/crypto` package handles all key derivation and encryption before any data is persisted or uploaded.
