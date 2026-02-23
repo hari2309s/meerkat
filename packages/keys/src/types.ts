@@ -4,6 +4,7 @@
 // dev plan's table and data model.
 
 import type { Namespace, SerializedNamespaceKeySet } from "@meerkat/crypto";
+export type { Namespace, SerializedNamespaceKeySet };
 
 // ─── Key types ────────────────────────────────────────────────────────────────
 

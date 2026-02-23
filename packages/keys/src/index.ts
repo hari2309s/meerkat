@@ -63,6 +63,8 @@ export {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type {
+  Namespace,
+  SerializedNamespaceKeySet,
   KeyType,
   KeyScope,
   DenKey,

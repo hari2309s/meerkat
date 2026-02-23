@@ -283,6 +283,49 @@ importers:
         specifier: ^1.0.0
         version: 1.6.1(@types/node@20.19.33)(happy-dom@20.7.0)
 
+  packages/p2p:
+    dependencies:
+      '@meerkat/keys':
+        specifier: workspace:*
+        version: link:../keys
+      '@meerkat/local-store':
+        specifier: workspace:*
+        version: link:../local-store
+      '@meerkat/types':
+        specifier: workspace:*
+        version: link:../types
+      lib0:
+        specifier: ^0.2.90
+        version: 0.2.117
+      y-protocols:
+        specifier: ^1.0.6
+        version: 1.0.7(yjs@13.6.29)
+      yjs:
+        specifier: ^13.6.18
+        version: 13.6.29
+    devDependencies:
+      '@meerkat/config':
+        specifier: workspace:*
+        version: link:../config
+      '@supabase/supabase-js':
+        specifier: ^2.39.0
+        version: 2.95.3
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.1(typescript@5.9.3)
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.0.0
+        version: 1.6.1(@types/node@20.19.33)(happy-dom@20.7.0)
+
   packages/types:
     devDependencies:
       '@meerkat/config':
@@ -1853,21 +1896,18 @@ packages:
     engines: {node: '>=20.0.0'}
     dependencies:
       tslib: 2.8.1
-    dev: false
 
   /@supabase/functions-js@2.95.3:
     resolution: {integrity: sha512-uTuOAKzs9R/IovW1krO0ZbUHSJnsnyJElTXIRhjJTqymIVGcHzkAYnBCJqd7468Fs/Foz1BQ7Dv6DCl05lr7ig==}
     engines: {node: '>=20.0.0'}
     dependencies:
       tslib: 2.8.1
-    dev: false
 
   /@supabase/postgrest-js@2.95.3:
     resolution: {integrity: sha512-LTrRBqU1gOovxRm1vRXPItSMPBmEFqrfTqdPTRtzOILV4jPSueFz6pES5hpb4LRlkFwCPRmv3nQJ5N625V2Xrg==}
     engines: {node: '>=20.0.0'}
     dependencies:
       tslib: 2.8.1
-    dev: false
 
   /@supabase/realtime-js@2.95.3:
     resolution: {integrity: sha512-D7EAtfU3w6BEUxDACjowWNJo/ZRo7sDIuhuOGKHIm9FHieGeoJV5R6GKTLtga/5l/6fDr2u+WcW/m8I9SYmaIw==}
@@ -1880,7 +1920,6 @@ packages:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-    dev: false
 
   /@supabase/ssr@0.1.0(@supabase/supabase-js@2.95.3):
     resolution: {integrity: sha512-bIVrkqjAK5G3KjkIMKYKtAOlCgRRplEWjrlyRyXSOYtgDieiOhk2ZyNAPsEOa1By9OZVxuX5eAW1fitdnuxayw==}
@@ -1898,7 +1937,6 @@ packages:
     dependencies:
       iceberg-js: 0.8.1
       tslib: 2.8.1
-    dev: false
 
   /@supabase/supabase-js@2.95.3:
     resolution: {integrity: sha512-Fukw1cUTQ6xdLiHDJhKKPu6svEPaCEDvThqCne3OaQyZvuq2qjhJAd91kJu3PXLG18aooCgYBaB6qQz35hhABg==}
@@ -1912,7 +1950,6 @@ packages:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-    dev: false
 
   /@swc/counter@0.1.3:
     resolution: {integrity: sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ==}
@@ -2090,7 +2127,6 @@ packages:
 
   /@types/phoenix@1.6.7:
     resolution: {integrity: sha512-oN9ive//QSBkf19rfDv45M7eZPi0eEXylht2OLEXicu5b4KoQ1OzXIw+xDSGWxSxe1JmepRR/ZH283vsu518/Q==}
-    dev: false
 
   /@types/prop-types@15.7.15:
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -4096,7 +4132,6 @@ packages:
   /iceberg-js@0.8.1:
     resolution: {integrity: sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA==}
     engines: {node: '>=20.0.0'}
-    dev: false
 
   /iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
@@ -6597,6 +6632,16 @@ packages:
 
   /y-indexeddb@9.0.12(yjs@13.6.29):
     resolution: {integrity: sha512-9oCFRSPPzBK7/w5vOkJBaVCQZKHXB/v6SIT+WYhnJxlEC61juqG0hBrAf+y3gmSMLFLwICNH9nQ53uscuse6Hg==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    peerDependencies:
+      yjs: ^13.0.0
+    dependencies:
+      lib0: 0.2.117
+      yjs: 13.6.29
+    dev: false
+
+  /y-protocols@1.0.7(yjs@13.6.29):
+    resolution: {integrity: sha512-YSVsLoXxO67J6eE/nV4AtFtT3QEotZf5sK5BHxFBXso7VDUT3Tx07IfA6hsu5Q5OmBdMkQVmFZ9QOA7fikWvnw==}
     engines: {node: '>=16.0.0', npm: '>=8.0.0'}
     peerDependencies:
       yjs: ^13.0.0
