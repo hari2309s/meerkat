@@ -23,8 +23,14 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
+    "@meerkat/p2p": "workspace:*",
     "react": "^18.0.0",
     "yjs": "^13.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@meerkat/p2p": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@meerkat/local-store": "workspace:*"

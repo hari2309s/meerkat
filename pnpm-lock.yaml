@@ -164,6 +164,9 @@ importers:
       '@meerkat/local-store':
         specifier: workspace:*
         version: link:../local-store
+      '@meerkat/p2p':
+        specifier: workspace:*
+        version: link:../p2p
     devDependencies:
       '@testing-library/dom':
         specifier: ^9.0.0
