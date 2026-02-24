@@ -363,7 +363,9 @@ const MOCK_VISITOR_PUBLIC_KEY = new Uint8Array(32).fill(1);
 const MOCK_VISITOR_SECRET_KEY = new Uint8Array(32).fill(2);
 
 describe("depositKey", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("seals the key with encryptBundle and calls depositOnServer", async () => {
     mockEncryptBundle.mockReturnValue(MOCK_BUNDLE);
@@ -451,7 +453,9 @@ describe("revokeKey", () => {
 });
 
 describe("redeemKey", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   const REDEEMED_KEY: DenKey = {
     keyId: "key-redeemed",
