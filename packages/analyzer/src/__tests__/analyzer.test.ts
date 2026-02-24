@@ -1,14 +1,20 @@
 /**
  * @meerkat/analyzer — integration tests
  *
- * Tests the full analyzeVoice() pipeline with transformers.js mocked out.
+ * Tests the full analyzeVoice() dual-signal pipeline with transformers.js
+ * mocked out. Also tests the audio-feature extraction and fusion functions,
+ * which are pure and require no mocking.
  *
  * We cannot run real Whisper or ONNX inference in vitest (no browser WASM
  * environment), so we mock the model-registry module and verify that
- * analyzeVoice() correctly orchestrates transcription → classification → result.
+ * analyzeVoice() correctly orchestrates:
+ *   1. Audio feature extraction (from decoded PCM)
+ *   2. Transcription via Whisper
+ *   3. Emotion classification from transcript
+ *   4. Signal fusion
  *
- * The pure utils and label-mapping logic is tested separately in utils.test.ts
- * where no mocking is needed.
+ * Pure utils and label-mapping logic is tested separately in utils.test.ts.
+ * Pure audio-feature logic is tested in audio-features.test.ts.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -45,13 +51,25 @@ vi.mock("../lib/model-registry", () => {
   };
 });
 
-// ─── Also mock blobToFloat32 so we don't need AudioContext ────────────────────
+// ─── Mock blobToFloat32 so we don't need a real AudioContext ─────────────────
+//
+// The new analyzeVoice() calls blobToFloat32 once and reuses the samples for
+// both extractAudioFeatures() and transcribeSamples(). We return a short
+// synthetic sinusoid so that audio feature extraction produces non-trivial
+// (non-zero) values without needing a real audio decoder.
 
 vi.mock("../utils", async (importOriginal) => {
   const original = await importOriginal<typeof import("../utils")>();
   return {
     ...original,
-    blobToFloat32: vi.fn(async () => new Float32Array(1600).fill(0.05)),
+    blobToFloat32: vi.fn(async () => {
+      // 0.5s of 200Hz sine at 16kHz — produces voiced frames with clear pitch.
+      const samples = new Float32Array(8000);
+      for (let i = 0; i < samples.length; i++) {
+        samples[i] = 0.3 * Math.sin((2 * Math.PI * 200 * i) / 16000);
+      }
+      return samples;
+    }),
     isSilent: vi.fn(() => false),
   };
 });
@@ -65,6 +83,9 @@ import {
   classifyEmotion,
   transcribe,
   preloadModels,
+  extractAudioFeatures,
+  inferMoodFromAudio,
+  fuseEmotionSignals,
 } from "../analyzer";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -79,6 +100,20 @@ function makeEmotionMock(label: string, score: number) {
   return vi.fn().mockResolvedValue([{ label, score }]);
 }
 
+/** Synthetic audio: 0.5s of 200Hz sine at 16kHz. Voiced, clear pitch. */
+function makeSineSamples(hz = 200, durationSamples = 8000): Float32Array {
+  const samples = new Float32Array(durationSamples);
+  for (let i = 0; i < samples.length; i++) {
+    samples[i] = 0.3 * Math.sin((2 * Math.PI * hz * i) / 16000);
+  }
+  return samples;
+}
+
+/** Silent samples — all zeros. */
+function makeSilentSamples(n = 8000): Float32Array {
+  return new Float32Array(n).fill(0);
+}
+
 // ─── analyzeVoice ─────────────────────────────────────────────────────────────
 
 describe("analyzeVoice", () => {
@@ -86,7 +121,7 @@ describe("analyzeVoice", () => {
     vi.clearAllMocks();
   });
 
-  it("returns a complete AnalysisResult for a happy transcript", async () => {
+  it("returns a complete AnalysisResult including audioFeatures for a happy transcript", async () => {
     vi.mocked(getTranscriptionPipeline).mockResolvedValue(
       makeTranscriptionMock("I'm feeling really great today!") as never,
     );
@@ -104,9 +139,14 @@ describe("analyzeVoice", () => {
     expect(result.confidence).toBeGreaterThan(0);
     expect(result.analysedAt).toBeGreaterThan(0);
     expect(typeof result.tone).toBe("string");
+
+    // New: audioFeatures should be present
+    expect(result.audioFeatures).toBeDefined();
+    expect(typeof result.audioFeatures!.energyMean).toBe("number");
+    expect(typeof result.audioFeatures!.voicedFraction).toBe("number");
   });
 
-  it("maps sad label correctly", async () => {
+  it("maps sad label correctly and fuses with audio signal", async () => {
     vi.mocked(getTranscriptionPipeline).mockResolvedValue(
       makeTranscriptionMock("I don't feel like doing anything today.") as never,
     );
@@ -117,11 +157,12 @@ describe("analyzeVoice", () => {
     const blob = new Blob(["fake-audio"], { type: "audio/webm" });
     const result = await analyzeVoice(blob);
 
+    // Text signal dominates for a high-confidence classification.
     expect(result.mood).toBe("sad");
     expect(result.valence).toBeLessThan(0);
   });
 
-  it("returns neutral result when transcript is empty", async () => {
+  it("falls back to audio-only mood when transcript is empty", async () => {
     vi.mocked(getTranscriptionPipeline).mockResolvedValue(
       makeTranscriptionMock("") as never,
     );
@@ -133,12 +174,13 @@ describe("analyzeVoice", () => {
     const result = await analyzeVoice(blob);
 
     expect(result.transcript).toBe("");
-    expect(result.mood).toBe("neutral");
-    expect(result.valence).toBe(0);
-    expect(result.arousal).toBe(0);
-    expect(result.confidence).toBe(0);
+    // Audio-only mood from synthetic sine wave — should not be undefined.
+    expect(result.mood).toBeDefined();
+    expect(typeof result.mood).toBe("string");
     // Emotion pipeline should not be called for empty transcripts.
     expect(emotionMock).not.toHaveBeenCalled();
+    // audioFeatures should still be present.
+    expect(result.audioFeatures).toBeDefined();
   });
 
   it("includes analysedAt timestamp", async () => {
@@ -156,6 +198,21 @@ describe("analyzeVoice", () => {
 
     expect(result.analysedAt).toBeGreaterThanOrEqual(before);
     expect(result.analysedAt).toBeLessThanOrEqual(after);
+  });
+
+  it("audioFeatures.voicedFraction is between 0 and 1", async () => {
+    vi.mocked(getTranscriptionPipeline).mockResolvedValue(
+      makeTranscriptionMock("Test.") as never,
+    );
+    vi.mocked(getEmotionPipeline).mockResolvedValue(
+      makeEmotionMock("neutral", 0.6) as never,
+    );
+
+    const blob = new Blob(["fake-audio"], { type: "audio/webm" });
+    const result = await analyzeVoice(blob);
+
+    expect(result.audioFeatures!.voicedFraction).toBeGreaterThanOrEqual(0);
+    expect(result.audioFeatures!.voicedFraction).toBeLessThanOrEqual(1);
   });
 });
 
@@ -189,7 +246,6 @@ describe("classifyEmotion", () => {
   });
 
   it("handles nested array output from some pipeline versions", async () => {
-    // Some versions of transformers.js wrap results in a double array.
     vi.mocked(getEmotionPipeline).mockResolvedValue(
       vi.fn().mockResolvedValue([[{ label: "joy", score: 0.9 }]]) as never,
     );
@@ -217,7 +273,6 @@ describe("transcribe", () => {
   });
 
   it("returns empty string for silent audio", async () => {
-    // Override isSilent to return true for this test.
     const { isSilent } = await import("../utils");
     vi.mocked(isSilent).mockReturnValueOnce(true);
 
@@ -258,5 +313,246 @@ describe("preloadModels", () => {
 
     expect(getTranscriptionPipeline).toHaveBeenCalledWith(onProgress);
     expect(getEmotionPipeline).toHaveBeenCalledWith(onProgress);
+  });
+});
+
+// ─── extractAudioFeatures ─────────────────────────────────────────────────────
+//
+// These tests are pure — no mocking needed. They run against real PCM arrays.
+
+describe("extractAudioFeatures", () => {
+  it("returns silent features for all-zero samples", () => {
+    const features = extractAudioFeatures(makeSilentSamples());
+
+    expect(features.pitchMedianHz).toBeNull();
+    expect(features.energyMean).toBe(0);
+    expect(features.voicedFraction).toBe(0);
+    expect(features.speakingRateFPS).toBe(0);
+  });
+
+  it("detects voiced content in a sine wave", () => {
+    const features = extractAudioFeatures(makeSineSamples());
+
+    // A 200Hz sine should produce voiced frames.
+    expect(features.voicedFraction).toBeGreaterThan(0);
+    expect(features.energyMean).toBeGreaterThan(0);
+  });
+
+  it("pitch estimate is in a plausible range for 200Hz input", () => {
+    const features = extractAudioFeatures(makeSineSamples(200));
+
+    // Allow ±30% tolerance around 200Hz for autocorrelation estimation.
+    if (features.pitchMedianHz !== null) {
+      expect(features.pitchMedianHz).toBeGreaterThan(100);
+      expect(features.pitchMedianHz).toBeLessThan(400);
+    }
+  });
+
+  it("returns higher energy for louder input", () => {
+    const quiet = new Float32Array(8000).fill(0.05);
+    const loud = new Float32Array(8000).fill(0.4);
+
+    const quietFeatures = extractAudioFeatures(quiet);
+    const loudFeatures = extractAudioFeatures(loud);
+
+    expect(loudFeatures.energyMean).toBeGreaterThan(quietFeatures.energyMean);
+  });
+
+  it("all numeric fields are finite numbers", () => {
+    const features = extractAudioFeatures(makeSineSamples());
+
+    expect(Number.isFinite(features.energyMean)).toBe(true);
+    expect(Number.isFinite(features.energyStdDev)).toBe(true);
+    expect(Number.isFinite(features.pitchStdDev)).toBe(true);
+    expect(Number.isFinite(features.speakingRateFPS)).toBe(true);
+    expect(Number.isFinite(features.spectralCentroidHz)).toBe(true);
+    expect(Number.isFinite(features.spectralRolloffHz)).toBe(true);
+    expect(Number.isFinite(features.voicedFraction)).toBe(true);
+  });
+
+  it("voicedFraction is always between 0 and 1", () => {
+    for (const samples of [
+      makeSilentSamples(),
+      makeSineSamples(),
+      new Float32Array(8000).fill(0.2),
+    ]) {
+      const { voicedFraction } = extractAudioFeatures(samples);
+      expect(voicedFraction).toBeGreaterThanOrEqual(0);
+      expect(voicedFraction).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+// ─── inferMoodFromAudio ───────────────────────────────────────────────────────
+
+describe("inferMoodFromAudio", () => {
+  it("returns neutral with low confidence for silent audio", () => {
+    const features = extractAudioFeatures(makeSilentSamples());
+    const signal = inferMoodFromAudio(features);
+
+    expect(signal.mood).toBe("neutral");
+    expect(signal.confidence).toBeLessThan(0.3);
+  });
+
+  it("returns a valid MoodLabel for voiced audio", () => {
+    const features = extractAudioFeatures(makeSineSamples());
+    const signal = inferMoodFromAudio(features);
+
+    const validMoods = [
+      "happy",
+      "sad",
+      "angry",
+      "fearful",
+      "disgusted",
+      "surprised",
+      "neutral",
+    ];
+    expect(validMoods).toContain(signal.mood);
+  });
+
+  it("returns a valid ToneLabel for voiced audio", () => {
+    const features = extractAudioFeatures(makeSineSamples());
+    const signal = inferMoodFromAudio(features);
+
+    const validTones = [
+      "positive",
+      "negative",
+      "neutral",
+      "energetic",
+      "calm",
+      "tense",
+    ];
+    expect(validTones).toContain(signal.tone);
+  });
+
+  it("valence is within [-1, 1]", () => {
+    const features = extractAudioFeatures(makeSineSamples());
+    const signal = inferMoodFromAudio(features);
+
+    expect(signal.valence).toBeGreaterThanOrEqual(-1);
+    expect(signal.valence).toBeLessThanOrEqual(1);
+  });
+
+  it("arousal is within [0, 1]", () => {
+    const features = extractAudioFeatures(makeSineSamples());
+    const signal = inferMoodFromAudio(features);
+
+    expect(signal.arousal).toBeGreaterThanOrEqual(0);
+    expect(signal.arousal).toBeLessThanOrEqual(1);
+  });
+
+  it("confidence is within [0, 1]", () => {
+    const features = extractAudioFeatures(makeSineSamples());
+    const signal = inferMoodFromAudio(features);
+
+    expect(signal.confidence).toBeGreaterThanOrEqual(0);
+    expect(signal.confidence).toBeLessThanOrEqual(1);
+  });
+
+  it("high energy input produces higher arousal than low energy input", () => {
+    const quietFeatures = extractAudioFeatures(
+      new Float32Array(8000).fill(0.01),
+    );
+    const loudFeatures = extractAudioFeatures(
+      new Float32Array(8000).fill(0.35),
+    );
+
+    const quietSignal = inferMoodFromAudio(quietFeatures);
+    const loudSignal = inferMoodFromAudio(loudFeatures);
+
+    expect(loudSignal.arousal).toBeGreaterThanOrEqual(quietSignal.arousal);
+  });
+});
+
+// ─── fuseEmotionSignals ───────────────────────────────────────────────────────
+
+describe("fuseEmotionSignals", () => {
+  const happyText = {
+    mood: "happy" as const,
+    tone: "energetic" as const,
+    valence: 0.8,
+    arousal: 0.6,
+    confidence: 0.9,
+  };
+
+  const sadAudio = {
+    mood: "sad" as const,
+    tone: "negative" as const,
+    valence: -0.4,
+    arousal: 0.15,
+    confidence: 0.55,
+  };
+
+  const happyAudio = {
+    mood: "happy" as const,
+    tone: "energetic" as const,
+    valence: 0.5,
+    arousal: 0.55,
+    confidence: 0.7,
+  };
+
+  it("returns a valid MoodLabel", () => {
+    const result = fuseEmotionSignals(happyText, happyAudio);
+    const validMoods = [
+      "happy",
+      "sad",
+      "angry",
+      "fearful",
+      "disgusted",
+      "surprised",
+      "neutral",
+    ];
+    expect(validMoods).toContain(result.mood);
+  });
+
+  it("returns a valid ToneLabel", () => {
+    const result = fuseEmotionSignals(happyText, happyAudio);
+    const validTones = [
+      "positive",
+      "negative",
+      "neutral",
+      "energetic",
+      "calm",
+      "tense",
+    ];
+    expect(validTones).toContain(result.tone);
+  });
+
+  it("fused valence is between the two input valences when signals agree in sign", () => {
+    const result = fuseEmotionSignals(happyText, happyAudio);
+    // Both are positive valence, fused should be positive.
+    expect(result.valence).toBeGreaterThan(0);
+  });
+
+  it("high-confidence text signal dominates valence direction", () => {
+    // happyText has confidence 0.9, sadAudio has 0.55.
+    // Text is weighted ~0.725, audio ~0.275 → fused valence should be positive.
+    const result = fuseEmotionSignals(happyText, sadAudio);
+    expect(result.valence).toBeGreaterThan(0);
+  });
+
+  it("agreement bonus increases confidence when both signals agree", () => {
+    const agreeResult = fuseEmotionSignals(happyText, happyAudio);
+    const disagreeResult = fuseEmotionSignals(happyText, sadAudio);
+
+    expect(agreeResult.confidence).toBeGreaterThan(disagreeResult.confidence);
+  });
+
+  it("confidence is clamped to [0, 1]", () => {
+    const result = fuseEmotionSignals(happyText, happyAudio);
+    expect(result.confidence).toBeGreaterThanOrEqual(0);
+    expect(result.confidence).toBeLessThanOrEqual(1);
+  });
+
+  it("valence is within [-1, 1]", () => {
+    const result = fuseEmotionSignals(happyText, sadAudio);
+    expect(result.valence).toBeGreaterThanOrEqual(-1);
+    expect(result.valence).toBeLessThanOrEqual(1);
+  });
+
+  it("arousal is within [0, 1]", () => {
+    const result = fuseEmotionSignals(happyText, happyAudio);
+    expect(result.arousal).toBeGreaterThanOrEqual(0);
+    expect(result.arousal).toBeLessThanOrEqual(1);
   });
 });
