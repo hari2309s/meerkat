@@ -17,6 +17,31 @@ export interface DenMember {
 
 export type MessageType = "text" | "voice" | "image" | "document";
 
+/**
+ * Discrete mood labels from @meerkat/analyzer.
+ * Must be kept in sync with MoodLabel in packages/analyzer/src/types.ts.
+ */
+export type MoodLabel =
+  | "happy"
+  | "sad"
+  | "angry"
+  | "fearful"
+  | "disgusted"
+  | "surprised"
+  | "neutral";
+
+/**
+ * Tone labels derived from valence + arousal dimensions (Russell circumplex).
+ * Must be kept in sync with ToneLabel in packages/analyzer/src/types.ts.
+ */
+export type ToneLabel =
+  | "positive"
+  | "negative"
+  | "neutral"
+  | "energetic"
+  | "calm"
+  | "tense";
+
 export interface Message {
   id: string;
   den_id: string;
@@ -27,6 +52,19 @@ export interface Message {
   voice_duration: number | null; // seconds
   created_at: string;
   sender?: { full_name: string | null; email: string };
+  /**
+   * On-device analysis result, present on voice messages after
+   * @meerkat/analyzer has run. Stored in the local Yjs doc, not Supabase.
+   */
+  analysis?: {
+    transcript: string;
+    mood: MoodLabel;
+    tone: ToneLabel;
+    valence: number;
+    arousal: number;
+    confidence: number;
+    analysedAt: number; // Unix ms
+  };
 }
 
 export type ModalType =
