@@ -88,3 +88,11 @@ pnpm build
 ## 🔐 How Privacy Works
 
 Meerkat uses Supabase **only** for identity (auth) and encrypted blob storage. Your content never leaves your device unencrypted. The `@meerkat/crypto` package handles all key derivation and encryption before any data is persisted or uploaded.
+
+## Screenshots
+
+### Sign Up
+![Sign up screen](docs/screenshots/signup.png)
+
+### Dashboard
+![Dashboard](docs/screenshots/dashboard.png)
