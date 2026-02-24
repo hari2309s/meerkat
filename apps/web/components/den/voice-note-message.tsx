@@ -1,11 +1,157 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { motion } from "framer-motion";
-import { Play, Pause, Mic } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Play, Pause, Mic, ChevronDown, ChevronUp } from "lucide-react";
 import { formatDuration } from "@meerkat/utils/time";
 import { getSenderName } from "@meerkat/utils/string";
-import type { Message } from "@/types/den";
+import type { Message, MoodLabel, ToneLabel } from "@/types/den";
+
+// ─── Mood colour map — matches tailwind.ts mood tokens ───────────────────────
+
+const MOOD_COLOR: Record<MoodLabel, string> = {
+  happy: "#FBBF24",
+  sad: "#60A5FA",
+  angry: "#F87171",
+  fearful: "#A78BFA",
+  disgusted: "#34D399",
+  surprised: "#FB923C",
+  neutral: "#94A3B8",
+};
+
+const MOOD_EMOJI: Record<MoodLabel, string> = {
+  happy: "😊",
+  sad: "😔",
+  angry: "😤",
+  fearful: "😨",
+  disgusted: "😒",
+  surprised: "😲",
+  neutral: "😐",
+};
+
+const TONE_LABEL: Record<ToneLabel, string> = {
+  positive: "Positive",
+  negative: "Low",
+  neutral: "Neutral",
+  energetic: "Energetic",
+  calm: "Calm",
+  tense: "Tense",
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+interface MoodBadgeProps {
+  mood: MoodLabel;
+  tone: ToneLabel;
+  confidence: number;
+}
+
+function MoodBadge({ mood, tone, confidence }: MoodBadgeProps) {
+  const color = MOOD_COLOR[mood];
+  const emoji = MOOD_EMOJI[mood];
+  const toneLabel = TONE_LABEL[tone];
+  const pct = Math.round(confidence * 100);
+
+  return (
+    <div
+      className="flex items-center gap-2 rounded-xl px-3 py-1.5"
+      style={{
+        background: `${color}18`,
+        border: `1px solid ${color}40`,
+      }}
+    >
+      <span className="text-sm leading-none" aria-hidden>
+        {emoji}
+      </span>
+      <div className="flex flex-col gap-0.5">
+        <span
+          className="text-xs font-semibold capitalize leading-none"
+          style={{ color }}
+        >
+          {mood}
+        </span>
+        <span
+          className="text-[10px] leading-none"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          {toneLabel} · {pct}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Valence/arousal bar ──────────────────────────────────────────────────────
+
+interface ValenceBarProps {
+  valence: number; // -1 to 1
+  arousal: number; // 0 to 1
+  mood: MoodLabel;
+}
+
+function ValenceBar({ valence, arousal, mood }: ValenceBarProps) {
+  const color = MOOD_COLOR[mood];
+  // Normalise valence from [-1,1] to [0,100]
+  const valencePct = Math.round(((valence + 1) / 2) * 100);
+  const arousalPct = Math.round(arousal * 100);
+
+  return (
+    <div className="flex flex-col gap-1.5 pt-1">
+      {/* Valence bar */}
+      <div className="flex items-center gap-2">
+        <span
+          className="text-[10px] w-14 shrink-0"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          Mood
+        </span>
+        <div
+          className="flex-1 h-1 rounded-full overflow-hidden"
+          style={{ background: "var(--color-btn-secondary-bg)" }}
+        >
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${valencePct}%`, background: color }}
+          />
+        </div>
+        <span
+          className="text-[10px] w-6 text-right tabular-nums"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          {valence > 0 ? "+" : ""}
+          {valence.toFixed(1)}
+        </span>
+      </div>
+
+      {/* Arousal bar */}
+      <div className="flex items-center gap-2">
+        <span
+          className="text-[10px] w-14 shrink-0"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          Energy
+        </span>
+        <div
+          className="flex-1 h-1 rounded-full overflow-hidden"
+          style={{ background: "var(--color-btn-secondary-bg)" }}
+        >
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${arousalPct}%`, background: color }}
+          />
+        </div>
+        <span
+          className="text-[10px] w-6 text-right tabular-nums"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          {arousalPct}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 interface VoiceNoteMessageProps {
   message: Message;
@@ -14,8 +160,10 @@ interface VoiceNoteMessageProps {
 export function VoiceNoteMessage({ message }: VoiceNoteMessageProps) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const senderName = getSenderName(message.sender);
+  const { analysis } = message;
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -40,6 +188,9 @@ export function VoiceNoteMessage({ message }: VoiceNoteMessageProps) {
   };
 
   const duration = message.voice_duration ?? 0;
+  const hasAnalysis = Boolean(
+    analysis && analysis.mood && analysis.mood !== "neutral",
+  );
 
   return (
     <motion.div
@@ -65,6 +216,7 @@ export function VoiceNoteMessage({ message }: VoiceNoteMessageProps) {
           minWidth: 220,
         }}
       >
+        {/* Header row */}
         <div className="flex items-center gap-1.5">
           <Mic className="h-3 w-3 shrink-0" style={{ color: "#d4673a" }} />
           <span
@@ -109,6 +261,64 @@ export function VoiceNoteMessage({ message }: VoiceNoteMessageProps) {
             </span>
           </div>
         </div>
+
+        {/* Mood badge — shown when analysis is available */}
+        {analysis && (
+          <div className="flex flex-col gap-0">
+            <MoodBadge
+              mood={analysis.mood}
+              tone={analysis.tone}
+              confidence={analysis.confidence}
+            />
+
+            {/* Expand toggle for valence/arousal bars + transcript */}
+            {hasAnalysis && (
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="flex items-center gap-1 mt-1 self-start"
+                style={{ color: "var(--color-text-muted)" }}
+                aria-label={expanded ? "Hide details" : "Show details"}
+              >
+                <span className="text-[10px]">
+                  {expanded ? "Less" : "More"}
+                </span>
+                {expanded ? (
+                  <ChevronUp className="h-3 w-3" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" />
+                )}
+              </button>
+            )}
+
+            <AnimatePresence>
+              {expanded && hasAnalysis && (
+                <motion.div
+                  key="details"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <ValenceBar
+                    valence={analysis.valence}
+                    arousal={analysis.arousal}
+                    mood={analysis.mood}
+                  />
+
+                  {/* Transcript — only if non-empty */}
+                  {analysis.transcript && (
+                    <p
+                      className="text-xs mt-2 italic leading-snug"
+                      style={{ color: "var(--color-text-muted)" }}
+                    >
+                      &ldquo;{analysis.transcript}&rdquo;
+                    </p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
 
         {message.voice_url && (
           <audio
