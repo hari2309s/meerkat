@@ -40,6 +40,7 @@ import {
   updateNote as storeUpdateNote,
   deleteNote as storeDeleteNote,
   searchNotes as storeSearchNotes,
+  addVoiceMemo as storeAddVoiceMemo,
 } from "@meerkat/local-store";
 import type {
   NoteData,
@@ -201,30 +202,63 @@ export function DenProvider({
 
   // ── Step 3: Start the sync state machine ──────────────────────────────────
   useEffect(() => {
-    if (readOnly) return;
+    if (readOnly) {
+      console.log(
+        `[@meerkat/crdt] Den ${denId} is read-only, skipping sync machine`,
+      );
+      return;
+    }
 
     let stopMachine: (() => void) | undefined;
+    let cancelled = false;
+
+    console.log(`[@meerkat/crdt] Starting sync machine for den ${denId}...`);
 
     // Resolve the adapter (may be the no-op offline adapter in Phase 1–3)
-    resolveP2PAdapter().then((adapter) => {
-      const machine = getOrCreateMachine(denId, adapter);
+    resolveP2PAdapter()
+      .then((adapter) => {
+        if (cancelled) return;
 
-      // Subscribe to status changes
-      const unsubscribe = machine.subscribe((status) => {
-        setSyncStatus(status);
+        console.log(`[@meerkat/crdt] P2P adapter resolved for den ${denId}`);
+        const machine = getOrCreateMachine(denId, adapter);
+
+        // Subscribe to status changes
+        const unsubscribe = machine.subscribe((status) => {
+          if (cancelled) return;
+          console.log(
+            `[@meerkat/crdt] Sync status changed for den ${denId}:`,
+            status,
+          );
+          setSyncStatus(status);
+        });
+
+        // Start hosting (no-op if adapter is offline)
+        console.log(`[@meerkat/crdt] Starting hosting for den ${denId}...`);
+        stopMachine = machine.start();
+
+        // Chain the cleanup
+        const originalStopMachine = stopMachine;
+        stopMachine = () => {
+          unsubscribe();
+          originalStopMachine();
+        };
+
+        // If we were cancelled while resolveP2PAdapter was pending,
+        // clean up immediately
+        if (cancelled) {
+          stopMachine();
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(
+          `[@meerkat/crdt] Failed to resolve P2P adapter for den ${denId}:`,
+          err,
+        );
       });
 
-      // Start hosting (no-op if adapter is offline)
-      stopMachine = machine.start();
-
-      // Return cleanup
-      return () => {
-        unsubscribe();
-        stopMachine?.();
-      };
-    });
-
     return () => {
+      cancelled = true;
       stopMachine?.();
     };
   }, [denId, readOnly]);
@@ -246,6 +280,28 @@ export function DenProvider({
     deleteNote: useCallback((id) => storeDeleteNote(denId, id), [denId]),
     searchNotes: useCallback(
       (options) => storeSearchNotes(denId, options),
+      [denId],
+    ),
+    createVoiceMemo: useCallback(
+      async (
+        blobRef: string,
+        durationSeconds: number,
+        analysis?: VoiceMemoData["analysis"],
+        sender?: VoiceMemoData["sender"],
+      ) => {
+        // Add the voice memo to the local store with optional analysis
+        // Analysis is performed at the web layer (using @meerkat/analyzer)
+        // This layer just stores the data
+        const memo = await storeAddVoiceMemo(
+          denId,
+          blobRef,
+          durationSeconds,
+          analysis,
+          sender,
+        );
+
+        return memo;
+      },
       [denId],
     ),
   };

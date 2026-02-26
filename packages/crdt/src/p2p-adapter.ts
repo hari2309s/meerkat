@@ -61,20 +61,32 @@ export async function resolveP2PAdapter(): Promise<P2PAdapter> {
   if (resolvedAdapter) return resolvedAdapter;
 
   if (!adapterLoadAttempted) {
-    adapterLoadAttempted = true;
     try {
       // Dynamic import — will throw if @meerkat/p2p is not installed
       const p2pModule = await import("@meerkat/p2p");
 
       // @meerkat/p2p must export createP2PAdapter() that returns a P2PAdapter
       if (typeof p2pModule.createP2PAdapter === "function") {
-        resolvedAdapter = p2pModule.createP2PAdapter() as P2PAdapter;
+        try {
+          resolvedAdapter = p2pModule.createP2PAdapter() as P2PAdapter;
+          adapterLoadAttempted = true; // Successfully resolved the real adapter
+        } catch (err) {
+          // Manager not initialized yet? Don't mark as attempted so we can retry
+          if (err instanceof Error && err.message.includes("not initialized")) {
+            return offlineAdapter;
+          }
+          // Some other error — fall back and cache it as offline
+          resolvedAdapter = offlineAdapter;
+          adapterLoadAttempted = true;
+        }
       } else {
         resolvedAdapter = offlineAdapter;
+        adapterLoadAttempted = true;
       }
     } catch {
       // @meerkat/p2p not installed — Phase 1/2/3 mode
       resolvedAdapter = offlineAdapter;
+      adapterLoadAttempted = true;
     }
   }
 

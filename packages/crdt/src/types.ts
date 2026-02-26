@@ -70,6 +70,13 @@ export interface DenActions {
   deleteNote: (id: string) => Promise<void>;
   /** Search notes by content, tags, or shared flag. */
   searchNotes: (options: SearchNotesOptions) => Promise<NoteData[]>;
+  /** Create a voice memo record in local storage with optional analysis. */
+  createVoiceMemo?: (
+    blobRef: string,
+    durationSeconds: number,
+    analysis?: VoiceMemoData["analysis"],
+    sender?: VoiceMemoData["sender"],
+  ) => Promise<VoiceMemoData>;
 }
 
 // ─── The full den state ───────────────────────────────────────────────────────

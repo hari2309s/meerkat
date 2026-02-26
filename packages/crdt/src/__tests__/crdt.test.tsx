@@ -84,6 +84,12 @@ function makeMockAdapter(): P2PAdapter & {
     },
 
     onStatusChange(denId: string, handler: (s: SyncStatus) => void) {
+      // Regression check: strictly follow P2PManager behavior.
+      // If hostDen hasn't been called for this den yet, return a no-op unsubscribe.
+      if (!hostDenCalls.includes(denId)) {
+        return () => {};
+      }
+
       if (!statusHandlers.has(denId)) {
         statusHandlers.set(denId, new Set());
       }
@@ -162,6 +168,29 @@ describe("DenSyncMachine", () => {
 
     expect(adapter.hostDenCalls).toContain(DEN_A);
     machine.stop();
+  });
+
+  it("is idempotent and only calls hostDen once for multiple starts", () => {
+    const adapter = makeMockAdapter();
+    const machine = new DenSyncMachine(DEN_A, adapter);
+
+    const stop1 = machine.start();
+    const stop2 = machine.start();
+
+    // Verify it only called hostDen ONCE
+    expect(adapter.hostDenCalls.filter((id) => id === DEN_A)).toHaveLength(1);
+
+    // Initial state is offline, let's move it to synced
+    adapter.emitStatus(DEN_A, "synced");
+    expect(machine.status).toBe("synced");
+
+    stop1();
+    // Should still be active/synced after one of the cleanups is called
+    expect(machine.status).toBe("synced");
+
+    stop2();
+    // After last stop, machine should be stopped and offline.
+    expect(machine.status).toBe("offline");
   });
 
   it("does not emit duplicate status transitions", () => {
