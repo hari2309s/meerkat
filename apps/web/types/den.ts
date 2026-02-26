@@ -12,7 +12,11 @@ export interface DenMember {
   user_id: string;
   role: "owner" | "member";
   joined_at: string;
-  profiles?: { full_name: string | null; email: string };
+  profiles?: {
+    full_name: string | null;
+    preferred_name?: string | null;
+    email: string;
+  };
 }
 
 export type MessageType = "text" | "voice" | "image" | "document";
@@ -51,7 +55,11 @@ export interface Message {
   voice_url: string | null; // storage URL for voice notes
   voice_duration: number | null; // seconds
   created_at: string;
-  sender?: { full_name: string | null; email: string };
+  sender?: {
+    full_name: string | null;
+    preferred_name?: string | null;
+    email: string;
+  };
   /**
    * On-device analysis result, present on voice messages after
    * @meerkat/analyzer has run. Stored in the local Yjs doc, not Supabase.

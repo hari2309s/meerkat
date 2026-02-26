@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { Pencil, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { ModalShell } from "@/components/ui/modal-shell";
-import { HoverButton } from "@/components/ui/hover-button";
+import { ModalShell } from "@meerkat/ui";
+import { HoverButton } from "@meerkat/ui";
 import type { Den } from "@/types/den";
 
 interface RenameModalProps {

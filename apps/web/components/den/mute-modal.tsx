@@ -2,8 +2,8 @@
 
 import { Bell, BellOff } from "lucide-react";
 import { toast } from "sonner";
-import { ModalShell } from "@/components/ui/modal-shell";
-import { HoverButton } from "@/components/ui/hover-button";
+import { ModalShell } from "@meerkat/ui";
+import { HoverButton } from "@meerkat/ui";
 
 interface MuteModalProps {
   muted: boolean;

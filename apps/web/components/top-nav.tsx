@@ -17,10 +17,11 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { startNavigationProgress } from "@/components/navigation-progress";
-import { getInitials } from "@meerkat/utils/string";
+import { getInitials, getDisplayName } from "@meerkat/utils/string";
 
 interface NavUser {
   name: string;
+  preferredName?: string | null;
   email: string;
 }
 interface TopNavProps {
@@ -178,7 +179,11 @@ export function TopNav({ user }: TopNavProps) {
                   {initials}
                 </div>
                 <span className="hidden sm:block text-sm font-medium max-w-[100px] truncate">
-                  {user.name.split(" ")[0]}
+                  {getDisplayName({
+                    preferred_name: user.preferredName,
+                    full_name: user.name,
+                    email: user.email,
+                  })}
                 </span>
                 <ChevronDown
                   className="h-3.5 w-3.5 hidden sm:block transition-transform duration-200"

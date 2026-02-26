@@ -2,12 +2,13 @@
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause, Mic, ChevronDown, ChevronUp } from "lucide-react";
-import { formatDuration } from "@meerkat/utils/time";
-import { getSenderName } from "@meerkat/utils/string";
+import { Play, Pause } from "lucide-react";
+import { formatDuration, formatMessageTime } from "@meerkat/utils/time";
+import { getInitials, getSenderName } from "@meerkat/utils/string";
 import type { Message, MoodLabel, ToneLabel } from "@/types/den";
+import { useVoiceUrl } from "@/hooks/use-voice-url";
 
-// ─── Mood colour map — matches tailwind.ts mood tokens ───────────────────────
+// ─── Mood colour map ──────────────────────────────────────────────────────────
 
 const MOOD_COLOR: Record<MoodLabel, string> = {
   happy: "#FBBF24",
@@ -38,115 +39,93 @@ const TONE_LABEL: Record<ToneLabel, string> = {
   tense: "Tense",
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Compact mood side panel (detail content only) ───────────────────────────
 
-interface MoodBadgeProps {
+interface MoodSidePanelProps {
   mood: MoodLabel;
   tone: ToneLabel;
+  valence: number;
+  arousal: number;
   confidence: number;
+  transcript?: string;
+  isOwn: boolean;
 }
 
-function MoodBadge({ mood, tone, confidence }: MoodBadgeProps) {
+function MoodSidePanel({
+  mood,
+  tone,
+  valence,
+  arousal,
+  confidence,
+  transcript,
+  isOwn,
+}: MoodSidePanelProps) {
   const color = MOOD_COLOR[mood];
-  const emoji = MOOD_EMOJI[mood];
   const toneLabel = TONE_LABEL[tone];
   const pct = Math.round(confidence * 100);
-
-  return (
-    <div
-      className="flex items-center gap-2 rounded-xl px-3 py-1.5"
-      style={{
-        background: `${color}18`,
-        border: `1px solid ${color}40`,
-      }}
-    >
-      <span className="text-sm leading-none" aria-hidden>
-        {emoji}
-      </span>
-      <div className="flex flex-col gap-0.5">
-        <span
-          className="text-xs font-semibold capitalize leading-none"
-          style={{ color }}
-        >
-          {mood}
-        </span>
-        <span
-          className="text-[10px] leading-none"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          {toneLabel} · {pct}%
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ─── Valence/arousal bar ──────────────────────────────────────────────────────
-
-interface ValenceBarProps {
-  valence: number; // -1 to 1
-  arousal: number; // 0 to 1
-  mood: MoodLabel;
-}
-
-function ValenceBar({ valence, arousal, mood }: ValenceBarProps) {
-  const color = MOOD_COLOR[mood];
-  // Normalise valence from [-1,1] to [0,100]
   const valencePct = Math.round(((valence + 1) / 2) * 100);
   const arousalPct = Math.round(arousal * 100);
 
   return (
-    <div className="flex flex-col gap-1.5 pt-1">
-      {/* Valence bar */}
-      <div className="flex items-center gap-2">
-        <span
-          className="text-[10px] w-14 shrink-0"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          Mood
-        </span>
-        <div
-          className="flex-1 h-1 rounded-full overflow-hidden"
-          style={{ background: "var(--color-btn-secondary-bg)" }}
-        >
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${valencePct}%`, background: color }}
-          />
-        </div>
-        <span
-          className="text-[10px] w-6 text-right tabular-nums"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          {valence > 0 ? "+" : ""}
-          {valence.toFixed(1)}
-        </span>
+    <div
+      className={`flex flex-col gap-2 shrink-0 ${isOwn ? "items-end" : "items-start"}`}
+      style={{ width: 112 }}
+    >
+      {/* Tone · confidence label */}
+      <div
+        className="text-[10px] font-semibold leading-none px-0.5 truncate w-full"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        {toneLabel} · {pct}%
       </div>
 
-      {/* Arousal bar */}
-      <div className="flex items-center gap-2">
-        <span
-          className="text-[10px] w-14 shrink-0"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          Energy
-        </span>
-        <div
-          className="flex-1 h-1 rounded-full overflow-hidden"
-          style={{ background: "var(--color-btn-secondary-bg)" }}
-        >
+      {/* Compact valence / arousal bars */}
+      <div className="flex flex-col gap-1 w-full">
+        <div className="flex items-center gap-1">
+          <span
+            className="text-[9px] w-8 shrink-0 leading-none"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            Mood
+          </span>
           <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${arousalPct}%`, background: color }}
-          />
+            className="flex-1 h-1 rounded-full overflow-hidden"
+            style={{ background: "var(--color-btn-secondary-bg)" }}
+          >
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${valencePct}%`, background: color }}
+            />
+          </div>
         </div>
-        <span
-          className="text-[10px] w-6 text-right tabular-nums"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          {arousalPct}%
-        </span>
+        <div className="flex items-center gap-1">
+          <span
+            className="text-[9px] w-8 shrink-0 leading-none"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            Energy
+          </span>
+          <div
+            className="flex-1 h-1 rounded-full overflow-hidden"
+            style={{ background: "var(--color-btn-secondary-bg)" }}
+          >
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${arousalPct}%`, background: color }}
+            />
+          </div>
+        </div>
       </div>
+
+      {/* Transcript */}
+      {transcript && (
+        <p
+          className="text-[10px] italic leading-relaxed line-clamp-3"
+          style={{ color: "var(--color-text-primary)", opacity: 0.75 }}
+        >
+          &ldquo;{transcript}&rdquo;
+        </p>
+      )}
     </div>
   );
 }
@@ -155,15 +134,23 @@ function ValenceBar({ valence, arousal, mood }: ValenceBarProps) {
 
 interface VoiceNoteMessageProps {
   message: Message;
+  isOwn: boolean;
 }
 
-export function VoiceNoteMessage({ message }: VoiceNoteMessageProps) {
+export function VoiceNoteMessage({ message, isOwn }: VoiceNoteMessageProps) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [expanded, setExpanded] = useState(false);
+  const [moodExpanded, setMoodExpanded] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const senderName = getSenderName(message.sender);
+
+  const displayName = getSenderName(message.sender);
+  const initialsSource =
+    message.sender?.full_name || message.sender?.email || "Unknown";
+
   const { analysis } = message;
+  const moodColor = analysis ? MOOD_COLOR[analysis.mood] : null;
+  const moodEmoji = analysis ? MOOD_EMOJI[analysis.mood] : null;
+  const signedUrl = useVoiceUrl(message.voice_url);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -188,148 +175,151 @@ export function VoiceNoteMessage({ message }: VoiceNoteMessageProps) {
   };
 
   const duration = message.voice_duration ?? 0;
-  const hasAnalysis = Boolean(
-    analysis && analysis.mood && analysis.mood !== "neutral",
-  );
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex gap-3 items-end max-w-xs"
+      className={`flex gap-2 items-end ${isOwn ? "flex-row-reverse self-end" : ""}`}
     >
       {/* Avatar */}
       <div
-        className="h-7 w-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
-        style={{ background: "var(--color-avatar-bg)" }}
-      >
-        {senderName[0]?.toUpperCase() ?? "?"}
-      </div>
-
-      {/* Bubble */}
-      <div
-        className="rounded-2xl rounded-bl-sm px-4 py-3 flex flex-col gap-2"
+        className="h-9 w-9 rounded-2xl flex items-center justify-center text-xs font-bold text-white shrink-0 mb-1"
         style={{
-          background: "var(--color-bg-card)",
-          border: "1.5px solid var(--color-border-card)",
-          boxShadow: "var(--color-shadow-card)",
-          minWidth: 220,
+          background: isOwn ? "#d4673a" : "var(--color-avatar-bg)",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
         }}
       >
-        {/* Header row */}
-        <div className="flex items-center gap-1.5">
-          <Mic className="h-3 w-3 shrink-0" style={{ color: "#d4673a" }} />
-          <span
-            className="text-xs font-semibold"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            {senderName}
-          </span>
-        </div>
+        {getInitials(initialsSource)}
+      </div>
 
-        {/* Waveform + controls */}
-        <div className="flex items-center gap-3">
+      {/* Name + Bubble + Audio */}
+      <div
+        className={`flex flex-col gap-1.5 ${isOwn ? "items-end" : "items-start"}`}
+      >
+        <span
+          className="text-[11px] font-bold px-1 uppercase tracking-tight opacity-70"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {displayName}
+        </span>
+
+        <div
+          className="px-4 py-3 flex items-center gap-3"
+          style={{
+            minWidth: 200,
+            maxWidth: 260,
+            background: "var(--color-bg-card)",
+            border: `1px solid ${isOwn ? "#d4673a40" : "var(--color-border-card)"}`,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            borderRadius: isOwn ? "22px 22px 4px 22px" : "22px 22px 22px 4px",
+          }}
+        >
+          {/* Play Button */}
           <button
             onClick={togglePlay}
-            className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-95"
-            style={{ background: "#d4673a" }}
+            className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-90 bg-[#d4673a] shadow-lg hover:brightness-110"
             aria-label={playing ? "Pause" : "Play"}
           >
             {playing ? (
-              <Pause className="h-4 w-4 text-white fill-white" />
+              <Pause className="h-5 w-5 text-white fill-current" />
             ) : (
-              <Play className="h-4 w-4 text-white fill-white ml-0.5" />
+              <Play className="h-5 w-5 text-white fill-current ml-0.5" />
             )}
           </button>
 
-          {/* Progress bar */}
-          <div className="flex-1 flex flex-col gap-1">
-            <div
-              className="w-full h-1.5 rounded-full overflow-hidden"
-              style={{ background: "var(--color-btn-secondary-bg)" }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-100"
-                style={{ background: "#d4673a", width: `${progress}%` }}
-              />
-            </div>
+          {/* Waveform */}
+          <div className="flex-1 flex items-center gap-0.5 h-8">
+            {Array.from({ length: 24 }).map((_, i) => {
+              const barProgress = (i / 24) * 100;
+              const isActive = progress > barProgress;
+              return (
+                <div
+                  key={i}
+                  className="w-0.5 rounded-full transition-all duration-300"
+                  style={{
+                    height: `${30 + Math.sin(i * 0.5) * 40 + Math.random() * 30}%`,
+                    background: isActive
+                      ? "#d4673a"
+                      : "rgba(212,103,58,0.15)",
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          {/* Duration / Time */}
+          <div className="flex flex-col items-end shrink-0 pl-1">
             <span
-              className="text-xs tabular-nums"
-              style={{ color: "var(--color-text-muted)" }}
+              className="text-[10px] font-black tabular-nums"
+              style={{ color: "#d4673a" }}
             >
               {formatDuration(duration)}
+            </span>
+            <span
+              className="text-[9px] mt-0.5 opacity-50 tabular-nums"
+              style={{ color: "var(--color-text-primary)" }}
+            >
+              {formatMessageTime(message.created_at)}
             </span>
           </div>
         </div>
 
-        {/* Mood badge — shown when analysis is available */}
-        {analysis && (
-          <div className="flex flex-col gap-0">
-            <MoodBadge
-              mood={analysis.mood}
-              tone={analysis.tone}
-              confidence={analysis.confidence}
-            />
-
-            {/* Expand toggle for valence/arousal bars + transcript */}
-            {hasAnalysis && (
-              <button
-                onClick={() => setExpanded((v) => !v)}
-                className="flex items-center gap-1 mt-1 self-start"
-                style={{ color: "var(--color-text-muted)" }}
-                aria-label={expanded ? "Hide details" : "Show details"}
-              >
-                <span className="text-[10px]">
-                  {expanded ? "Less" : "More"}
-                </span>
-                {expanded ? (
-                  <ChevronUp className="h-3 w-3" />
-                ) : (
-                  <ChevronDown className="h-3 w-3" />
-                )}
-              </button>
-            )}
-
-            <AnimatePresence>
-              {expanded && hasAnalysis && (
-                <motion.div
-                  key="details"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <ValenceBar
-                    valence={analysis.valence}
-                    arousal={analysis.arousal}
-                    mood={analysis.mood}
-                  />
-
-                  {/* Transcript — only if non-empty */}
-                  {analysis.transcript && (
-                    <p
-                      className="text-xs mt-2 italic leading-snug"
-                      style={{ color: "var(--color-text-muted)" }}
-                    >
-                      &ldquo;{analysis.transcript}&rdquo;
-                    </p>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-
-        {message.voice_url && (
+        {signedUrl && (
           <audio
             ref={audioRef}
-            src={message.voice_url}
+            src={signedUrl}
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleEnded}
             onPause={() => setPlaying(false)}
           />
         )}
       </div>
+
+      {/* Mood toggle + collapsible detail panel */}
+      {analysis && moodColor && moodEmoji && (
+        <div
+          className={`self-center flex items-center gap-1.5 ${isOwn ? "flex-row-reverse" : ""}`}
+        >
+          {/* Always-visible emoji toggle button */}
+          <button
+            onClick={() => setMoodExpanded((v) => !v)}
+            className="shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-sm transition-all hover:scale-110 active:scale-95"
+            style={{
+              background: `${moodColor}18`,
+              border: `1px solid ${moodColor}40`,
+            }}
+            aria-label={moodExpanded ? "Collapse mood" : "Expand mood"}
+            title={moodExpanded ? "Hide mood details" : "Show mood details"}
+          >
+            {moodEmoji}
+          </button>
+
+          {/* Animated expandable detail panel */}
+          <AnimatePresence>
+            {moodExpanded && (
+              <motion.div
+                key="mood-panel"
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 112, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                style={{ overflow: "hidden" }}
+              >
+                <MoodSidePanel
+                  mood={analysis.mood}
+                  tone={analysis.tone}
+                  valence={analysis.valence}
+                  arousal={analysis.arousal}
+                  confidence={analysis.confidence}
+                  transcript={analysis.transcript}
+                  isOwn={isOwn}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </motion.div>
   );
 }

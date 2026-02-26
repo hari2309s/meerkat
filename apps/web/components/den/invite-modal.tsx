@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { UserPlus, Loader2, Send, Copy, Check, LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { ModalShell } from "@/components/ui/modal-shell";
-import { HoverButton } from "@/components/ui/hover-button";
+import { ModalShell } from "@meerkat/ui";
+import { HoverButton } from "@meerkat/ui";
 import type { Den } from "@/types/den";
 
 interface InviteModalProps {

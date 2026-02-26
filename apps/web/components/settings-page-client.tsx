@@ -35,7 +35,13 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
         }}
       />
 
-      <TopNav user={{ name: user.name, email: user.email }} />
+      <TopNav
+        user={{
+          name: user.name,
+          preferredName: user.preferredName,
+          email: user.email,
+        }}
+      />
 
       <main className="relative z-10 max-w-4xl mx-auto px-4 pb-16">
         <motion.div

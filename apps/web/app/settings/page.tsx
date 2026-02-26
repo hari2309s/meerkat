@@ -13,7 +13,7 @@ export default async function SettingsPage() {
   const name =
     user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
 
-  const preferredName = user.user_metadata?.preferred_name ?? name;
+  const preferredName = user.user_metadata?.preferred_name || null;
 
   return (
     <SettingsPageClient

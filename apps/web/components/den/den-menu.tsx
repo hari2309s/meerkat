@@ -12,7 +12,7 @@ import {
   Trash2,
   LogOut,
 } from "lucide-react";
-import { MenuRow } from "@/components/ui/menu-row";
+import { MenuRow } from "@meerkat/ui";
 import { useDenStore } from "@/stores/use-den-store";
 
 interface DenMenuProps {

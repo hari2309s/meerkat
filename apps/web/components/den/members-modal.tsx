@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Users, Crown, Loader2, X, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
-import { ModalShell } from "@/components/ui/modal-shell";
+import { ModalShell } from "@meerkat/ui";
 import { usePresenceStore } from "@/stores/use-presence-store";
 import type { Den, DenMember } from "@/types/den";
 

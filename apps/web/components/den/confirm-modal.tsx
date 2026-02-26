@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { ModalShell } from "@/components/ui/modal-shell";
-import { HoverButton } from "@/components/ui/hover-button";
+import { ModalShell } from "@meerkat/ui";
+import { HoverButton } from "@meerkat/ui";
 
 interface ConfirmModalProps {
   title: string;

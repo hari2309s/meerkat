@@ -1,13 +1,16 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { MessageSquare } from "lucide-react";
 import { useChatStore } from "@/stores/use-chat-store";
+import { useDenContextSafe } from "@meerkat/crdt";
+import { useFeature } from "@/lib/feature-flags-context";
 import { VoiceNoteMessage } from "@/components/den/voice-note-message";
 import { formatMessageTime } from "@meerkat/utils/time";
 import { getSenderName } from "@meerkat/utils/string";
-import type { Den } from "@/types/den";
+import type { Den, Message } from "@/types/den";
+import type { VoiceMemoData } from "@meerkat/local-store";
 
 interface ChatAreaProps {
   den: Den;
@@ -79,15 +82,50 @@ function TextMessage({
 }
 
 export function ChatArea({ den, currentUserId }: ChatAreaProps) {
-  const messages = useChatStore((s) => s.messages);
+  const legacyMessages = useChatStore((s) => s.messages);
+  const denContext = useDenContextSafe();
+  const useLocalFirst = useFeature("localFirstStorage");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Convert CRDT voice memos to Message format for display
+  const voiceMemoMessages = useMemo((): Message[] => {
+    if (!useLocalFirst || !denContext?.voiceMemos) return [];
+
+    return denContext.voiceMemos.map(
+      (memo: VoiceMemoData): Message => ({
+        id: memo.id,
+        den_id: den.id,
+        user_id: currentUserId,
+        type: "voice" as const,
+        content: null,
+        voice_url: memo.blobRef,
+        voice_duration: memo.durationSeconds,
+        created_at: new Date(memo.createdAt).toISOString(),
+        sender: memo.sender,
+        analysis: memo.analysis as Message["analysis"],
+      }),
+    );
+  }, [useLocalFirst, denContext?.voiceMemos, den.id, currentUserId]);
+
+  // Use CRDT voice memos in local-first mode, otherwise use legacy messages
+  const messages = useLocalFirst ? voiceMemoMessages : legacyMessages;
+
+  // Sort ASC so oldest message is at top, newest at bottom
+  const sortedMessages = useMemo(
+    () =>
+      [...messages].sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      ),
+    [messages],
+  );
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [sortedMessages.length]);
 
-  if (messages.length === 0) {
+  if (sortedMessages.length === 0) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -124,8 +162,15 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-4">
-      {messages.map((msg) => {
+    <div
+      className="flex flex-col gap-4 p-4 sm:p-6 rounded-2xl mb-4 overflow-y-auto"
+      style={{
+        background: "var(--color-bg-card)",
+        border: "1.5px dashed var(--color-border-card)",
+        maxHeight: "65vh",
+      }}
+    >
+      {sortedMessages.map((msg) => {
         const senderName = getSenderName(msg.sender);
         const isOwn = msg.user_id === currentUserId;
 
@@ -135,7 +180,7 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
               key={msg.id}
               className={`flex ${isOwn ? "flex-row-reverse" : ""}`}
             >
-              <VoiceNoteMessage message={msg} />
+              <VoiceNoteMessage message={msg} isOwn={isOwn} />
             </div>
           );
         }

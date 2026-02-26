@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { DenPageClient } from "@/components/den-page-client";
+import { DenPageClientEnhanced } from "@/components/den-page-client-enhanced";
 
 interface DenPageProps {
   params: { id: string };
@@ -32,6 +32,7 @@ export default async function DenPage({ params }: DenPageProps) {
       joined_at,
       profiles:user_id (
         full_name,
+        preferred_name,
         email
       )
     `,
@@ -39,24 +40,38 @@ export default async function DenPage({ params }: DenPageProps) {
     .eq("den_id", params.id)
     .order("joined_at", { ascending: true });
 
-  const name =
-    user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
+  const { data: currentUserProfile } = await supabase
+    .from("profiles")
+    .select("full_name, preferred_name")
+    .eq("id", user.id)
+    .single();
 
-  // Use `unknown` intermediate cast — Supabase's inferred type for the profiles
-  // join has a slightly different shape to our DenMember type but the runtime
-  // values are identical.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fullName =
+    currentUserProfile?.full_name ??
+    user.user_metadata?.full_name ??
+    user.email?.split("@")[0] ??
+    "User";
+  const preferredName =
+    currentUserProfile?.preferred_name ||
+    user.user_metadata?.preferred_name ||
+    null;
+
+  // Use `unknown` intermediate cast
   let membersList = (members ?? []) as unknown as {
     user_id: string;
     role: string;
     joined_at: string;
-    profiles?: { full_name: string | null; email: string } | null;
+    profiles?: {
+      full_name: string | null;
+      preferred_name: string | null;
+      email: string;
+    } | null;
   }[];
 
   if (!membersList.some((m) => m.user_id === den.user_id)) {
     const { data: ownerProfile } = await supabase
       .from("profiles")
-      .select("full_name, email")
+      .select("full_name, preferred_name, email")
       .eq("id", den.user_id)
       .single();
 
@@ -65,17 +80,21 @@ export default async function DenPage({ params }: DenPageProps) {
         user_id: den.user_id,
         role: "owner",
         joined_at: den.created_at,
-        profiles: ownerProfile ?? { full_name: null, email: "" },
+        profiles: ownerProfile ?? {
+          full_name: null,
+          preferred_name: null,
+          email: "",
+        },
       },
       ...membersList,
     ];
   }
 
   return (
-    <DenPageClient
+    <DenPageClientEnhanced
       den={den}
       currentUserId={user.id}
-      user={{ name, email: user.email ?? "" }}
+      user={{ name: fullName, preferredName, email: user.email ?? "" }}
       members={membersList as unknown as any}
     />
   );

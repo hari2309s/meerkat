@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -10,6 +10,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { startNavigationProgress } from "@/components/navigation-progress";
 import { createClient } from "@/lib/supabase/client";
+import { useFeature } from "@/lib/feature-flags-context";
+import { useDenContextSafe } from "@meerkat/crdt";
 
 // Stores
 import {
@@ -18,12 +20,14 @@ import {
   saveMuteState,
 } from "@/stores/use-den-store";
 
-// Hooks
+// Legacy hooks (used when localFirstStorage is disabled)
 import { useDenPresence } from "@/hooks/use-den-presence";
-import { useDenMessages } from "@/hooks/use-den-messages";
+import { useVoiceMemoUpload } from "@/hooks/use-voice-memo-upload";
 
 // Den components
 import { DenHeader } from "@/components/den/den-header";
+import { DenHeaderEnhanced } from "@/components/den/den-header-enhanced";
+import { VisitorPanel } from "@/components/den/visitor-panel";
 import { DenMenu } from "@/components/den/den-menu";
 import { ChatArea } from "@/components/den/chat-area";
 import { Fab } from "@/components/den/fab";
@@ -36,21 +40,43 @@ import { VoiceNoteRecorder } from "@/components/den/voice-note-recorder";
 
 import type { Den, DenMember } from "@/types/den";
 
-interface DenPageClientProps {
+interface DenPageClientEnhancedProps {
   den: Den;
   currentUserId: string;
   user: { name: string; preferredName: string | null; email: string };
   members: DenMember[];
 }
 
-export function DenPageClient({
+/**
+ * Enhanced Den Page Client
+ *
+ * Hybrid component that supports both:
+ * 1. Local-first architecture (IndexedDB + CRDT + P2P sync)
+ * 2. Legacy architecture (tRPC + Supabase Realtime)
+ *
+ * The active mode is determined by feature flags.
+ */
+export function DenPageClientEnhanced({
   den: initialDen,
   currentUserId,
   user,
   members: initialMembers,
-}: DenPageClientProps) {
+}: DenPageClientEnhancedProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // Feature flags
+  const useLocalFirst = useFeature("localFirstStorage");
+  const showNewUI = useFeature("newUI");
+
+  // Local-first context (may be null if feature flag is disabled)
+  const denContext = useDenContextSafe();
+
+  // Prevent hydration mismatch
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ── Zustand store ─────────────────────────────────────────────────────────
   const {
@@ -84,13 +110,25 @@ export function DenPageClient({
   const activeMembers = members.length ? members : initialMembers;
   const isOwner = activeDen.user_id === currentUserId;
 
-  // ── Presence (online tracking) ────────────────────────────────────────────
-  useDenPresence(activeDen.id, currentUserId);
+  // ── Legacy hooks (only used when localFirstStorage is disabled) ───────────
+  const legacyPresenceEnabled = !useLocalFirst;
 
-  // ── Messages (TanStack Query + Realtime) ──────────────────────────────────
-  const { sendVoice } = useDenMessages(activeDen.id);
+  // Conditionally use hooks based on feature flag
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  if (legacyPresenceEnabled) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useDenPresence(activeDen.id, currentUserId);
+  }
 
-  // ── Realtime: den updates / member changes ────────────────────────────────
+  // Voice memo upload with analysis
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const { uploadVoiceMemo } = useVoiceMemoUpload(activeDen.id, currentUserId);
+
+  // ── Local-first data (only available when feature flag is enabled) ────────
+  const syncStatus = denContext?.syncStatus ?? "offline";
+  const visitors = denContext?.visitors ?? [];
+
+  // ── Realtime: den updates / member changes (legacy only) ──────────────────
   const handleDenUpdate = useCallback(
     (payload: { new: Den }) => {
       setDen(payload.new);
@@ -109,8 +147,6 @@ export function DenPageClient({
 
   const handleMemberInsert = useCallback(
     async (payload: { new: DenMember & { den_id: string } }) => {
-      // The realtime payload only has the fields in den_members, not the joined `profiles`
-      // We need to fetch the profile to display their name properly in the UI.
       const supabase = createClient();
       const { data } = await supabase
         .from("den_members")
@@ -151,7 +187,10 @@ export function DenPageClient({
     [currentUserId, removeMember, router],
   );
 
+  // Only subscribe to realtime in legacy mode
   useEffect(() => {
+    if (useLocalFirst) return; // Skip in local-first mode
+
     const supabase = createClient();
     const channel = supabase
       .channel(`den-realtime-${activeDen.id}`)
@@ -203,6 +242,7 @@ export function DenPageClient({
       supabase.removeChannel(channel);
     };
   }, [
+    useLocalFirst,
     activeDen.id,
     handleDenUpdate,
     handleDenDelete,
@@ -229,7 +269,6 @@ export function DenPageClient({
       throw error;
     }
     toast.success(`You left ${activeDen.name}`);
-    // Remove cached den list so the home page refetches immediately
     queryClient.removeQueries({ queryKey: ["dens", currentUserId] });
     startNavigationProgress();
     router.push("/");
@@ -247,7 +286,6 @@ export function DenPageClient({
       throw error;
     }
     toast.success(`"${activeDen.name}" deleted`);
-    // Remove cached den list so the home page refetches immediately
     queryClient.removeQueries({ queryKey: ["dens", currentUserId] });
     startNavigationProgress();
     router.push("/");
@@ -311,14 +349,38 @@ export function DenPageClient({
             />
           </div>
 
-          {/* Header */}
-          <DenHeader
-            den={activeDen}
-            memberCount={activeMembers.length}
-            isOwner={isOwner}
-            muted={muted}
-            onMembersClick={() => openModal("members")}
-          />
+          {/* Header: Use enhanced version if newUI flag is enabled */}
+          {mounted && showNewUI ? (
+            <DenHeaderEnhanced
+              den={activeDen}
+              memberCount={activeMembers.length}
+              isOwner={isOwner}
+              muted={muted}
+              onMembersClick={() => openModal("members")}
+              syncStatus={syncStatus}
+              visitorCount={visitors.length}
+            />
+          ) : (
+            <DenHeader
+              den={activeDen}
+              memberCount={activeMembers.length}
+              isOwner={isOwner}
+              muted={muted}
+              onMembersClick={() => openModal("members")}
+            />
+          )}
+
+          {/* Visitor panel (only shown in new UI mode with local-first) */}
+          {mounted && useLocalFirst && (
+            <VisitorPanel
+              visitors={visitors}
+              canDisconnect={isOwner}
+              onDisconnectVisitor={(visitorId) => {
+                console.log("Disconnect visitor:", visitorId);
+                // TODO: Implement disconnect functionality
+              }}
+            />
+          )}
 
           {/* Chat area */}
           <ChatArea den={activeDen} currentUserId={currentUserId} />
@@ -391,11 +453,83 @@ export function DenPageClient({
           <VoiceNoteRecorder
             onClose={closeModal}
             onSend={async (blob, duration) => {
-              await sendVoice.mutateAsync({
-                userId: currentUserId,
-                blob,
-                durationSeconds: duration,
-              });
+              try {
+                // Upload voice memo with on-device analysis
+                const { voiceUrl, analysis } = await uploadVoiceMemo(
+                  blob,
+                  duration,
+                );
+
+                if (useLocalFirst && denContext?.actions.createVoiceMemo) {
+                  // Local-first mode: Save to IndexedDB + CRDT
+                  await denContext.actions.createVoiceMemo(
+                    voiceUrl,
+                    duration,
+                    analysis
+                      ? {
+                          transcript: analysis.transcript,
+                          mood: analysis.mood,
+                          tone: analysis.tone,
+                          valence: analysis.valence,
+                          arousal: analysis.arousal,
+                          confidence: analysis.confidence,
+                          analysedAt: analysis.analysedAt,
+                        }
+                      : undefined,
+                    {
+                      full_name: user.name,
+                      preferred_name: user.preferredName,
+                      email: user.email,
+                    },
+                  );
+                  toast.success(
+                    analysis
+                      ? "Voice memo saved with analysis"
+                      : "Voice memo saved (analysis unavailable)",
+                  );
+                } else {
+                  // Legacy mode: Save to Supabase
+                  const supabase = createClient();
+                  const { error } = await supabase.from("messages").insert({
+                    den_id: activeDen.id,
+                    user_id: currentUserId,
+                    type: "voice",
+                    content: null,
+                    voice_url: voiceUrl,
+                    voice_duration: Math.round(duration),
+                    analysis: analysis
+                      ? {
+                          transcript: analysis.transcript,
+                          mood: analysis.mood,
+                          tone: analysis.tone,
+                          valence: analysis.valence,
+                          arousal: analysis.arousal,
+                          confidence: analysis.confidence,
+                          analysedAt: analysis.analysedAt,
+                        }
+                      : null,
+                  });
+
+                  if (error) {
+                    throw new Error(
+                      `Failed to save voice message: ${error.message}`,
+                    );
+                  }
+                  toast.success(
+                    analysis
+                      ? "Voice message sent with analysis"
+                      : "Voice message sent (analysis unavailable)",
+                  );
+                }
+              } catch (error) {
+                console.error("[@meerkat/web] Voice memo error:", error);
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to save voice memo",
+                );
+                throw error;
+              }
             }}
           />
         )}

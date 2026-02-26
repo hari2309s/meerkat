@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Mic, Square, Send, X, Loader2 } from "lucide-react";
-import { ModalShell } from "@/components/ui/modal-shell";
+import { ModalShell } from "@meerkat/ui";
 import { useChatStore } from "@/stores/use-chat-store";
 import { formatTime } from "@meerkat/utils/time";
 
@@ -25,11 +25,20 @@ export function VoiceNoteRecorder({ onClose, onSend }: VoiceNoteRecorderProps) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { setIsRecording } = useChatStore();
 
+  const [amplitudes, setAmplitudes] = useState<number[]>(new Array(24).fill(0));
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (audioUrl) URL.revokeObjectURL(audioUrl);
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current && audioContextRef.current.state !== "closed")
+      void audioContextRef.current.close();
       mediaRecorderRef.current?.stream?.getTracks().forEach((t) => t.stop());
     };
   }, [audioUrl]);
@@ -38,6 +47,38 @@ export function VoiceNoteRecorder({ onClose, onSend }: VoiceNoteRecorderProps) {
     setError("");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Set up AudioContext for visualization
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 64; // Small FFT for low-res visualization
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const updateVisualization = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+
+        // Map frequency data to our bars
+        const newAmplitudes = [];
+        const step = Math.floor(bufferLength / 24) || 1;
+        for (let i = 0; i < 24; i++) {
+          const val = dataArray[i * step] || 0;
+          // Normalise and add some "life" to even low sounds
+          newAmplitudes.push(Math.max(4, (val / 255) * 40));
+        }
+        setAmplitudes(newAmplitudes);
+        animationFrameRef.current = requestAnimationFrame(updateVisualization);
+      };
+
+      updateVisualization();
+
       const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mediaRecorderRef.current = mr;
       chunksRef.current = [];
@@ -53,6 +94,10 @@ export function VoiceNoteRecorder({ onClose, onSend }: VoiceNoteRecorderProps) {
         setAudioUrl(url);
         setPhase("preview");
         stream.getTracks().forEach((t) => t.stop());
+        if (animationFrameRef.current)
+          cancelAnimationFrame(animationFrameRef.current);
+        if (audioContextRef.current && audioContextRef.current.state !== "closed")
+          void audioContextRef.current.close();
       };
 
       mr.start(100);
@@ -60,7 +105,8 @@ export function VoiceNoteRecorder({ onClose, onSend }: VoiceNoteRecorderProps) {
       setIsRecording(true);
       setSeconds(0);
       timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
-    } catch {
+    } catch (err) {
+      console.error("Recording error:", err);
       setError("Microphone access denied. Please allow microphone access.");
     }
   };
@@ -125,24 +171,22 @@ export function VoiceNoteRecorder({ onClose, onSend }: VoiceNoteRecorderProps) {
         style={{
           background: "var(--color-btn-secondary-bg)",
           border: "1.5px solid var(--color-border-card)",
-          minHeight: 120,
+          minHeight: 140,
         }}
       >
         {phase === "recording" && (
           <>
-            {/* Animated waveform bars */}
-            <div className="flex items-end gap-1 h-10">
-              {Array.from({ length: 18 }).map((_, i) => (
+            {/* Reactive waveform bars */}
+            <div className="flex items-center gap-1 h-12">
+              {amplitudes.map((h, i) => (
                 <motion.div
                   key={i}
                   className="w-1 rounded-full"
-                  style={{ background: "#d4673a" }}
-                  animate={{ height: [6, Math.random() * 32 + 4, 6] }}
+                  style={{ background: "#d4673a", height: h }}
                   transition={{
-                    duration: 0.5 + Math.random() * 0.4,
-                    repeat: Infinity,
-                    delay: i * 0.04,
-                    ease: "easeInOut",
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 20,
                   }}
                 />
               ))}
@@ -165,9 +209,21 @@ export function VoiceNoteRecorder({ onClose, onSend }: VoiceNoteRecorderProps) {
         )}
         {(phase === "preview" || phase === "sending") && audioUrl && (
           <>
+            <div className="w-full flex items-center gap-1 h-12 mb-2 opacity-60">
+              {Array.from({ length: 24 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="w-1 rounded-full flex-1"
+                  style={{
+                    background: "#d4673a",
+                    height: `${10 + Math.sin(i * 0.5) * 15 + Math.random() * 10}%`,
+                  }}
+                />
+              ))}
+            </div>
             <audio src={audioUrl} controls className="w-full rounded-xl" />
             <span
-              className="text-sm"
+              className="text-sm mt-1"
               style={{ color: "var(--color-text-muted)" }}
             >
               {formatTime(seconds)} recorded
