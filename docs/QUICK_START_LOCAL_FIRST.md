@@ -6,7 +6,15 @@
 
 ## 🚀 Enable Local-First Mode
 
-### Option 1: Environment Variables (Recommended)
+### Option 1: Top Bar Toggle (Easiest)
+
+1. Open the app in your browser
+2. **Desktop**: Look for the "Local-First" toggle in the top navigation bar (between search and notifications)
+3. **Mobile**: Tap the menu button (☰) and find "Local-First Mode" at the bottom of the menu
+4. Click/tap the switch to enable/disable local-first mode instantly
+5. The page will automatically update with the new settings
+
+### Option 2: Environment Variables (Recommended for Development)
 
 Create `apps/web/.env.local`:
 
@@ -23,7 +31,7 @@ Restart dev server:
 pnpm dev
 ```
 
-### Option 2: Browser Console (Quick Test)
+### Option 3: Browser Console (Quick Test)
 
 1. Open the app in your browser
 2. Open DevTools Console (F12)
