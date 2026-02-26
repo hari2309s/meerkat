@@ -77,6 +77,16 @@ export interface VoiceMemoData {
   /** Duration in seconds. */
   durationSeconds: number;
   createdAt: number; // Unix ms
+  /** User who created this memo (for display purposes). */
+  userId?: string;
+  /** Sender info (cached for offline display). */
+  sender?:
+    | {
+        full_name: string | null;
+        preferred_name?: string | null;
+        email: string;
+      }
+    | undefined;
   /** Analysis results from @meerkat/analyzer (if available). */
   analysis?:
     | {

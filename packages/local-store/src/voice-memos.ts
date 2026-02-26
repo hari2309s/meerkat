@@ -38,6 +38,7 @@ export async function addVoiceMemo(
   blobRef: string,
   durationSeconds: number,
   analysis?: VoiceMemoData["analysis"],
+  sender?: VoiceMemoData["sender"],
 ): Promise<VoiceMemoData> {
   const { privateDen } = await openDen(denId);
 
@@ -46,7 +47,8 @@ export async function addVoiceMemo(
     blobRef,
     durationSeconds,
     createdAt: Date.now(),
-    analysis,
+    ...(analysis !== undefined && { analysis }),
+    ...(sender !== undefined && { sender }),
   };
 
   privateDen.ydoc.transact(() => {
