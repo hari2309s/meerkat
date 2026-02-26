@@ -42,7 +42,7 @@ import { WHISPER_SAMPLE_RATE } from "../constants";
  */
 export async function transcribe(
   audioBlob: Blob,
-  language = "en",
+  _language = "en",
   onProgress?: ModelProgressCallback,
 ): Promise<string> {
   // Decode the blob to 16kHz mono PCM.
@@ -57,10 +57,8 @@ export async function transcribe(
 
   // Run Whisper inference.
   const output = await pipe(samples, {
-    language,
-    task: "transcribe",
-    // chunk_length_s splits long audio into overlapping 30s chunks.
-    // This is how Whisper handles audio longer than its attention window.
+    // whisper-tiny.en is English-only — omit `language` and `task` to avoid
+    // "Cannot specify task or language for an English-only model" error.
     chunk_length_s: 30,
     stride_length_s: 5,
     return_timestamps: false,
@@ -75,12 +73,12 @@ export async function transcribe(
  * (e.g. from an AudioWorklet or a direct recording pipeline).
  *
  * @param samples    — 16kHz mono PCM Float32Array.
- * @param language   — BCP-47 language hint.
+ * @param language   — BCP-47 language hint (unused for English-only model).
  * @param onProgress — Optional download progress callback.
  */
 export async function transcribeSamples(
   samples: Float32Array,
-  language = "en",
+  _language = "en",
   onProgress?: ModelProgressCallback,
 ): Promise<string> {
   if (isSilent(samples)) return "";
@@ -88,8 +86,7 @@ export async function transcribeSamples(
   const pipe = await getTranscriptionPipeline(onProgress);
 
   const output = await pipe(samples, {
-    language,
-    task: "transcribe",
+    // Omit language/task — English-only model rejects those options.
     chunk_length_s: 30,
     stride_length_s: 5,
     return_timestamps: false,

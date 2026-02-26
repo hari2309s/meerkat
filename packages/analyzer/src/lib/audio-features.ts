@@ -317,7 +317,21 @@ export function fuseEmotionSignals(
   confidence: number;
 } {
   // Dynamic text weight: rises when text confidence is high.
-  const textWeight = 0.5 + 0.25 * textMood.confidence;
+  // Base is 0.4 (not 0.5) so the acoustic signal has meaningful influence.
+  let textWeight = 0.4 + 0.25 * textMood.confidence;
+
+  // ── Arousal contradiction check ──────────────────────────────────────────
+  // Text classifiers are often fooled by emotion words used in meta-discussion
+  // ("Who said I was sad?"), negations ("not angry"), or action markers like
+  // "[Laughs]". When audio clearly shows high arousal but the text-derived
+  // mood implies low arousal (e.g. "sad" → arousal ≈ -0.4), penalise the text
+  // weight so the acoustic signal has stronger influence on the final result.
+  const textImpliedArousal = moodToDimensions(textMood.mood).arousal;
+  const arousalGap = audioMood.arousal - textImpliedArousal;
+  if (arousalGap > 0.5 && audioMood.confidence > 0.45) {
+    textWeight = Math.max(textWeight - 0.25, 0.3);
+  }
+
   const audioWeight = 1.0 - textWeight;
 
   const fusedValence =

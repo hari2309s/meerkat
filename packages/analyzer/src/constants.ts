@@ -15,14 +15,15 @@
 export const TRANSCRIPTION_MODEL_ID = "onnx-community/whisper-tiny.en" as const;
 
 /**
- * Distilled emotion classifier — ~40MB ONNX.
- * Fine-tuned on go_emotions / empathetic dialogues for 7-class output.
+ * Distilled emotion classifier — ~83MB ONNX (q8 quantised).
+ * Fine-tuned for 7-class emotion output: anger/disgust/fear/joy/neutral/sadness/surprise.
  *
- * We use "michellejieli/emotion_text_classifier" which maps to our
- * MoodLabel set without any remapping.
+ * MicahB/emotion_text_classifier is a Transformers.js-compatible fork of the
+ * original michellejieli model with proper ONNX exports (onnx/model_quantized.onnx).
+ * The original michellejieli repo only has PyTorch weights — no ONNX files.
  */
 export const EMOTION_MODEL_ID =
-  "michellejieli/emotion_text_classifier" as const;
+  "MicahB/emotion_text_classifier" as const;
 
 /** Minimum transcript length (chars) before running emotion classification. */
 export const MIN_TRANSCRIPT_LENGTH = 3;
