@@ -239,9 +239,7 @@ export function VoiceNoteMessage({ message, isOwn }: VoiceNoteMessageProps) {
                   className="w-0.5 rounded-full transition-all duration-300"
                   style={{
                     height: `${30 + Math.sin(i * 0.5) * 40 + Math.random() * 30}%`,
-                    background: isActive
-                      ? "#d4673a"
-                      : "rgba(212,103,58,0.15)",
+                    background: isActive ? "#d4673a" : "rgba(212,103,58,0.15)",
                   }}
                 />
               );

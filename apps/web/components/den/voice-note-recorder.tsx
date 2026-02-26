@@ -38,7 +38,7 @@ export function VoiceNoteRecorder({ onClose, onSend }: VoiceNoteRecorderProps) {
       if (animationFrameRef.current)
         cancelAnimationFrame(animationFrameRef.current);
       if (audioContextRef.current && audioContextRef.current.state !== "closed")
-      void audioContextRef.current.close();
+        void audioContextRef.current.close();
       mediaRecorderRef.current?.stream?.getTracks().forEach((t) => t.stop());
     };
   }, [audioUrl]);
@@ -96,7 +96,10 @@ export function VoiceNoteRecorder({ onClose, onSend }: VoiceNoteRecorderProps) {
         stream.getTracks().forEach((t) => t.stop());
         if (animationFrameRef.current)
           cancelAnimationFrame(animationFrameRef.current);
-        if (audioContextRef.current && audioContextRef.current.state !== "closed")
+        if (
+          audioContextRef.current &&
+          audioContextRef.current.state !== "closed"
+        )
           void audioContextRef.current.close();
       };
 

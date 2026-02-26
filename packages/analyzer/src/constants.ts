@@ -22,8 +22,7 @@ export const TRANSCRIPTION_MODEL_ID = "onnx-community/whisper-tiny.en" as const;
  * original michellejieli model with proper ONNX exports (onnx/model_quantized.onnx).
  * The original michellejieli repo only has PyTorch weights — no ONNX files.
  */
-export const EMOTION_MODEL_ID =
-  "MicahB/emotion_text_classifier" as const;
+export const EMOTION_MODEL_ID = "MicahB/emotion_text_classifier" as const;
 
 /** Minimum transcript length (chars) before running emotion classification. */
 export const MIN_TRANSCRIPT_LENGTH = 3;
