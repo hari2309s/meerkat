@@ -66,17 +66,23 @@ export class P2PManager {
     // contract, so we fire-and-forget but capture the stop function
     let stopFn: (() => void) | null = null;
 
+    console.log(`[@meerkat/p2p] Starting hosting for den ${denId}...`);
+
     stopPromise = manager
       .start(this.hostPublicKey)
       .then((stop) => {
+        console.log(
+          `[@meerkat/p2p] ✅ Hosting started successfully for den ${denId}`,
+        );
         stopFn = stop;
         return stop;
       })
       .catch((err) => {
         console.error(
-          `[@meerkat/p2p] Failed to start hosting den ${denId}:`,
+          `[@meerkat/p2p] ❌ Failed to start hosting den ${denId}:`,
           err,
         );
+        console.error(`[@meerkat/p2p] Error details:`, err.stack || err);
         return () => {};
       });
 

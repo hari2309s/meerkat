@@ -23,7 +23,6 @@ import type { DenKey } from "@meerkat/keys";
 import type {
   SupabaseRealtimeChannelLike,
   P2PManagerOptions,
-  SyncStatus,
   SignalMessage,
   JoinResponseSignal,
 } from "../types";

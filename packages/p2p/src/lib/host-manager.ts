@@ -69,6 +69,8 @@ export class HostManager {
   // ICE candidates queued before remote description is set
   private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
 
+  private _startPromise: Promise<() => void> | null = null;
+
   constructor(denId: string, options: P2PManagerOptions) {
     this.denId = denId;
     this.options = options;
@@ -92,28 +94,68 @@ export class HostManager {
   /**
    * Start advertising as a host on the signaling channel.
    * Returns a cleanup/stop function.
+   *
+   * Idempotent: safe to call multiple times. Concurrent calls will
+   * wait for the first one to complete.
    */
   async start(hostPublicKey: string = ""): Promise<() => void> {
-    const channel = this.options.createSignalingChannel(
-      signalingChannelName(this.denId),
-    );
-    this.signaling = new SignalingChannel(channel, this.denId);
+    if (this._startPromise) {
+      return this._startPromise;
+    }
 
-    // Wire listeners BEFORE subscribing (Supabase Realtime requirement)
-    this.signaling.onJoinRequest((msg) => this.handleJoinRequest(msg));
-    this.signaling.onIceCandidate((msg) => this.handleIceCandidate(msg));
+    this._startPromise = (async () => {
+      try {
+        console.log(
+          `[@meerkat/p2p] HostManager.start() called for den ${this.denId}`,
+        );
 
-    await this.signaling.connect();
+        const channel = this.options.createSignalingChannel(
+          signalingChannelName(this.denId),
+        );
+        console.log(
+          `[@meerkat/p2p] Signaling channel created for den ${this.denId}`,
+        );
 
-    // Advertise presence
-    await this.signaling.broadcastHostOnline({
-      denId: this.denId,
-      hostPublicKey,
-    });
+        this.signaling = new SignalingChannel(channel, this.denId);
 
-    this._setStatus("connecting");
+        // Wire listeners BEFORE subscribing (Supabase Realtime requirement)
+        this.signaling.onJoinRequest((msg) => this.handleJoinRequest(msg));
+        this.signaling.onIceCandidate((msg) => this.handleIceCandidate(msg));
 
-    return () => this.stop();
+        console.log(
+          `[@meerkat/p2p] Connecting to signaling channel for den ${this.denId}...`,
+        );
+        await this.signaling.connect();
+        console.log(
+          `[@meerkat/p2p] Signaling channel connected for den ${this.denId}`,
+        );
+
+        // Advertise presence
+        console.log(
+          `[@meerkat/p2p] Broadcasting host-online for den ${this.denId}...`,
+        );
+        await this.signaling.broadcastHostOnline({
+          denId: this.denId,
+          hostPublicKey,
+        });
+        console.log(
+          `[@meerkat/p2p] Host-online broadcast complete for den ${this.denId}`,
+        );
+
+        this._setStatus("synced");
+        console.log(
+          `[@meerkat/p2p] Status set to 'synced' for den ${this.denId}`,
+        );
+
+        return () => this.stop();
+      } catch (err) {
+        // Clear promise on failure so we can retry later
+        this._startPromise = null;
+        throw err;
+      }
+    })();
+
+    return this._startPromise;
   }
 
   /**
@@ -135,6 +177,7 @@ export class HostManager {
     await this.signaling?.disconnect();
     this.signaling = null;
 
+    this._startPromise = null;
     this._setStatus("offline");
   }
 
@@ -371,7 +414,7 @@ export class HostManager {
     if (this.sessions.size > 0) {
       this._setStatus("hosting");
     } else if (this.signaling?.isConnected) {
-      this._setStatus("connecting");
+      this._setStatus("synced");
     } else {
       this._setStatus("offline");
     }
