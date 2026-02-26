@@ -10,10 +10,17 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@meerkat/analyzer": "workspace:*",
     "@meerkat/config": "workspace:*",
+    "@meerkat/crdt": "workspace:*",
+    "@meerkat/crypto": "workspace:*",
+    "@meerkat/keys": "workspace:*",
+    "@meerkat/local-store": "workspace:*",
+    "@meerkat/p2p": "workspace:*",
     "@meerkat/types": "workspace:*",
     "@meerkat/ui": "workspace:*",
     "@meerkat/utils": "workspace:*",
+    "@meerkat/voice": "workspace:*",
     "@supabase/ssr": "^0.1.0",
     "@supabase/supabase-js": "^2.95.3",
     "@tanstack/react-query": "^5.17.19",
@@ -28,6 +35,7 @@
     "react-dom": "^18.2.0",
     "sonner": "^2.0.7",
     "superjson": "^2.2.1",
+    "yjs": "^13.6.10",
     "zod": "^3.22.4",
     "zustand": "^4.5.0"
   },
