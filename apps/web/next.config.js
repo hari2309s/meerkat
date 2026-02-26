@@ -24,7 +24,17 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer, webpack }) => {
-    // Exclude Node.js native bindings from client bundle
+    if (isServer) {
+      // onnxruntime-web and @huggingface/transformers are browser-only;
+      // excluding them from the server bundle prevents import.meta errors
+      // during SSR compilation.
+      config.externals.push(
+        'onnxruntime-web',
+        'onnxruntime-common',
+        '@huggingface/transformers',
+      );
+    }
+
     if (!isServer) {
       config.resolve.alias = {
         ...config.resolve.alias,
@@ -33,27 +43,23 @@ const nextConfig = {
         'sharp': false,
       };
 
-      // Handle onnxruntime-web as external assets
+      // onnxruntime-web ships .mjs files that use import.meta.url.
+      // Telling webpack they are ESM ensures import.meta is replaced
+      // before SWC's minifier sees the bundle (which would otherwise
+      // throw "'import.meta' cannot be used outside of module code").
+      config.module.rules.push({
+        test: /\.mjs$/,
+        include: /node_modules[/\\]onnxruntime/,
+        type: 'javascript/esm',
+        resolve: { fullySpecified: false },
+      });
+
+      // Serve WASM files as static assets
       config.module.rules.push({
         test: /\.wasm$/,
         type: 'asset/resource',
       });
-
-      // Suppress critical dependency warnings for dynamic requires in onnxruntime
-      config.plugins.push(
-        new webpack.ContextReplacementPlugin(
-          /onnxruntime-web/,
-          (data) => {
-            delete data.dependencies[0].critical;
-            return data;
-          }
-        )
-      );
     }
-
-    // Exclude onnxruntime assets from optimization
-    config.optimization = config.optimization || {};
-    config.optimization.minimizer = config.optimization.minimizer || [];
 
     config.externals.push({
       "utf-8-validate": "commonjs utf-8-validate",
