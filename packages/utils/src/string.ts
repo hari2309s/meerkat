@@ -23,24 +23,58 @@ export function getInitials(name: string, maxLength = 2): string {
 }
 
 /**
- * Resolve a display name from a sender object that may have full_name or email.
- * Falls back to "Unknown" when neither is present.
- *
- * Matches the pattern used throughout chat-area.tsx and voice-note-message.tsx:
- *   `msg.sender?.full_name ?? msg.sender?.email ?? "Unknown"`
+ * Resolve a display name from a sender object, prioritizing preferred_name.
+ * If preferred_name is missing/empty, it extracts the first name from full_name.
+ * Falls back to email or "Unknown" if no names are available.
  *
  * @example
- *   getSenderName({ full_name: "Meera Kat", email: "m@k.com" }) // "Meera Kat"
- *   getSenderName({ full_name: null, email: "m@k.com" })         // "m@k.com"
- *   getSenderName(undefined)                                      // "Unknown"
+ *   getDisplayName({ preferred_name: "Hari", full_name: "Hariharan S" }) // "Hari"
+ *   getDisplayName({ preferred_name: null, full_name: "Hariharan S" })   // "Hariharan"
  */
-export function getSenderName(
+export function getDisplayName(
   sender:
-    | { full_name?: string | null; email?: string | null }
+    | {
+        preferred_name?: string | null;
+        full_name?: string | null;
+        email?: string | null;
+      }
     | null
     | undefined,
 ): string {
-  return sender?.full_name ?? sender?.email ?? "Unknown";
+  if (!sender) return "Unknown";
+
+  const preferred = sender.preferred_name?.trim();
+  if (preferred) return preferred;
+
+  const full = sender.full_name?.trim();
+  if (full) {
+    // Extract first name (first word)
+    return full.split(/\s+/)[0] || full;
+  }
+
+  const email = sender.email?.trim();
+  if (email) {
+    return email.split("@")[0] || email;
+  }
+
+  return "Unknown";
+}
+
+/**
+ * Resolve a display name from a sender object that may have full_name or email.
+ * Delegates to getDisplayName for the prioritized display logic.
+ */
+export function getSenderName(
+  sender:
+    | {
+        full_name?: string | null;
+        preferred_name?: string | null;
+        email?: string | null;
+      }
+    | null
+    | undefined,
+): string {
+  return getDisplayName(sender);
 }
 
 /**
