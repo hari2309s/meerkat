@@ -26,9 +26,27 @@ importers:
 
   apps/web:
     dependencies:
+      '@meerkat/analyzer':
+        specifier: workspace:*
+        version: link:../../packages/analyzer
       '@meerkat/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@meerkat/crdt':
+        specifier: workspace:*
+        version: link:../../packages/crdt
+      '@meerkat/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
+      '@meerkat/keys':
+        specifier: workspace:*
+        version: link:../../packages/keys
+      '@meerkat/local-store':
+        specifier: workspace:*
+        version: link:../../packages/local-store
+      '@meerkat/p2p':
+        specifier: workspace:*
+        version: link:../../packages/p2p
       '@meerkat/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -38,6 +56,9 @@ importers:
       '@meerkat/utils':
         specifier: workspace:*
         version: link:../../packages/utils
+      '@meerkat/voice':
+        specifier: workspace:*
+        version: link:../../packages/voice
       '@supabase/ssr':
         specifier: ^0.1.0
         version: 0.1.0(@supabase/supabase-js@2.95.3)
@@ -80,6 +101,9 @@ importers:
       superjson:
         specifier: ^2.2.1
         version: 2.2.6
+      yjs:
+        specifier: ^13.6.10
+        version: 13.6.29
       zod:
         specifier: ^3.22.4
         version: 3.25.76

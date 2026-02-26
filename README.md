@@ -92,7 +92,9 @@ Meerkat uses Supabase **only** for identity (auth) and encrypted blob storage. Y
 ## Screenshots
 
 ### Sign Up
+
 ![Sign up screen](docs/screenshots/signup.png)
 
 ### Dashboard
+
 ![Dashboard](docs/screenshots/dashboard.png)
