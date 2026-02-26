@@ -3,6 +3,10 @@ export { Button, buttonVariants, type ButtonProps } from "./components/button";
 export { Input, type InputProps } from "./components/input";
 export { Label } from "./components/label";
 
+export { HoverButton } from "./components/hover-button";
+export { MenuRow } from "./components/menu-row";
+export { ModalShell } from "./components/modal-shell";
+
 // ─── Meerkat Components ───────────────────────────────────────────────────────
 export {
   SyncStatusBadge,
