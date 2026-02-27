@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DenPageClientEnhanced } from "@/components/den-page-client-enhanced";
+import { DenProvider } from "@/providers/den-provider";
 
 interface DenPageProps {
   params: { id: string };
@@ -90,12 +91,16 @@ export default async function DenPage({ params }: DenPageProps) {
     ];
   }
 
+  const isOwner = den.user_id === user.id;
+
   return (
-    <DenPageClientEnhanced
-      den={den}
-      currentUserId={user.id}
-      user={{ name: fullName, preferredName, email: user.email ?? "" }}
-      members={membersList as unknown as any}
-    />
+    <DenProvider denId={den.id} readOnly={!isOwner}>
+      <DenPageClientEnhanced
+        den={den}
+        currentUserId={user.id}
+        user={{ name: fullName, preferredName, email: user.email ?? "" }}
+        members={membersList as unknown as any}
+      />
+    </DenProvider>
   );
 }
