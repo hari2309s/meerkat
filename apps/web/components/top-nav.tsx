@@ -18,8 +18,6 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { startNavigationProgress } from "@/components/navigation-progress";
 import { getInitials, getDisplayName } from "@meerkat/utils/string";
-import { Toggle } from "@/components/settings/shared";
-import { useFeatureFlags } from "@/lib/feature-flags-context";
 
 interface NavUser {
   name: string;
@@ -42,7 +40,6 @@ export function TopNav({ user }: TopNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
-  const { flags, setFlags } = useFeatureFlags();
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 10);
@@ -154,26 +151,6 @@ export function TopNav({ user }: TopNavProps) {
             >
               <Search className="h-4 w-4" />
             </button>
-
-            {/* Local-First Toggle */}
-            <div
-              className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-xl"
-              style={{
-                background: "rgba(139,111,71,0.08)",
-                border: "1px solid rgba(139,111,71,0.15)",
-              }}
-            >
-              <span
-                className="text-xs font-medium"
-                style={{ color: "var(--color-text-secondary)" }}
-              >
-                Local-First
-              </span>
-              <Toggle
-                checked={flags.localFirstStorage}
-                onChange={(enabled) => setFlags({ localFirstStorage: enabled })}
-              />
-            </div>
 
             {/* Notifications */}
             <button
@@ -346,22 +323,6 @@ export function TopNav({ user }: TopNavProps) {
                   className="border-t mt-1 pt-1"
                   style={{ borderColor: "var(--color-border-card)" }}
                 >
-                  {/* Local-First Toggle for Mobile */}
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <span
-                      className="text-sm font-medium"
-                      style={{ color: "var(--color-text-primary)" }}
-                    >
-                      Local-First Mode
-                    </span>
-                    <Toggle
-                      checked={flags.localFirstStorage}
-                      onChange={(enabled) =>
-                        setFlags({ localFirstStorage: enabled })
-                      }
-                    />
-                  </div>
-
                   <button
                     onClick={handleSignOut}
                     className="dropdown-item-danger flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium w-full"
