@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -12,6 +12,9 @@ import { startNavigationProgress } from "@/components/navigation-progress";
 import { createClient } from "@/lib/supabase/client";
 import { useFeature } from "@/lib/feature-flags-context";
 import { useDenContextSafe } from "@meerkat/crdt";
+import { useVisitorPresence, useJoinDen } from "@meerkat/p2p";
+import { useStoredKeys } from "@meerkat/keys";
+import type { P2PManagerOptions } from "@meerkat/p2p";
 
 // Stores
 import {
@@ -72,6 +75,9 @@ export function DenPageClientEnhanced({
   // Local-first context (may be null if feature flag is disabled)
   const denContext = useDenContextSafe();
 
+  // P2P visitor presence — handles missing P2P manager gracefully
+  const { disconnectVisitor } = useVisitorPresence(initialDen.id);
+
   // Prevent hydration mismatch
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -127,6 +133,77 @@ export function DenPageClientEnhanced({
   // ── Local-first data (only available when feature flag is enabled) ────────
   const syncStatus = denContext?.syncStatus ?? "offline";
   const visitors = denContext?.visitors ?? [];
+
+  // ── Visitor P2P join (non-owners with a stored DenKey) ────────────────────
+  const p2pEnabled = useFeature("p2pSync");
+
+  // Stable signaling options — same channel factory pattern as P2PProvider.
+  // useMemo with empty deps is safe because createClient() returns a cached singleton.
+  const p2pOptions = useMemo<P2PManagerOptions>(() => {
+    const supabase = createClient();
+    return {
+      createSignalingChannel: (channelName: string) => {
+        const ch = supabase.channel(channelName);
+        return {
+          on(
+            event: "broadcast",
+            config: { event: string },
+            callback: (payload: { payload: unknown }) => void,
+          ) {
+            ch.on(event, config, callback);
+            return this;
+          },
+          subscribe(callback?: (status: string) => void) {
+            ch.subscribe(callback);
+            return this;
+          },
+          async send(args: {
+            type: "broadcast";
+            event: string;
+            payload: unknown;
+          }) {
+            await ch.send(args);
+          },
+          async unsubscribe() {
+            await supabase.removeChannel(ch);
+          },
+        };
+      },
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const {
+    join: joinDen,
+    status: visitorStatus,
+    disconnect: leaveP2P,
+  } = useJoinDen(p2pOptions);
+
+  const { validKeys } = useStoredKeys();
+  const activeDenKey =
+    validKeys.find((s) => s.key.denId === activeDen.id)?.key ?? null;
+
+  // Auto-connect as visitor when all conditions are met
+  useEffect(() => {
+    if (isOwner || !useLocalFirst || !p2pEnabled || !activeDenKey) return;
+    if (visitorStatus !== "offline") return;
+    joinDen(activeDenKey).catch((err) => {
+      console.warn("[@meerkat/web] Visitor P2P join failed:", err);
+    });
+  }, [
+    isOwner,
+    useLocalFirst,
+    p2pEnabled,
+    activeDenKey,
+    visitorStatus,
+    joinDen,
+  ]);
+
+  // Disconnect visitor session on unmount
+  useEffect(() => {
+    return () => {
+      if (!isOwner) leaveP2P();
+    };
+  }, [isOwner, leaveP2P]);
 
   // ── Realtime: den updates / member changes (legacy only) ──────────────────
   const handleDenUpdate = useCallback(
@@ -357,8 +434,8 @@ export function DenPageClientEnhanced({
               isOwner={isOwner}
               muted={muted}
               onMembersClick={() => openModal("members")}
-              syncStatus={syncStatus}
-              visitorCount={visitors.length}
+              syncStatus={isOwner ? syncStatus : visitorStatus}
+              visitorCount={isOwner ? visitors.length : 0}
             />
           ) : (
             <DenHeader
@@ -373,11 +450,12 @@ export function DenPageClientEnhanced({
           {/* Visitor panel (only shown in new UI mode with local-first) */}
           {mounted && useLocalFirst && (
             <VisitorPanel
+              denId={activeDen.id}
+              syncStatus={syncStatus}
               visitors={visitors}
               canDisconnect={isOwner}
               onDisconnectVisitor={(visitorId) => {
-                console.log("Disconnect visitor:", visitorId);
-                // TODO: Implement disconnect functionality
+                disconnectVisitor(visitorId);
               }}
             />
           )}

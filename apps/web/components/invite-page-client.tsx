@@ -15,6 +15,8 @@ import {
   ArrowRight,
   Home,
 } from "lucide-react";
+import { useRedeemKey } from "@meerkat/keys";
+import { fromBase64 } from "@meerkat/crypto";
 
 type InviteStatus =
   | "valid"
@@ -32,6 +34,7 @@ interface InvitePageClientProps {
   userEmail?: string;
   denId?: string;
   denName?: string;
+  flowerPotToken?: string | null;
 }
 
 export function InvitePageClient({
@@ -42,9 +45,11 @@ export function InvitePageClient({
   currentUserId,
   denId,
   denName,
+  flowerPotToken,
 }: InvitePageClientProps) {
   const router = useRouter();
   const [joining, setJoining] = useState(false);
+  const { redeem } = useRedeemKey();
 
   const handleJoin = async () => {
     if (!den || !currentUserId || !inviteId || !token) {
@@ -74,6 +79,30 @@ export function InvitePageClient({
           accepted_by: currentUserId,
         })
         .eq("id", inviteId);
+
+      // Redeem DenKey if a flower pot was attached to this invite.
+      // The ephemeral secret key travels in the URL hash (#sk=...) and is
+      // never sent to the server — extract it here on the client.
+      if (flowerPotToken) {
+        const hash = typeof window !== "undefined" ? window.location.hash : "";
+        const sk = new URLSearchParams(hash.slice(1)).get("sk");
+        if (sk) {
+          await redeem({
+            token: flowerPotToken,
+            visitorSecretKey: fromBase64(sk),
+            fetchFromServer: async (t) => {
+              const res = await fetch(
+                `/api/flower-pots?token=${encodeURIComponent(t)}`,
+              );
+              return res.ok
+                ? (res.json() as Promise<{ encryptedBundle: string }>)
+                : null;
+            },
+          }).catch(() => {
+            // Non-fatal — member can still access the den; host can re-issue a key
+          });
+        }
+      }
 
       toast.success(`You've joined ${den.name}!`, {
         description: "Welcome to the den.",
