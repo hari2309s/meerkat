@@ -177,19 +177,19 @@ meerkat/
   - [ ] Dynamic import resolution in `resolveP2PAdapter()`
   - [ ] `DenSyncMachine` state transitions (offline → connecting → synced → hosting)
   - [ ] P2P status propagation to `DenState.syncStatus`
-- [ ] Web app UI
-  - [ ] Sync status badge component (offline/connecting/synced/hosting)
-  - [ ] Visitor presence display (avatars, names)
-  - [ ] "Start hosting" / "Stop hosting" controls
-  - [ ] "Disconnect visitor" button (host only)
-- [ ] Signaling setup
-  - [ ] `initP2P()` call in app/providers.tsx
-  - [ ] Supabase Realtime channel configuration
+- [x] Web app UI
+  - [x] Sync status badge component (offline/connecting/synced/hosting)
+  - [x] Visitor presence display (avatars, names)
+  - [x] "Start hosting" / "Stop hosting" controls
+  - [x] "Disconnect visitor" button (host only)
+- [x] Signaling setup
+  - [x] `initP2P()` call in app/providers.tsx (P2PProvider in layout)
+  - [x] Supabase Realtime channel configuration
   - [ ] STUN/TURN server config (optional, for NAT traversal)
 - [ ] Offline Letterbox flow
   - [ ] Visitor: upload encrypted drop when host offline
-  - [ ] Host: collect pending drops on reconnect
-  - [ ] UI: "Dropbox" tab in settings with pending items
+  - [ ] Host: collect pending drops on reconnect (auto on den open)
+  - [x] UI: "Dropbox" tab in settings with pending items
 - [ ] Testing & Polish
   - [ ] Multi-device testing (Chrome + Firefox)
   - [ ] Firewall/NAT traversal verification
