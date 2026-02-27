@@ -31,6 +31,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
       email,
       expires_at,
       accepted_at,
+      flower_pot_token,
       dens:den_id ( id, name, user_id )
     `,
     )
@@ -94,6 +95,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
       den={den}
       currentUserId={user.id}
       userEmail={user.email ?? ""}
+      flowerPotToken={invite.flower_pot_token ?? null}
     />
   );
 }
