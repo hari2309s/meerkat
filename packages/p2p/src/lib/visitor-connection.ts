@@ -34,6 +34,8 @@ import type {
 } from "../types";
 
 const DATA_CHANNEL_LABEL = "yjs-sync";
+// How long to wait for host-online before sending join-request (host broadcasts every 5s)
+const HOST_ONLINE_WAIT_MS = 6_000;
 // How long to wait for a join-response before giving up
 const HANDSHAKE_TIMEOUT_MS = 15_000;
 
@@ -125,8 +127,8 @@ export class VisitorConnection {
 
     // 5. Wait for join-response and ICE candidates
     const responsePromise = this.waitForJoinResponse(visitorId);
+    const hostOnlinePromise = this.waitForHostOnline();
 
-    // Wire ICE candidate listener
     this.signaling.onIceCandidate(async (msg: IceCandidateSignal) => {
       if (msg.from !== "host" || msg.visitorId !== visitorId) return;
       if (peer.remoteDescription) {
@@ -137,6 +139,9 @@ export class VisitorConnection {
     });
 
     await this.signaling.connect();
+
+    // 5b. Wait for host-online (host broadcasts every 5s) so we don't send into the void
+    await hostOnlinePromise;
 
     // 6. Create and send SDP offer
     const offer = await peer.createOffer();
@@ -196,6 +201,16 @@ export class VisitorConnection {
   }
 
   // ── Private ───────────────────────────────────────────────────────────────
+
+  private waitForHostOnline(): Promise<void> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(resolve, HOST_ONLINE_WAIT_MS);
+      this.signaling?.onHostOnline(() => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+  }
 
   private waitForJoinResponse(visitorId: string): Promise<JoinResponseSignal> {
     return new Promise((resolve, reject) => {

@@ -69,6 +69,10 @@ export class HostManager {
   // ICE candidates queued before remote description is set
   private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
 
+  // Heartbeat so late-joining visitors receive host-online (pub/sub typically doesn't replay)
+  private hostOnlineHeartbeat: ReturnType<typeof setInterval> | null = null;
+  private static readonly HOST_ONLINE_INTERVAL_MS = 5_000;
+
   private _startPromise: Promise<() => void> | null = null;
 
   constructor(denId: string, options: P2PManagerOptions) {
@@ -142,6 +146,16 @@ export class HostManager {
           `[@meerkat/p2p] Host-online broadcast complete for den ${this.denId}`,
         );
 
+        // Heartbeat so late-joining visitors get host-online (no message replay)
+        this.hostOnlineHeartbeat = setInterval(() => {
+          this.signaling
+            ?.broadcastHostOnline({
+              denId: this.denId,
+              hostPublicKey,
+            })
+            .catch(() => {});
+        }, HostManager.HOST_ONLINE_INTERVAL_MS);
+
         this._setStatus("synced");
         console.log(
           `[@meerkat/p2p] Status set to 'synced' for den ${this.denId}`,
@@ -162,6 +176,10 @@ export class HostManager {
    * Stop hosting: broadcast offline, close all peer connections, clean up.
    */
   async stop(): Promise<void> {
+    if (this.hostOnlineHeartbeat) {
+      clearInterval(this.hostOnlineHeartbeat);
+      this.hostOnlineHeartbeat = null;
+    }
     // Broadcast going offline so visitors can update their UI immediately
     try {
       await this.signaling?.broadcastHostOffline();
