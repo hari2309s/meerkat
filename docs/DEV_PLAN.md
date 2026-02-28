@@ -1,6 +1,6 @@
 # Meerkat Development Plan
 
-> **Last Updated:** 2026-02-24
+> **Last Updated:** 2026-02-28
 > **Status:** Phase 3 Complete | Phase 4 In Progress
 
 ---
@@ -141,17 +141,23 @@ meerkat/
   - [x] Namespace scoping (sharedNotes, voiceThread, dropbox, presence)
   - [x] Expiry + validation
   - [x] React hooks: `useGenerateKey`, `useRedeemKey`, `useStoredKeys`
-- [x] Server API (tRPC)
-  - [x] `createFlowerPot` — store encrypted bundle + token
-  - [x] `getFlowerPot` — fetch bundle for redemption
-  - [x] `deleteFlowerPot` — revoke token
+- [x] Server API (REST — Next.js Route Handlers, not tRPC)
+  - [x] `POST /api/flower-pots` — deposit sealed bundle, returns token
+  - [x] `GET /api/flower-pots?token=X` — fetch bundle for redemption (public)
+  - [x] `DELETE /api/flower-pots?token=X` — revoke token (creator only)
 - [x] Web UI
-  - [x] Key generation modal (select preset, set duration)
-  - [x] Share token via URL (`/invite/[token]`)
-  - [x] Redemption page (decrypt bundle, store key locally)
-  - [x] Key management (list active keys, revoke)
+  - [x] Invite modal generates DenKey + flower pot on link creation
+  - [x] Invite URL embeds ephemeral secret key in hash fragment (`#sk=BASE64`)
+    — hash fragment never sent to server (zero-knowledge delivery)
+  - [x] Invite acceptance page redeems DenKey automatically on join
+  - [x] DenKey stored in `localStorage` (`meerkat:den-keys`) for P2P use
+- [x] Supabase schema
+  - [x] `flower_pots` table with RLS policies
+  - [x] `den_invites.flower_pot_token` column
 
-**Exit Criteria**: Host generates a "Come Over" key, shares token with visitor. Visitor redeems token and stores DenKey locally. Server cannot read key scope or namespace keys.
+> See [docs/INVITE_DENKEY_FLOW.md](./INVITE_DENKEY_FLOW.md) for full architecture and verification checklist.
+
+**Exit Criteria**: Host invites someone via InviteModal → invitee accepts link → DenKey stored in their localStorage → they auto-connect to host's P2P session. Server stores only opaque ciphertext (zero-knowledge).
 
 ---
 
@@ -182,10 +188,18 @@ meerkat/
   - [x] Visitor presence display (avatars, names)
   - [x] "Start hosting" / "Stop hosting" controls
   - [x] "Disconnect visitor" button (host only)
+  - [x] Fix: hosting UI stuck on "Not hosting" after start (was missing `"synced"` state)
 - [x] Signaling setup
   - [x] `initP2P()` call in app/providers.tsx (P2PProvider in layout)
   - [x] Supabase Realtime channel configuration
   - [ ] STUN/TURN server config (optional, for NAT traversal)
+- [x] DenProvider ownership fix
+  - [x] Moved `DenProvider` from `layout.tsx` to `page.tsx`
+  - [x] `readOnly={!isOwner}` — non-owners no longer auto-host (broadcast `"host-online"`)
+- [x] Visitor P2P auto-join
+  - [x] `useJoinDen` wired in `den-page-client-enhanced.tsx`
+  - [x] Auto-connects when non-owner has a valid DenKey + `localFirstStorage` + `p2pSync` flags enabled
+  - [x] `DenHeaderEnhanced` shows visitor sync status (not host status) for non-owners
 - [ ] Offline Letterbox flow
   - [ ] Visitor: upload encrypted drop when host offline
   - [ ] Host: collect pending drops on reconnect (auto on den open)
@@ -198,13 +212,14 @@ meerkat/
 
 **Exit Criteria**:
 
-1. Host opens den → `syncStatus: "hosting"`
-2. Visitor redeems Come Over key → connects via WebRTC → `syncStatus: "synced"`
-3. Host creates a note → visitor sees it within 1 second
-4. Host goes offline → visitor `syncStatus: "offline"`, content cached
-5. Letterbox visitor uploads drop when host offline → host imports on reconnect
+1. Host opens den → `syncStatus: "hosting"` (UI reflects this immediately)
+2. Visitor accepts invite → DenKey stored in localStorage automatically
+3. Visitor opens den → `useJoinDen` auto-connects via WebRTC → `syncStatus: "synced"`
+4. Host creates a note → visitor sees it within 1 second
+5. Host goes offline → visitor `syncStatus: "offline"`, content cached
+6. Letterbox visitor uploads drop when host offline → host imports on reconnect
 
-**Current Blockers**: None. Core P2P package is ready. Focus on integration and UI.
+**Current Blockers**: None. Invite → DenKey → P2P join flow is end-to-end complete.
 
 ---
 
@@ -494,22 +509,24 @@ vercel --prod
 
 ```sql
 CREATE TABLE flower_pots (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  token TEXT UNIQUE NOT NULL,
-  den_id TEXT NOT NULL,
+  id               UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  token            TEXT UNIQUE NOT NULL DEFAULT gen_random_uuid()::text,
+  den_id           TEXT NOT NULL,
   encrypted_bundle TEXT NOT NULL,
-  expires_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  created_by UUID REFERENCES auth.users(id)
+  expires_at       TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  created_by       UUID REFERENCES auth.users(id)
 );
 
-CREATE INDEX idx_flower_pots_token ON flower_pots(token);
+CREATE INDEX idx_flower_pots_token      ON flower_pots(token);
 CREATE INDEX idx_flower_pots_expires_at ON flower_pots(expires_at);
 ```
 
 #### Row-Level Security (RLS)
 
 ```sql
+ALTER TABLE flower_pots ENABLE ROW LEVEL SECURITY;
+
 -- Anyone can read non-expired flower pots
 CREATE POLICY "Public read non-expired flower pots"
   ON flower_pots FOR SELECT
@@ -524,6 +541,13 @@ CREATE POLICY "Authenticated users can create flower pots"
 CREATE POLICY "Creator can delete flower pots"
   ON flower_pots FOR DELETE
   USING (auth.uid() = created_by);
+```
+
+#### den_invites column
+
+```sql
+-- Add flower pot reference to den_invites (run after flower_pots table exists)
+ALTER TABLE den_invites ADD COLUMN IF NOT EXISTS flower_pot_token TEXT;
 ```
 
 ---
