@@ -133,7 +133,15 @@ export class SignalingChannel {
     handler: SignalHandler<T>,
   ): () => void {
     this.channel.on("broadcast", { event }, (payload) => {
-      handler(payload.payload as T);
+      // Supabase Realtime passes the payload directly; some backends wrap as { payload }
+      const msg: T =
+        payload &&
+        typeof payload === "object" &&
+        "payload" in payload &&
+        (payload as { payload?: unknown }).payload !== undefined
+          ? ((payload as { payload: T }).payload as unknown as T)
+          : (payload as unknown as T);
+      handler(msg);
     });
     // Supabase Realtime doesn't support removing individual broadcast listeners
     // via the JS SDK — the channel must be unsubscribed and recreated to stop.
