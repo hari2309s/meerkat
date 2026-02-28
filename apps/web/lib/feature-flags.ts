@@ -40,53 +40,71 @@ export interface FeatureFlags {
 
 /**
  * Default feature flag values
- * Start with all flags disabled for safe migration
+ * All local-first features are on by default.
+ * Override with NEXT_PUBLIC_FF_* env vars or localStorage to opt out.
  */
 export const defaultFeatureFlags: FeatureFlags = {
-  localFirstStorage: false,
-  p2pSync: false,
-  voiceAnalysis: false,
-  newUI: false,
-  encryption: true, // Always keep encryption enabled by default for security
+  localFirstStorage: true,
+  p2pSync: true,
+  voiceAnalysis: true,
+  newUI: true,
+  encryption: true,
 };
+
+/**
+ * Apply env var overrides to a flags object.
+ * An env var only overrides the default when it is explicitly set to "true" or "false".
+ * Unset variables leave the default intact.
+ */
+function applyEnvOverrides(flags: FeatureFlags): FeatureFlags {
+  const result = { ...flags };
+  const {
+    NEXT_PUBLIC_FF_LOCAL_FIRST,
+    NEXT_PUBLIC_FF_P2P_SYNC,
+    NEXT_PUBLIC_FF_VOICE_ANALYSIS,
+    NEXT_PUBLIC_FF_NEW_UI,
+    NEXT_PUBLIC_FF_ENCRYPTION,
+  } = process.env;
+
+  if (NEXT_PUBLIC_FF_LOCAL_FIRST !== undefined)
+    result.localFirstStorage = NEXT_PUBLIC_FF_LOCAL_FIRST === "true";
+  if (NEXT_PUBLIC_FF_P2P_SYNC !== undefined)
+    result.p2pSync = NEXT_PUBLIC_FF_P2P_SYNC === "true";
+  if (NEXT_PUBLIC_FF_VOICE_ANALYSIS !== undefined)
+    result.voiceAnalysis = NEXT_PUBLIC_FF_VOICE_ANALYSIS === "true";
+  if (NEXT_PUBLIC_FF_NEW_UI !== undefined)
+    result.newUI = NEXT_PUBLIC_FF_NEW_UI === "true";
+  if (NEXT_PUBLIC_FF_ENCRYPTION !== undefined)
+    result.encryption = NEXT_PUBLIC_FF_ENCRYPTION !== "false";
+
+  return result;
+}
 
 /**
  * Get feature flags from environment variables or localStorage
  * Priority: localStorage > env vars > defaults
  */
 export function getFeatureFlags(): FeatureFlags {
-  // Start with defaults
-  const flags = { ...defaultFeatureFlags };
+  // Start with defaults, then apply any explicit env var overrides
+  const base = applyEnvOverrides(defaultFeatureFlags);
 
-  // Server-side: check environment variables
+  // Server-side: env overrides only (no localStorage)
   if (typeof window === "undefined") {
-    flags.localFirstStorage = process.env.NEXT_PUBLIC_FF_LOCAL_FIRST === "true";
-    flags.p2pSync = process.env.NEXT_PUBLIC_FF_P2P_SYNC === "true";
-    flags.voiceAnalysis = process.env.NEXT_PUBLIC_FF_VOICE_ANALYSIS === "true";
-    flags.newUI = process.env.NEXT_PUBLIC_FF_NEW_UI === "true";
-    flags.encryption = process.env.NEXT_PUBLIC_FF_ENCRYPTION !== "false";
-    return flags;
+    return base;
   }
 
-  // Client-side: check localStorage (overrides env vars)
+  // Client-side: localStorage takes highest priority
   try {
     const stored = localStorage.getItem("meerkat:feature-flags");
     if (stored) {
       const parsed = JSON.parse(stored) as Partial<FeatureFlags>;
-      return { ...flags, ...parsed };
+      return { ...base, ...parsed };
     }
   } catch (error) {
     console.warn("Failed to parse feature flags from localStorage:", error);
   }
 
-  // Fallback to environment variables on client
-  flags.localFirstStorage = process.env.NEXT_PUBLIC_FF_LOCAL_FIRST === "true";
-  flags.p2pSync = process.env.NEXT_PUBLIC_FF_P2P_SYNC === "true";
-  flags.voiceAnalysis = process.env.NEXT_PUBLIC_FF_VOICE_ANALYSIS === "true";
-  flags.newUI = process.env.NEXT_PUBLIC_FF_NEW_UI === "true";
-  flags.encryption = process.env.NEXT_PUBLIC_FF_ENCRYPTION !== "false";
-
-  return flags;
+  return base;
 }
 
 /**
