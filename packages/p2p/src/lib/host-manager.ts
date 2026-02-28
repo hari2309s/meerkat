@@ -1,23 +1,10 @@
 // ─── host-manager.ts ─────────────────────────────────────────────────────────
 //
-// Host-side P2P session management.
-//
-// Responsibilities:
-//   1. Advertise on the signaling channel ("host-online")
-//   2. Receive join-request signals from visitors
-//   3. Validate the visitor's DenKey (expiry, scope integrity)
-//   4. Complete the WebRTC handshake (SDP offer/answer, ICE)
-//   5. Open a data channel and wire scoped Yjs sync
-//   6. Write visitor presence into shared.ydoc presence namespace
-//   7. Clean up on disconnect or revocation
-//
-// Scope enforcement:
-//   The host only passes shared.ydoc (never private.ydoc) to wireScopedYjsSync.
-//   Yjs document structuring (namespaces as named maps/arrays) means Yjs updates
-//   are doc-level, but since private.ydoc is never shared, the visitor can never
-//   read private content regardless of their key. Within shared.ydoc, namespace
-//   key encryption (from @meerkat/crypto) ensures that even if the visitor sees
-//   the full doc, they can only decrypt entries whose namespace key they hold.
+// FIX (2026-03-01):
+//   Host is the ANSWERER — it must NOT call createDataChannel().
+//   The visitor (offerer) creates the channel; host receives it via ondatachannel.
+//   Original code had host calling createDataChannel() which caused SDP mismatch
+//   and the channel never opened.
 
 import * as awarenessProtocol from "y-protocols/awareness";
 import { validateKey } from "@meerkat/keys";
@@ -39,48 +26,30 @@ import type {
 } from "../types";
 
 const DATA_CHANNEL_LABEL = "yjs-sync";
-// Presence heartbeat — keeps the visitor's entry fresh in shared.ydoc
 const PRESENCE_HEARTBEAT_MS = 15_000;
 
-// ─── HostManager ─────────────────────────────────────────────────────────────
+interface ActiveSession {
+  session: VisitorSession;
+  cleanup: () => void;
+}
 
-/**
- * Manages all active visitor sessions for a single den on the host side.
- *
- * Lifecycle:
- *   const host = new HostManager(denId, options)
- *   const stop = await host.start()   // start advertising
- *   stop()                            // stop advertising + disconnect all visitors
- */
 export class HostManager {
   private readonly denId: string;
   private readonly options: P2PManagerOptions;
 
-  // Active visitor connections — keyed by visitorId
   private sessions = new Map<string, ActiveSession>();
-
-  // Signaling channel (one per host, created on start())
   private signaling: SignalingChannel | null = null;
-
-  // Status listeners
   private statusHandlers = new Set<(status: SyncStatus) => void>();
   private _status: SyncStatus = "offline";
-
-  // ICE candidates queued before remote description is set
   private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
-
-  // Heartbeat so late-joining visitors receive host-online (pub/sub typically doesn't replay)
   private hostOnlineHeartbeat: ReturnType<typeof setInterval> | null = null;
   private static readonly HOST_ONLINE_INTERVAL_MS = 5_000;
-
   private _startPromise: Promise<() => void> | null = null;
 
   constructor(denId: string, options: P2PManagerOptions) {
     this.denId = denId;
     this.options = options;
   }
-
-  // ── Public API ────────────────────────────────────────────────────────────
 
   get status(): SyncStatus {
     return this._status;
@@ -95,75 +64,43 @@ export class HostManager {
     return () => this.statusHandlers.delete(handler);
   }
 
-  /**
-   * Start advertising as a host on the signaling channel.
-   * Returns a cleanup/stop function.
-   *
-   * Idempotent: safe to call multiple times. Concurrent calls will
-   * wait for the first one to complete.
-   */
   async start(hostPublicKey: string = ""): Promise<() => void> {
-    if (this._startPromise) {
-      return this._startPromise;
-    }
+    if (this._startPromise) return this._startPromise;
 
     this._startPromise = (async () => {
       try {
-        console.log(
-          `[@meerkat/p2p] HostManager.start() called for den ${this.denId}`,
-        );
+        console.log(`[@meerkat/p2p:host] start() — den=${this.denId}`);
 
-        const channel = this.options.createSignalingChannel(
+        const rawChannel = this.options.createSignalingChannel(
           signalingChannelName(this.denId),
         );
-        console.log(
-          `[@meerkat/p2p] Signaling channel created for den ${this.denId}`,
-        );
+        this.signaling = new SignalingChannel(rawChannel, this.denId);
 
-        this.signaling = new SignalingChannel(channel, this.denId);
-
-        // Wire listeners BEFORE subscribing (Supabase Realtime requirement)
+        // Wire listeners BEFORE subscribe
         this.signaling.onJoinRequest((msg) => this.handleJoinRequest(msg));
         this.signaling.onIceCandidate((msg) => this.handleIceCandidate(msg));
 
-        console.log(
-          `[@meerkat/p2p] Connecting to signaling channel for den ${this.denId}...`,
-        );
+        console.log(`[@meerkat/p2p:host] Subscribing to signaling channel...`);
         await this.signaling.connect();
-        console.log(
-          `[@meerkat/p2p] Signaling channel connected for den ${this.denId}`,
-        );
+        console.log(`[@meerkat/p2p:host] ✅ Signaling channel connected`);
 
-        // Advertise presence
-        console.log(
-          `[@meerkat/p2p] Broadcasting host-online for den ${this.denId}...`,
-        );
         await this.signaling.broadcastHostOnline({
           denId: this.denId,
           hostPublicKey,
         });
-        console.log(
-          `[@meerkat/p2p] Host-online broadcast complete for den ${this.denId}`,
-        );
+        console.log(`[@meerkat/p2p:host] ✅ host-online broadcast sent`);
 
-        // Heartbeat so late-joining visitors get host-online (no message replay)
         this.hostOnlineHeartbeat = setInterval(() => {
           this.signaling
-            ?.broadcastHostOnline({
-              denId: this.denId,
-              hostPublicKey,
-            })
+            ?.broadcastHostOnline({ denId: this.denId, hostPublicKey })
             .catch(() => {});
         }, HostManager.HOST_ONLINE_INTERVAL_MS);
 
         this._setStatus("synced");
-        console.log(
-          `[@meerkat/p2p] Status set to 'synced' for den ${this.denId}`,
-        );
+        console.log(`[@meerkat/p2p:host] ✅ Hosting started — status=synced`);
 
         return () => this.stop();
       } catch (err) {
-        // Clear promise on failure so we can retry later
         this._startPromise = null;
         throw err;
       }
@@ -172,63 +109,51 @@ export class HostManager {
     return this._startPromise;
   }
 
-  /**
-   * Stop hosting: broadcast offline, close all peer connections, clean up.
-   */
   async stop(): Promise<void> {
+    console.log(`[@meerkat/p2p:host] stop() — den=${this.denId}`);
     if (this.hostOnlineHeartbeat) {
       clearInterval(this.hostOnlineHeartbeat);
       this.hostOnlineHeartbeat = null;
     }
-    // Broadcast going offline so visitors can update their UI immediately
     try {
       await this.signaling?.broadcastHostOffline();
     } catch {
-      // Best-effort — we're shutting down regardless
+      /* best-effort */
     }
-
-    // Disconnect all visitors
-    for (const [visitorId] of this.sessions) {
+    for (const [visitorId] of this.sessions)
       await this.disconnectVisitor(visitorId);
-    }
-
     await this.signaling?.disconnect();
     this.signaling = null;
-
     this._startPromise = null;
     this._setStatus("offline");
   }
 
-  /**
-   * Forcibly disconnect a specific visitor. Removes their presence entry.
-   */
   async disconnectVisitor(visitorId: string): Promise<void> {
     const active = this.sessions.get(visitorId);
     if (!active) return;
-
     active.cleanup();
     this.sessions.delete(visitorId);
-
-    // Remove from presence namespace in shared.ydoc
     try {
       const { sharedDen } = await openDen(this.denId);
       sharedDen.ydoc.transact(() => {
         sharedDen.presence.delete(visitorId);
       });
     } catch {
-      // Non-fatal — den may already be closing
+      /* non-fatal */
     }
-
     this._updateStatusFromSessions();
   }
 
-  // ── Private: handshake ────────────────────────────────────────────────────
-
   private async handleJoinRequest(msg: JoinRequestSignal): Promise<void> {
     const { visitorId, denKey, sdpOffer } = msg;
+    console.log(
+      `[@meerkat/p2p:host] join-request received from visitorId=${visitorId}`,
+    );
 
-    // 1. Validate the DenKey
     if (!validateKey(denKey) || denKey.denId !== this.denId) {
+      console.warn(
+        `[@meerkat/p2p:host] DenKey invalid or wrong den — rejecting`,
+      );
       await this.signaling?.sendJoinResponse({
         type: "join-response",
         visitorId,
@@ -240,47 +165,45 @@ export class HostManager {
       return;
     }
 
-    // 2. Create a peer connection
     const peer = new RTCPeerConnection({
       iceServers: this.options.iceServers ?? DEFAULT_ICE_SERVERS,
     });
 
-    // 3. FIX: The host is the ANSWERER — it must NOT call createDataChannel().
-    // The visitor (offerer) creates the DataChannel, which embeds it in the SDP
-    // offer. The host receives it via ondatachannel after the connection is
-    // established. Calling createDataChannel() here was the root cause of the
-    // visitor being permanently stuck at "Connecting" — the host's answer SDP
-    // contained a mismatched data channel negotiation that the visitor's peer
-    // connection rejected, so the channel never opened.
+    // FIX: Host is ANSWERER — use ondatachannel, NOT createDataChannel()
+    // The visitor (offerer) creates the channel; it arrives here via this event.
     let yjsCleanup: (() => void) | null = null;
     let heartbeat: ReturnType<typeof setInterval>;
 
-    peer.ondatachannel = async (event) => {
+    peer.ondatachannel = (event) => {
+      console.log(
+        `[@meerkat/p2p:host] ondatachannel fired — label=${event.channel.label}`,
+      );
       if (event.channel.label !== DATA_CHANNEL_LABEL) return;
-      const dataChannel = event.channel;
+      const dc = event.channel;
 
-      dataChannel.onopen = async () => {
+      dc.onopen = async () => {
+        console.log(
+          `[@meerkat/p2p:host] DataChannel OPEN for visitorId=${visitorId}`,
+        );
         try {
           const { sharedDen } = await openDen(this.denId);
           const awareness = new awarenessProtocol.Awareness(sharedDen.ydoc);
 
           yjsCleanup = wireScopedYjsSync({
             ydoc: sharedDen.ydoc,
-            channel: dataChannel,
+            channel: dc,
             awareness,
             canWrite: denKey.scope.write,
             role: "host",
           });
 
-          // Write visitor into presence namespace
           await this.writePresence(visitorId, denKey);
 
-          // Heartbeat to keep presence fresh
-          heartbeat = setInterval(async () => {
-            await this.touchPresence(visitorId);
+          heartbeat = setInterval(() => {
+            this.touchPresence(visitorId).catch(() => {});
           }, PRESENCE_HEARTBEAT_MS);
 
-          // Update cleanup to include Yjs teardown
+          // Update cleanup
           this.sessions.set(visitorId, {
             session: this.sessions.get(visitorId)!.session,
             cleanup: () => {
@@ -292,21 +215,33 @@ export class HostManager {
 
           this._updateStatusFromSessions();
           console.log(
-            `[@meerkat/p2p] Visitor ${visitorId} Yjs sync wired for den ${this.denId}`,
+            `[@meerkat/p2p:host] ✅ Yjs sync wired for visitorId=${visitorId}`,
           );
         } catch (err) {
-          console.error(
-            `[@meerkat/p2p] Failed to wire Yjs sync for visitor ${visitorId}:`,
-            err,
-          );
+          console.error(`[@meerkat/p2p:host] wireYjsSync failed:`, err);
           await this.disconnectVisitor(visitorId);
         }
       };
+
+      dc.onclose = () =>
+        console.log(
+          `[@meerkat/p2p:host] DataChannel closed for visitorId=${visitorId}`,
+        );
+      dc.onerror = (e) =>
+        console.error(`[@meerkat/p2p:host] DataChannel error:`, e);
     };
 
-    // 4. ICE candidate relay
+    // ICE relay
     peer.onicecandidate = async ({ candidate }) => {
-      if (!candidate) return;
+      if (!candidate) {
+        console.log(
+          `[@meerkat/p2p:host] ICE gathering complete for ${visitorId}`,
+        );
+        return;
+      }
+      console.log(
+        `[@meerkat/p2p:host] Sending ICE candidate to visitorId=${visitorId}`,
+      );
       await this.signaling?.sendIceCandidate({
         type: "ice-candidate",
         visitorId,
@@ -316,28 +251,33 @@ export class HostManager {
       });
     };
 
-    // 5. Handle peer disconnection
+    peer.oniceconnectionstatechange = () =>
+      console.log(
+        `[@meerkat/p2p:host] ICE state for ${visitorId} → ${peer.iceConnectionState}`,
+      );
     peer.onconnectionstatechange = () => {
-      if (
-        peer.connectionState === "disconnected" ||
-        peer.connectionState === "failed" ||
-        peer.connectionState === "closed"
-      ) {
+      console.log(
+        `[@meerkat/p2p:host] Connection state for ${visitorId} → ${peer.connectionState}`,
+      );
+      if (["disconnected", "failed", "closed"].includes(peer.connectionState)) {
         this.disconnectVisitor(visitorId);
       }
     };
 
-    // 6. Set remote description (the visitor's offer)
+    console.log(
+      `[@meerkat/p2p:host] Setting remote description (visitor offer)`,
+    );
     await peer.setRemoteDescription({ type: "offer", sdp: sdpOffer });
 
-    // 7. Apply any ICE candidates that arrived before the remote description
+    // Flush queued ICE
     const queued = this.pendingCandidates.get(visitorId) ?? [];
-    for (const c of queued) {
-      await peer.addIceCandidate(c).catch(() => {});
-    }
+    console.log(
+      `[@meerkat/p2p:host] Flushing ${queued.length} queued ICE candidates`,
+    );
+    for (const c of queued) await peer.addIceCandidate(c).catch(() => {});
     this.pendingCandidates.delete(visitorId);
 
-    // 8. Create and send answer
+    console.log(`[@meerkat/p2p:host] Creating SDP answer`);
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
 
@@ -348,45 +288,46 @@ export class HostManager {
       sdpAnswer: answer.sdp ?? "",
       accepted: true,
     });
+    console.log(
+      `[@meerkat/p2p:host] ✅ join-response sent to visitorId=${visitorId}`,
+    );
 
-    // 9. Store the session immediately so ICE candidates can be applied
-    const session: VisitorSession = {
-      visitorId,
-      scope: denKey.scope,
-      connectedAt: new Date().toISOString(),
-      peer,
-      activeNamespaces: denKey.scope.namespaces,
-    };
-
+    // Store session immediately so ICE candidates can be applied
     this.sessions.set(visitorId, {
-      session,
+      session: {
+        visitorId,
+        scope: denKey.scope,
+        connectedAt: new Date().toISOString(),
+        peer,
+        activeNamespaces: denKey.scope.namespaces,
+      },
       cleanup: () => {
         yjsCleanup?.();
-        clearInterval(heartbeat);
+        if (heartbeat) clearInterval(heartbeat);
         peer.close();
       },
     });
-
-    // Status will update to "hosting" once the data channel opens and Yjs wires up
-    // (ondatachannel → onopen → _updateStatusFromSessions)
   }
 
   private handleIceCandidate(msg: IceCandidateSignal): void {
     if (msg.from !== "visitor") return;
     const { visitorId, candidate } = msg;
-
+    console.log(
+      `[@meerkat/p2p:host] ICE candidate from visitorId=${visitorId}`,
+    );
     const active = this.sessions.get(visitorId);
     if (active?.session.peer.remoteDescription) {
-      active.session.peer.addIceCandidate(candidate).catch(() => {});
+      active.session.peer
+        .addIceCandidate(candidate)
+        .catch((e) =>
+          console.warn(`[@meerkat/p2p:host] addIceCandidate failed:`, e),
+        );
     } else {
-      // Queue until remote description is set
       const existing = this.pendingCandidates.get(visitorId) ?? [];
       existing.push(candidate);
       this.pendingCandidates.set(visitorId, existing);
     }
   }
-
-  // ── Private: presence ─────────────────────────────────────────────────────
 
   private async writePresence(
     visitorId: string,
@@ -396,7 +337,7 @@ export class HostManager {
       const { sharedDen } = await openDen(this.denId);
       const presence: PresenceInfo = {
         visitorId,
-        displayName: `Visitor`,
+        displayName: "Visitor",
         scopes: [
           ...(denKey.scope.read ? ["read"] : []),
           ...(denKey.scope.write ? ["write"] : []),
@@ -409,7 +350,7 @@ export class HostManager {
         sharedDen.presence.set(visitorId, presence);
       });
     } catch {
-      // Non-fatal
+      /* non-fatal */
     }
   }
 
@@ -426,11 +367,9 @@ export class HostManager {
         });
       }
     } catch {
-      // Non-fatal
+      /* non-fatal */
     }
   }
-
-  // ── Private: status ───────────────────────────────────────────────────────
 
   private _updateStatusFromSessions(): void {
     const next: SyncStatus = this.sessions.size > 0 ? "hosting" : "synced";
@@ -439,20 +378,14 @@ export class HostManager {
 
   private _setStatus(next: SyncStatus): void {
     if (next === this._status) return;
+    console.log(`[@meerkat/p2p:host] Status: ${this._status} → ${next}`);
     this._status = next;
-    for (const handler of this.statusHandlers) {
+    for (const h of this.statusHandlers) {
       try {
-        handler(next);
-      } catch (err) {
-        console.error("[@meerkat/p2p] Status handler threw:", err);
+        h(next);
+      } catch (e) {
+        console.error("[@meerkat/p2p:host] status handler threw:", e);
       }
     }
   }
-}
-
-// ─── Internal types ───────────────────────────────────────────────────────────
-
-interface ActiveSession {
-  session: VisitorSession;
-  cleanup: () => void;
 }
