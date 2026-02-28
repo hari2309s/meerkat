@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
-import { initP2P } from "@meerkat/p2p";
+import { type ReactNode } from "react";
+import { initP2P, getP2PManager } from "@meerkat/p2p";
 import { createClient } from "@/lib/supabase/client";
 import { useFeature } from "@/lib/feature-flags-context";
 
@@ -12,42 +12,41 @@ interface P2PProviderProps {
 /**
  * P2P Provider
  *
- * Initializes the @meerkat/p2p manager with the Supabase Realtime signaling
- * channel factory. This must be called once at app startup before any P2P
- * activity occurs.
+ * Initialises the @meerkat/p2p manager with the Supabase Realtime signaling
+ * channel factory.
  *
- * The provider only initializes P2P when the p2pSync feature flag is enabled.
+ * IMPORTANT: Initialisation happens synchronously during render, NOT in a
+ * useEffect. React fires effects bottom-up (child before parent), which means
+ * a useEffect here would fire *after* DenProvider's effects — by which time
+ * the DenProvider's sync machine has already called resolveP2PAdapter() and
+ * fallen back to the offline no-op adapter (because initP2P hadn't run yet).
+ *
+ * Calling initP2P() during render (top-down, parent before child) ensures the
+ * manager exists before any descendant component effects run.
+ *
+ * Safety:
+ *  - createClient() returns a cached Supabase singleton → safe during render
+ *  - initP2P() stores options in a module-level variable → safe during render
+ *  - getP2PManager() guard prevents redundant re-initialisation on re-renders
  */
 export function P2PProvider({ children }: P2PProviderProps) {
   const p2pEnabled = useFeature("p2pSync");
 
-  useEffect(() => {
-    console.log("[P2P] Provider effect running, p2pSync flag:", p2pEnabled);
-
-    // Only initialize if P2P sync is enabled
-    if (!p2pEnabled) {
-      console.log("[P2P] P2P sync disabled, skipping initialization");
-      return;
-    }
-
-    // Check if we're in the browser
-    if (typeof window === "undefined") {
-      console.log("[P2P] Running on server, skipping initialization");
-      return;
-    }
-
-    console.log("[P2P] Attempting to initialize P2P manager...");
-
+  // Synchronous initialisation during render so the manager is available
+  // before any child component effects run.
+  if (p2pEnabled && typeof window !== "undefined") {
     try {
+      // Throws "not initialized" if the manager doesn't exist yet.
+      // If it succeeds, the manager is already running — skip.
+      getP2PManager();
+    } catch {
+      // Not initialised yet — set it up now.
       const supabase = createClient();
-
-      // Initialize the P2P manager with Supabase Realtime as the signaling channel
       initP2P({
         createSignalingChannel: (channelName: string) => {
-          console.log("[P2P] Creating signaling channel:", channelName);
           const channel = supabase.channel(channelName);
 
-          // Wrap the Supabase RealtimeChannel to match the SupabaseRealtimeChannelLike interface
+          // Wrap the Supabase RealtimeChannel to match SupabaseRealtimeChannelLike
           const wrapper = {
             on(
               event: "broadcast",
@@ -75,19 +74,8 @@ export function P2PProvider({ children }: P2PProviderProps) {
           return wrapper;
         },
       });
-
-      console.log("[P2P] ✅ Manager initialized successfully");
-    } catch (error) {
-      // If initialization fails (e.g., already initialized), that's ok
-      console.warn(
-        "[P2P] Initialization error (may already be initialized):",
-        error,
-      );
-      console.error("[P2P] Full error details:", error);
     }
-
-    // No cleanup needed — P2P manager is a singleton that lives for app lifetime
-  }, [p2pEnabled]);
+  }
 
   return <>{children}</>;
 }
