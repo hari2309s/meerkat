@@ -26,13 +26,14 @@ The DenKey is never sent to the server in plaintext. Delivery uses an **ephemera
 
 ```
 Host (InviteModal)
-  1. generateKeyPair()         → { publicKey, secretKey }
-  2. generateKey(house-sit)    → DenKey (30 days)
-  3. depositKey(denKey, publicKey)
+  1. Host selects key type (house-sit / come-over / peek / letterbox) and duration
+  2. generateKeyPair()         → { publicKey, secretKey }
+  3. generateKey(keyType, durationMs?)  → DenKey (null expiresAt = never expires)
+  4. depositKey(denKey, publicKey)
        → encryptBundle(denKey, publicKey)   // sealed with visitor's public key
        → POST /api/flower-pots              // stores opaque ciphertext
        → returns flowerPotToken
-  4. Invite URL: /invite/TOKEN#sk=BASE64(secretKey)
+  5. Invite URL: /invite/TOKEN#sk=BASE64(secretKey)
      ↑ hash fragment NEVER sent to server (URL spec)
 
 Invitee (InvitePageClient)
@@ -144,16 +145,18 @@ Revokes a flower pot. RLS enforces creator-only deletion.
 
 ## Files Changed
 
-| Action | File                                               | Purpose                                      |
-| ------ | -------------------------------------------------- | -------------------------------------------- |
-| CREATE | `apps/web/app/api/flower-pots/route.ts`            | REST API for flower pot CRUD                 |
-| MODIFY | `apps/web/components/den/invite-modal.tsx`         | Generate + deposit DenKey on invite creation |
-| MODIFY | `apps/web/app/invite/[token]/page.tsx`             | Pass `flowerPotToken` to client component    |
-| MODIFY | `apps/web/components/invite-page-client.tsx`       | Redeem DenKey on invite acceptance           |
-| MODIFY | `apps/web/app/dens/[id]/layout.tsx`                | Remove DenProvider (moved to page)           |
-| MODIFY | `apps/web/app/dens/[id]/page.tsx`                  | Wrap with `DenProvider readOnly={!isOwner}`  |
-| MODIFY | `apps/web/components/den-page-client-enhanced.tsx` | Visitor P2P auto-join via `useJoinDen`       |
-| MODIFY | `apps/web/components/den/visitor-panel.tsx`        | Fix hosting UI (was stuck on "Not hosting")  |
+| Action | File                                               | Purpose                                                        |
+| ------ | -------------------------------------------------- | -------------------------------------------------------------- |
+| CREATE | `apps/web/app/api/flower-pots/route.ts`            | REST API for flower pot CRUD                                   |
+| MODIFY | `apps/web/components/den/invite-modal.tsx`         | Key-type + duration selectors; Meerkat-themed UI               |
+| MODIFY | `packages/ui/src/components/modal-shell.tsx`       | Added optional `cardStyle` prop for per-modal background       |
+| MODIFY | `apps/web/app/globals.css`                         | Added `--color-modal-bg` and `--color-selection-active-*` vars |
+| MODIFY | `apps/web/app/invite/[token]/page.tsx`             | Pass `flowerPotToken` to client component                      |
+| MODIFY | `apps/web/components/invite-page-client.tsx`       | Redeem DenKey on invite acceptance                             |
+| MODIFY | `apps/web/app/dens/[id]/layout.tsx`                | Remove DenProvider (moved to page)                             |
+| MODIFY | `apps/web/app/dens/[id]/page.tsx`                  | Wrap with `DenProvider readOnly={!isOwner}`                    |
+| MODIFY | `apps/web/components/den-page-client-enhanced.tsx` | Visitor P2P auto-join via `useJoinDen`                         |
+| MODIFY | `apps/web/components/den/visitor-panel.tsx`        | Fix hosting UI (was stuck on "Not hosting")                    |
 
 ---
 
@@ -161,13 +164,42 @@ Revokes a flower pot. RLS enforces creator-only deletion.
 
 [apps/web/components/den/invite-modal.tsx](../apps/web/components/den/invite-modal.tsx)
 
-The `generate()` effect (runs on mount) now:
+The `InviteModal` lets the host configure the DenKey before sharing:
 
-1. Creates the `den_invites` row (existing).
+### Key type selector
+
+A 2×2 grid lets the host pick one of the four named presets:
+
+| Option        | Emoji | Access                                 |
+| ------------- | ----- | -------------------------------------- |
+| **House-sit** | 🏠    | Full access, offline capable (default) |
+| **Come Over** | 👋    | Real-time read & write, live only      |
+| **Peek**      | 👀    | Read-only, live only                   |
+| **Letterbox** | 📬    | Write-only drops, offline capable      |
+
+### Duration selector
+
+Pill buttons let the host choose how long the key is valid:
+
+| Option               | `durationMs`                    |
+| -------------------- | ------------------------------- |
+| 7 days               | `7 * 24 * 60 * 60 * 1000`       |
+| 30 days (default UI) | `30 * 24 * 60 * 60 * 1000`      |
+| 90 days              | `90 * 24 * 60 * 60 * 1000`      |
+| 1 year               | `365 * 24 * 60 * 60 * 1000`     |
+| No expiry            | `undefined` → `expiresAt: null` |
+
+Omitting `durationMs` produces a permanent key (`expiresAt: null`). `validateKey()` treats `null` as always-valid.
+
+### Link generation flow
+
+The `generate()` effect re-runs whenever `selectedKeyType` or `selectedDurationMs` changes (not just on mount):
+
+1. Creates a fresh `den_invites` row.
 2. Generates an ephemeral `X25519` keypair via `generateKeyPair()`.
 3. Generates placeholder namespace keys via `generateDenNamespaceKeys()`.
    - Content isn't namespace-encrypted in Phase 4; these satisfy `validateKey()` structural checks only. Real namespace scoping is Phase 5+.
-4. Generates a `house-sit` DenKey (30 days) via `generateKey()`.
+4. Generates a DenKey with the selected `keyType` and `durationMs` via `generateKey()`.
 5. Deposits the sealed bundle via `depositKey()` → `POST /api/flower-pots`.
 6. Updates `den_invites.flower_pot_token` with the returned token.
 7. Stores `toBase64(secretKey)` in state → appended to the invite URL as `#sk=`.
@@ -178,9 +210,9 @@ The **invite link** format:
 https://app.meerkat.io/invite/TOKEN#sk=BASE64_SECRET_KEY
 ```
 
-The display box shows only `/invite/TOKEN` (without the secret). The copy button copies the full URL including the hash fragment.
+The display box shows only `/invite/TOKEN` (without the secret). The copy button copies the full URL including the hash fragment. A summary line beneath the link box shows the chosen preset emoji + name and expiry, e.g. _"🏠 House-sit · Never expires"_ or _"👋 Come Over · Expires in 30 days"_.
 
-The **email send** path creates a separate `den_invites` row with its own dedicated flower pot and keypair per recipient.
+The **email send** path creates a separate `den_invites` row with its own dedicated flower pot and keypair, using the same `selectedKeyType` / `selectedDurationMs` values.
 
 ---
 
@@ -288,12 +320,13 @@ Status text now shows `"Waiting for visitors…"` for both `"connecting"` and `"
 
 ## Verification Checklist
 
-1. **Host flow**: Open InviteModal → copy link → confirm URL contains `#sk=` → open browser network tab and confirm no request to `/api/flower-pots` includes the secret key.
-2. **New user flow**: Open invite link in incognito → sign up → accept → open DevTools → confirm `meerkat:den-keys` in `localStorage` has an entry for the den.
-3. **P2P join**: Enable `localFirstStorage` + `p2pSync` flags → non-owner opens den with valid DenKey → `useJoinDen` connects → host's visitor panel shows 1 visitor → `DenHeaderEnhanced` shows synced status for visitor.
-4. **Key expiry**: Manually set `expires_at` to past in Supabase → `useValidateKey` returns false → `validKeys` is empty → no auto-join.
-5. **Hosting UI**: Click "Start hosting" → button should immediately become "Stop hosting" with "Waiting for visitors…" status.
-6. **Non-owner no-host**: Open den as non-owner → confirm no `"host-online"` broadcast in Supabase Realtime inspector.
+1. **Key config**: Open InviteModal → select "Peek" + "No expiry" → confirm link regenerates → copy link → confirm `validateKey()` returns true and `expiresAt` is null in localStorage after redemption.
+2. **Host flow**: Open InviteModal → copy link → confirm URL contains `#sk=` → open browser network tab and confirm no request to `/api/flower-pots` includes the secret key.
+3. **New user flow**: Open invite link in incognito → sign up → accept → open DevTools → confirm `meerkat:den-keys` in `localStorage` has an entry for the den with the correct `keyType`.
+4. **P2P join**: Enable `localFirstStorage` + `p2pSync` flags → non-owner opens den with valid DenKey → `useJoinDen` connects → host's visitor panel shows 1 visitor → `DenHeaderEnhanced` shows synced status for visitor.
+5. **Key expiry**: Manually set `expires_at` to past in Supabase → `useValidateKey` returns false → `validKeys` is empty → no auto-join.
+6. **Hosting UI**: Click "Start hosting" → button should immediately become "Stop hosting" with "Waiting for visitors…" status.
+7. **Non-owner no-host**: Open den as non-owner → confirm no `"host-online"` broadcast in Supabase Realtime inspector.
 
 ---
 
