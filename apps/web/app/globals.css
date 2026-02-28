@@ -66,6 +66,10 @@
     --color-selection-active-border: rgba(138, 96, 53, 0.7);
     --color-selection-active-text: #6b4f2e;
 
+    /* Synced badge */
+    --color-synced-bg: rgba(40, 120, 90, 0.12);
+    --color-synced-text: #276248;
+
     --color-avatar-bg: #8a6035;
     --color-wordmark: #3a2718;
     --color-tagline: #7a5535;
@@ -179,6 +183,10 @@
     --color-selection-active-bg: rgba(154, 114, 72, 0.18);
     --color-selection-active-border: rgba(200, 160, 112, 0.65);
     --color-selection-active-text: #c8a070;
+
+    /* Synced badge — brighter teal for dark bg */
+    --color-synced-bg: rgba(50, 180, 130, 0.16);
+    --color-synced-text: #4ecba0;
 
     --color-avatar-bg: #6b4f2e;
     --color-wordmark: #e8d4b8;

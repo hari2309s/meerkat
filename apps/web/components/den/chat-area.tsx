@@ -85,7 +85,7 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
   const legacyMessages = useChatStore((s) => s.messages);
   const denContext = useDenContextSafe();
   const useLocalFirst = useFeature("localFirstStorage");
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Convert CRDT voice memos to Message format for display
   const voiceMemoMessages = useMemo((): Message[] => {
@@ -120,9 +120,11 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
     [messages],
   );
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom of chat container on new messages
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
   }, [sortedMessages.length]);
 
   if (sortedMessages.length === 0) {
@@ -163,6 +165,7 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
 
   return (
     <div
+      ref={containerRef}
       className="flex flex-col gap-4 p-4 sm:p-6 rounded-2xl mb-4 overflow-y-auto"
       style={{
         background: "var(--color-bg-card)",
@@ -195,7 +198,6 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
           />
         );
       })}
-      <div ref={bottomRef} />
     </div>
   );
 }

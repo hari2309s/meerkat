@@ -64,9 +64,11 @@ export function VisitorPanel({
             className="text-xs font-medium"
             style={{ color: "var(--color-text-muted)" }}
           >
-            {syncStatus === "hosting"
+            {visitors.length > 0
               ? `${visitors.length} visitor${visitors.length !== 1 ? "s" : ""} connected`
-              : syncStatus === "connecting" || syncStatus === "synced"
+              : syncStatus === "connecting" ||
+                  syncStatus === "synced" ||
+                  syncStatus === "hosting"
                 ? "Waiting for visitors…"
                 : "Not hosting"}
           </span>
