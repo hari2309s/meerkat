@@ -12,6 +12,7 @@ import {
   depositKey,
   generateDenNamespaceKeys,
 } from "@meerkat/keys";
+import type { KeyType } from "@meerkat/keys";
 import type { Den } from "@/types/den";
 
 interface InviteModalProps {
@@ -19,34 +20,120 @@ interface InviteModalProps {
   onClose: () => void;
 }
 
+// ── Key type options ─────────────────────────────────────────────────────────
+
+const KEY_TYPE_OPTIONS: {
+  value: Exclude<KeyType, "custom">;
+  label: string;
+  description: string;
+  emoji: string;
+}[] = [
+  {
+    value: "house-sit",
+    label: "House-sit",
+    description: "Full access, offline capable. Best for trusted members.",
+    emoji: "🏠",
+  },
+  {
+    value: "come-over",
+    label: "Come Over",
+    description: "Real-time read & write. Live sessions only.",
+    emoji: "👋",
+  },
+  {
+    value: "peek",
+    label: "Peek",
+    description: "Read-only access to shared notes. No changes.",
+    emoji: "👀",
+  },
+  {
+    value: "letterbox",
+    label: "Letterbox",
+    description: "Drop messages when you're not home. Works offline.",
+    emoji: "📬",
+  },
+];
+
+// ── Duration options ─────────────────────────────────────────────────────────
+
+const DURATION_OPTIONS: { label: string; durationMs: number | null }[] = [
+  { label: "7 days", durationMs: 7 * 24 * 60 * 60 * 1000 },
+  { label: "30 days", durationMs: 30 * 24 * 60 * 60 * 1000 },
+  { label: "90 days", durationMs: 90 * 24 * 60 * 60 * 1000 },
+  { label: "1 year", durationMs: 365 * 24 * 60 * 60 * 1000 },
+  { label: "No expiry", durationMs: null },
+];
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function buildFlowerPot(
+  denId: string,
+  keyType: Exclude<KeyType, "custom">,
+  durationMs: number | null,
+): Promise<{ kp: KeyPair; flowerPotToken: string } | null> {
+  try {
+    const kp = generateKeyPair();
+    const allNamespaceKeys = await generateDenNamespaceKeys();
+    const denKey = generateKey({
+      keyType,
+      denId,
+      allNamespaceKeys,
+      ...(durationMs != null ? { durationMs } : {}),
+    });
+    const flowerPotToken = await depositKey({
+      key: denKey,
+      visitorPublicKey: kp.publicKey,
+      depositOnServer: async ({ denId, encryptedBundle, expiresAt }) => {
+        const res = await fetch("/api/flower-pots", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ denId, encryptedBundle, expiresAt }),
+        });
+        if (!res.ok) throw new Error("Failed to deposit flower pot");
+        const json = (await res.json()) as { token: string };
+        return json.token;
+      },
+    });
+    return { kp, flowerPotToken };
+  } catch {
+    return null;
+  }
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
 export function InviteModal({ den, onClose }: InviteModalProps) {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
+
+  // Key config state
+  const [selectedKeyType, setSelectedKeyType] =
+    useState<Exclude<KeyType, "custom">>("house-sit");
+  const [selectedDurationMs, setSelectedDurationMs] = useState<number | null>(
+    30 * 24 * 60 * 60 * 1000,
+  );
+
+  // Link state
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [_inviteId, setInviteId] = useState<string | null>(null);
-  // Ephemeral secret key embedded in the URL hash — never sent to server
   const [secretKeyB64, setSecretKeyB64] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // The shareable link includes the flower-pot secret in the hash fragment
-  // so the server never sees it.  Format: /invite/TOKEN#sk=SECRET_BASE64
-  const inviteLink =
-    inviteToken && secretKeyB64
-      ? `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${inviteToken}#sk=${secretKeyB64}`
-      : inviteToken
-        ? `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${inviteToken}`
-        : null;
-
+  // Reusable link generation — re-runs when key type or duration changes
   useEffect(() => {
+    let cancelled = false;
     const generate = async () => {
       setGeneratingLink(true);
+      setInviteToken(null);
+      setSecretKeyB64(null);
+
       try {
         const supabase = createClient();
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user || cancelled) return;
 
         // 1. Create the membership invite row
         const { data: inviteData, error: inviteErr } = await supabase
@@ -54,68 +141,56 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
           .insert({ den_id: den.id, invited_by: user.id })
           .select("id, token")
           .single();
-        if (inviteErr || !inviteData) return;
+        if (inviteErr || !inviteData || cancelled) return;
 
         setInviteToken(inviteData.token);
         setInviteId(inviteData.id);
 
-        // 2. Generate an ephemeral X25519 keypair for the flower pot
-        // The secret key travels in the URL hash (never sent to server).
-        // The public key seals the DenKey so only the holder of the secret can open it.
-        let kp: KeyPair;
-        try {
-          kp = generateKeyPair();
-        } catch {
-          // Crypto not available (SSR guard) — link still works without DenKey
-          return;
-        }
+        // 2. Build the flower pot
+        const result = await buildFlowerPot(
+          den.id,
+          selectedKeyType,
+          selectedDurationMs,
+        );
+        if (!result || cancelled) return;
 
-        // 3. Generate placeholder namespace keys
-        // Content isn't namespace-encrypted in Phase 4; these satisfy validateKey()
-        // structural checks without granting real namespace decryption (Phase 5+).
-        const allNamespaceKeys = await generateDenNamespaceKeys();
+        const { kp, flowerPotToken } = result;
 
-        // 4. Generate a 30-day house-sit DenKey for the invitee
-        const denKey = generateKey({
-          keyType: "house-sit",
-          denId: den.id,
-          allNamespaceKeys,
-          durationMs: 30 * 24 * 60 * 60 * 1000,
-        });
-
-        // 5. Deposit the sealed DenKey as a flower pot on the server
-        const flowerPotToken = await depositKey({
-          key: denKey,
-          visitorPublicKey: kp.publicKey,
-          depositOnServer: async ({ denId, encryptedBundle, expiresAt }) => {
-            const res = await fetch("/api/flower-pots", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ denId, encryptedBundle, expiresAt }),
-            });
-            if (!res.ok) throw new Error("Failed to deposit flower pot");
-            const json = (await res.json()) as { token: string };
-            return json.token;
-          },
-        });
-
-        // 6. Link the flower pot back to the invite row
+        // 3. Link the flower pot back to the invite row
         await supabase
           .from("den_invites")
           .update({ flower_pot_token: flowerPotToken })
           .eq("id", inviteData.id);
 
-        // 7. Embed the secret key in the URL hash (never sent to server)
-        setSecretKeyB64(toBase64(kp.secretKey));
+        if (!cancelled) {
+          setSecretKeyB64(toBase64(kp.secretKey));
+        }
       } catch (err) {
-        // Non-fatal: link still works for membership; visitor just won't get a DenKey
         console.warn("[invite-modal] Failed to generate flower pot:", err);
       } finally {
-        setGeneratingLink(false);
+        if (!cancelled) setGeneratingLink(false);
       }
     };
     generate();
-  }, [den.id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [den.id, selectedKeyType, selectedDurationMs]);
+
+  // The shareable link includes the flower-pot secret in the hash fragment
+  // so the server never sees it.  Format: /invite/TOKEN#sk=SECRET_BASE64
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const inviteLink =
+    inviteToken && secretKeyB64
+      ? `${origin}/invite/${inviteToken}#sk=${secretKeyB64}`
+      : inviteToken
+        ? `${origin}/invite/${inviteToken}`
+        : null;
+  const displayLink = inviteToken ? `${origin}/invite/${inviteToken}` : null;
+
+  const selectedDurationLabel =
+    DURATION_OPTIONS.find((d) => d.durationMs === selectedDurationMs)?.label ??
+    "No expiry";
 
   const handleSend = async () => {
     const trimmed = email.trim();
@@ -128,8 +203,6 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Create a separate invite row for the email recipient
-      // (they get their own flower pot when they open the link)
       const { data: inviteData } = await supabase
         .from("den_invites")
         .insert({ den_id: den.id, invited_by: user.id, email: trimmed })
@@ -137,30 +210,13 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
         .single();
 
       if (inviteData) {
-        // Generate a dedicated flower pot for the email invitee
-        try {
-          const kp = generateKeyPair();
-          const allNamespaceKeys = await generateDenNamespaceKeys();
-          const denKey = generateKey({
-            keyType: "house-sit",
-            denId: den.id,
-            allNamespaceKeys,
-            durationMs: 30 * 24 * 60 * 60 * 1000,
-          });
-          const flowerPotToken = await depositKey({
-            key: denKey,
-            visitorPublicKey: kp.publicKey,
-            depositOnServer: async ({ denId, encryptedBundle, expiresAt }) => {
-              const res = await fetch("/api/flower-pots", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ denId, encryptedBundle, expiresAt }),
-              });
-              if (!res.ok) throw new Error("Failed to deposit flower pot");
-              const json = (await res.json()) as { token: string };
-              return json.token;
-            },
-          });
+        const result = await buildFlowerPot(
+          den.id,
+          selectedKeyType,
+          selectedDurationMs,
+        );
+        if (result) {
+          const { kp, flowerPotToken } = result;
           await supabase
             .from("den_invites")
             .update({ flower_pot_token: flowerPotToken })
@@ -168,12 +224,11 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
 
           const sk = toBase64(kp.secretKey);
           const emailLink = `${window.location.origin}/invite/${inviteData.token}#sk=${sk}`;
-          // In a real app you'd send this via an email service; for now copy to clipboard
           await navigator.clipboard.writeText(emailLink);
           toast.success(`Invite link for ${trimmed} copied!`, {
             description: "Paste it in an email or message to them.",
           });
-        } catch {
+        } else {
           toast.success(`Invite created for ${trimmed}`, {
             description: "They'll receive a link to join.",
           });
@@ -183,7 +238,6 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
           description: "They'll receive a link to join.",
         });
       }
-
       setEmail("");
     } catch {
       toast.error("Failed to send invite");
@@ -200,19 +254,22 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
     setTimeout(() => setCopied(false), 2500);
   };
 
-  // Display link without the secret for the preview box
-  const displayLink = inviteToken
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${inviteToken}`
-    : null;
-
   return (
-    <ModalShell onClose={onClose} maxWidth="max-w-md">
+    <ModalShell
+      onClose={onClose}
+      maxWidth="max-w-md"
+      cardStyle={{ background: "var(--color-modal-bg)" }}
+    >
+      {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <div
           className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: "rgba(74,127,193,0.12)" }}
+          style={{ background: "var(--color-selection-active-bg)" }}
         >
-          <UserPlus className="h-4 w-4" style={{ color: "#4a7fc1" }} />
+          <UserPlus
+            className="h-4 w-4"
+            style={{ color: "var(--color-selection-active-text)" }}
+          />
         </div>
         <div>
           <h2
@@ -225,11 +282,93 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
             className="text-xs mt-0.5"
             style={{ color: "var(--color-text-secondary)" }}
           >
-            Links expire in 30 days · includes den access key
+            Choose access level and duration below
           </p>
         </div>
       </div>
 
+      {/* ── Key type selector ─────────────────────────────────────────────── */}
+      <p
+        className="text-xs font-semibold uppercase tracking-wide mb-2"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        Access type
+      </p>
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {KEY_TYPE_OPTIONS.map((opt) => {
+          const active = selectedKeyType === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => setSelectedKeyType(opt.value)}
+              className="text-left rounded-xl px-3 py-2.5 transition-all"
+              style={{
+                background: active
+                  ? "var(--color-selection-active-bg)"
+                  : "var(--color-input-bg)",
+                border: active
+                  ? "1.5px solid var(--color-selection-active-border)"
+                  : "1.5px solid var(--color-input-border)",
+              }}
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-base leading-none">{opt.emoji}</span>
+                <span
+                  className="text-sm font-semibold"
+                  style={{
+                    color: active
+                      ? "var(--color-selection-active-text)"
+                      : "var(--color-text-primary)",
+                  }}
+                >
+                  {opt.label}
+                </span>
+              </div>
+              <p
+                className="text-xs leading-snug"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                {opt.description}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Duration selector ─────────────────────────────────────────────── */}
+      <p
+        className="text-xs font-semibold uppercase tracking-wide mb-2"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        Key duration
+      </p>
+      <div className="flex flex-wrap gap-2 mb-5">
+        {DURATION_OPTIONS.map((opt) => {
+          const active = selectedDurationMs === opt.durationMs;
+          return (
+            <button
+              key={opt.label}
+              onClick={() => setSelectedDurationMs(opt.durationMs)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+              style={{
+                background: active
+                  ? "var(--color-selection-active-bg)"
+                  : "var(--color-input-bg)",
+                border: active
+                  ? "1.5px solid var(--color-selection-active-border)"
+                  : "1.5px solid var(--color-input-border)",
+                color: active
+                  ? "var(--color-selection-active-text)"
+                  : "var(--color-text-secondary)",
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Invite by email ───────────────────────────────────────────────── */}
       <p
         className="text-xs font-semibold uppercase tracking-wide mb-2"
         style={{ color: "var(--color-text-muted)" }}
@@ -277,8 +416,9 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
         />
       </div>
 
+      {/* ── Link preview ──────────────────────────────────────────────────── */}
       <div
-        className="flex items-center gap-2 rounded-xl px-3 py-2.5 mb-3"
+        className="flex items-center gap-2 rounded-xl px-3 py-2.5 mb-1"
         style={{
           background: "var(--color-input-bg)",
           border: "1.5px solid var(--color-input-border)",
@@ -304,6 +444,19 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
           </span>
         )}
       </div>
+      <p
+        className="text-xs mb-3 px-1"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        {selectedKeyType === "house-sit" && "🏠 House-sit"}
+        {selectedKeyType === "come-over" && "👋 Come Over"}
+        {selectedKeyType === "peek" && "👀 Peek"}
+        {selectedKeyType === "letterbox" && "📬 Letterbox"}
+        {" · "}
+        {selectedDurationLabel === "No expiry"
+          ? "Never expires"
+          : `Expires in ${selectedDurationLabel}`}
+      </p>
       <HoverButton
         variant="primary"
         onClick={handleCopy}
