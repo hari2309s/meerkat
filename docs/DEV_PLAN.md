@@ -443,7 +443,7 @@ pnpm --filter @meerkat/web dev
 
 | Threat                | Mitigation                                                                                                                           |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Server compromise     | Server never holds plaintext. AES-GCM-256 at rest. IndexedDB encrypted.                                                             |
+| Server compromise     | Server never holds plaintext. AES-GCM-256 at rest. IndexedDB encrypted.                                                              |
 | Malicious visitor     | Namespace scoping enforced by `@meerkat/p2p`. Visitor cannot access `private.ydoc`. Read-only keys enforced (Yjs updates discarded). |
 | Token theft           | Tokens expire. Host can revoke at any time. Visitor must hold secret key to decrypt bundle.                                          |
 | Audio/transcript leak | Never sent to server. Whisper and emotion classifier run entirely in WASM/ONNX.                                                      |
