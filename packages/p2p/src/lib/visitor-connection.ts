@@ -102,7 +102,21 @@ export class VisitorConnection {
     });
     this.peer = peer;
 
-    // 3. Queue ICE candidates that arrive before answer is set
+    // 3. FIX: The visitor is the offerer, so the visitor MUST create the
+    // DataChannel. In WebRTC, createDataChannel() modifies the SDP — it must
+    // be called by the offerer before createOffer() so the offer SDP contains
+    // the data channel negotiation. The host (answerer) receives the channel
+    // via ondatachannel.
+    const dataChannel = peer.createDataChannel(DATA_CHANNEL_LABEL, {
+      ordered: true,
+    });
+
+    // Wire Yjs sync when the data channel opens (visitor side)
+    dataChannel.onopen = async () => {
+      await this.wireYjsSync(dataChannel);
+    };
+
+    // 4. Queue ICE candidates that arrive before answer is set
     peer.onicecandidate = async ({ candidate }) => {
       if (!candidate || !this.signaling?.isConnected) return;
       await this.signaling.sendIceCandidate({
@@ -114,7 +128,7 @@ export class VisitorConnection {
       });
     };
 
-    // 4. Handle disconnection
+    // 5. Handle disconnection
     peer.onconnectionstatechange = () => {
       if (
         peer.connectionState === "disconnected" ||
@@ -125,9 +139,28 @@ export class VisitorConnection {
       }
     };
 
-    // 5. Wait for join-response and ICE candidates
-    const responsePromise = this.waitForJoinResponse(visitorId);
-    const hostOnlinePromise = this.waitForHostOnline();
+    // 6. FIX: Register the join-response listener and ICE listener BEFORE
+    // calling signaling.connect(), so no messages are missed during the
+    // subscribe round-trip. Use a deferred promise pattern.
+    let resolveResponse!: (msg: JoinResponseSignal) => void;
+    let rejectResponse!: (err: Error) => void;
+    const responsePromise = new Promise<JoinResponseSignal>((res, rej) => {
+      resolveResponse = res;
+      rejectResponse = rej;
+    });
+    const responseTimeout = setTimeout(() => {
+      rejectResponse(
+        new Error(
+          `[@meerkat/p2p] Handshake timed out waiting for join-response (${HANDSHAKE_TIMEOUT_MS}ms)`,
+        ),
+      );
+    }, HANDSHAKE_TIMEOUT_MS);
+
+    this.signaling.onJoinResponse((msg: JoinResponseSignal) => {
+      if (msg.visitorId !== visitorId) return;
+      clearTimeout(responseTimeout);
+      resolveResponse(msg);
+    });
 
     this.signaling.onIceCandidate(async (msg: IceCandidateSignal) => {
       if (msg.from !== "host" || msg.visitorId !== visitorId) return;
@@ -138,12 +171,13 @@ export class VisitorConnection {
       }
     });
 
+    // 7. Now connect to the signaling channel
     await this.signaling.connect();
 
-    // 5b. Wait for host-online (host broadcasts every 5s) so we don't send into the void
-    await hostOnlinePromise;
+    // 8. Wait for host-online (host broadcasts every 5s) so we don't send into the void
+    await this.waitForHostOnline();
 
-    // 6. Create and send SDP offer
+    // 9. Create and send SDP offer
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
 
@@ -155,7 +189,7 @@ export class VisitorConnection {
       denKey: this.denKey,
     });
 
-    // 7. Wait for the response (with timeout)
+    // 10. Wait for the response (with timeout set up above)
     const response = await responsePromise;
 
     if (!response.accepted) {
@@ -165,23 +199,19 @@ export class VisitorConnection {
       );
     }
 
-    // 8. Set remote description
+    // 11. Set remote description
     await peer.setRemoteDescription({
       type: "answer",
       sdp: response.sdpAnswer,
     });
 
-    // 9. Apply any queued ICE candidates
+    // 12. Apply any queued ICE candidates
     for (const c of this.pendingCandidates) {
       await peer.addIceCandidate(c).catch(() => {});
     }
     this.pendingCandidates = [];
 
-    // 10. Wire Yjs sync when data channel opens
-    peer.ondatachannel = async (event) => {
-      if (event.channel.label !== DATA_CHANNEL_LABEL) return;
-      await this.wireYjsSync(event.channel);
-    };
+    // DataChannel open event (step 3) will fire and call wireYjsSync.
   }
 
   /**
@@ -208,24 +238,6 @@ export class VisitorConnection {
       this.signaling?.onHostOnline(() => {
         clearTimeout(timeout);
         resolve();
-      });
-    });
-  }
-
-  private waitForJoinResponse(visitorId: string): Promise<JoinResponseSignal> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(
-          new Error(
-            `[@meerkat/p2p] Handshake timed out waiting for join-response (${HANDSHAKE_TIMEOUT_MS}ms)`,
-          ),
-        );
-      }, HANDSHAKE_TIMEOUT_MS);
-
-      this.signaling?.onJoinResponse((msg: JoinResponseSignal) => {
-        if (msg.visitorId !== visitorId) return;
-        clearTimeout(timeout);
-        resolve(msg);
       });
     });
   }
