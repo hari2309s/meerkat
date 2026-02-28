@@ -23,6 +23,7 @@ import {
  * variants to the canonical MoodLabel set.
  */
 export function normaliseMoodLabel(raw: string): MoodLabel {
+  if (typeof raw !== "string") return "neutral";
   const lower = raw.toLowerCase().trim();
 
   const map: Record<string, MoodLabel> = {

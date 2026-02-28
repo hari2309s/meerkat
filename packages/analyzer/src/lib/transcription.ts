@@ -65,7 +65,22 @@ export async function transcribe(
     sampling_rate: WHISPER_SAMPLE_RATE,
   });
 
-  return output.text.trim();
+  return extractTranscriptText(output);
+}
+
+/**
+ * Extracts transcript text from Whisper pipeline output.
+ * Handles varying output shapes across pipeline versions.
+ */
+function extractTranscriptText(output: unknown): string {
+  const out = output as { text?: string; chunks?: { text?: string }[] };
+  const text =
+    typeof out?.text === "string"
+      ? out.text
+      : Array.isArray(out?.chunks) && typeof out.chunks[0]?.text === "string"
+        ? out.chunks[0].text
+        : "";
+  return text.trim();
 }
 
 /**
@@ -93,5 +108,5 @@ export async function transcribeSamples(
     sampling_rate: WHISPER_SAMPLE_RATE,
   });
 
-  return output.text.trim();
+  return extractTranscriptText(output);
 }

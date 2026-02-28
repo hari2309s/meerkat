@@ -52,7 +52,9 @@ export async function classifyEmotion(
   text: string,
   onProgress?: ModelProgressCallback,
 ): Promise<EmotionResult | null> {
-  const trimmed = text.trim();
+  // Ensure string — tokenizer expects string, may call .replace() internally
+  const str = typeof text === "string" ? text : String(text ?? "");
+  const trimmed = str.trim();
 
   // Bail out on very short text — the model produces noise on single words.
   if (trimmed.length < MIN_TRANSCRIPT_LENGTH) {

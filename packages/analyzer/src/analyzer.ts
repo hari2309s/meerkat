@@ -88,6 +88,9 @@ export async function analyzeVoice(
 ): Promise<AnalysisResult> {
   const { language = "en", onProgress } = options;
 
+  // Ensure language is a string (tokenizer may call .replace internally)
+  const lang = typeof language === "string" ? language : "en";
+
   // Step 1: Decode to PCM once — reused by both audio features and Whisper.
   const samples = await blobToFloat32(audioBlob);
 
@@ -97,7 +100,7 @@ export async function analyzeVoice(
   //   - Transcription is async (WASM model).
   const [audioFeatures, transcript] = await Promise.all([
     Promise.resolve(extractAudioFeatures(samples)),
-    transcribeSamples(samples, language, onProgress),
+    transcribeSamples(samples, lang, onProgress),
   ]);
 
   // Step 4: Infer mood from audio signal (no model needed).
