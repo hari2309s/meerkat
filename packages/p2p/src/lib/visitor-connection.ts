@@ -90,8 +90,11 @@ export class VisitorConnection {
     );
 
     // 2. Create RTCPeerConnection
+    // iceCandidatePoolSize pre-gathers STUN/TURN candidates before the offer,
+    // so relay candidates are available sooner after setLocalDescription.
     const peer = new RTCPeerConnection({
       iceServers: this.options.iceServers ?? DEFAULT_ICE_SERVERS,
+      iceCandidatePoolSize: 2,
     });
     this.peer = peer;
 
@@ -118,7 +121,11 @@ export class VisitorConnection {
         console.log(`[@meerkat/p2p:visitor] ICE gathering complete`);
         return;
       }
-      console.log(`[@meerkat/p2p:visitor] New ICE candidate — sending to host`);
+      const type = candidate.type ?? "unknown";
+      const proto = candidate.protocol ?? "";
+      console.log(
+        `[@meerkat/p2p:visitor] New ICE candidate — type=${type} proto=${proto} — sending to host`,
+      );
       if (!this.signaling?.isConnected) return;
       await this.signaling.sendIceCandidate({
         type: "ice-candidate",
@@ -137,7 +144,9 @@ export class VisitorConnection {
         `[@meerkat/p2p:visitor] Connection state → ${peer.connectionState}`,
       );
       if (["disconnected", "failed", "closed"].includes(peer.connectionState)) {
-        this._setStatus("offline");
+        // Full teardown so the signaling channel is unsubscribed and the failed
+        // peer connection is released. disconnect() is idempotent.
+        this.disconnect();
       }
     };
 
@@ -145,10 +154,14 @@ export class VisitorConnection {
     //    Supabase Realtime requires .on() calls before .subscribe().
 
     // 5a. host-online — resolve immediately if received, or after timeout
+    let hostOnlineTimeoutId: ReturnType<typeof setTimeout>;
     let resolveHostOnline!: () => void;
     const hostOnlinePromise = new Promise<void>((resolve) => {
-      resolveHostOnline = resolve;
-      setTimeout(() => {
+      resolveHostOnline = () => {
+        clearTimeout(hostOnlineTimeoutId);
+        resolve();
+      };
+      hostOnlineTimeoutId = setTimeout(() => {
         console.warn(
           `[@meerkat/p2p:visitor] host-online not received within ${HOST_ONLINE_WAIT_MS}ms — proceeding anyway`,
         );

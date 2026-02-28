@@ -167,6 +167,7 @@ export class HostManager {
 
     const peer = new RTCPeerConnection({
       iceServers: this.options.iceServers ?? DEFAULT_ICE_SERVERS,
+      iceCandidatePoolSize: 2,
     });
 
     // FIX: Host is ANSWERER — use ondatachannel, NOT createDataChannel()
@@ -239,8 +240,10 @@ export class HostManager {
         );
         return;
       }
+      const type = candidate.type ?? "unknown";
+      const proto = candidate.protocol ?? "";
       console.log(
-        `[@meerkat/p2p:host] Sending ICE candidate to visitorId=${visitorId}`,
+        `[@meerkat/p2p:host] Sending ICE candidate type=${type} proto=${proto} to visitorId=${visitorId}`,
       );
       await this.signaling?.sendIceCandidate({
         type: "ice-candidate",
@@ -307,6 +310,18 @@ export class HostManager {
         peer.close();
       },
     });
+
+    // Second flush: visitor ICE candidates that arrived during createAnswer /
+    // setLocalDescription / sendJoinResponse awaits were re-queued (session
+    // didn't exist yet). Now that the session is stored, drain them.
+    const late = this.pendingCandidates.get(visitorId) ?? [];
+    if (late.length > 0) {
+      console.log(
+        `[@meerkat/p2p:host] Flushing ${late.length} late-queued ICE candidates for ${visitorId}`,
+      );
+      for (const c of late) await peer.addIceCandidate(c).catch(() => {});
+      this.pendingCandidates.delete(visitorId);
+    }
   }
 
   private handleIceCandidate(msg: IceCandidateSignal): void {

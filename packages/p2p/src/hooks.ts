@@ -31,6 +31,9 @@ import type {
 // Supabase needs time to fully close the old WebSocket for the channel name.
 const RETRY_DELAY_MS = 2_000;
 
+// Max automatic retries before giving up (prevents infinite reconnect loops).
+const MAX_AUTO_RETRIES = 5;
+
 // ─── useHostStatus ────────────────────────────────────────────────────────────
 
 export function useHostStatus(denId: string): UseHostStatusReturn {
@@ -128,11 +131,9 @@ export function useJoinDen(options: P2PManagerOptions): UseJoinDenReturn {
   const [error, setError] = useState<string | null>(null);
 
   const connectionRef = useRef<VisitorConnection | null>(null);
-  const visitorIdRef = useRef<string>(generateVisitorId());
 
-  // FIX: Track whether we're in the middle of a cleanup/retry delay.
-  // Prevents the auto-join effect from firing while the old Supabase channel
-  // is still shutting down (which causes "WebSocket closed before connection").
+  // isDisconnectingRef: true when disconnect() was called deliberately.
+  // Prevents the onStatusChange("offline") callback from scheduling a retry.
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDisconnectingRef = useRef(false);
 
@@ -145,24 +146,25 @@ export function useJoinDen(options: P2PManagerOptions): UseJoinDenReturn {
   }, []);
 
   const join = useCallback(
-    async (denKey: DenKey) => {
-      // If a retry timer is pending, cancel it — caller is forcing a new join
+    async (denKey: DenKey, retryCount = 0) => {
+      // Cancel any pending auto-retry — caller is forcing a new join
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
         retryTimerRef.current = null;
       }
 
+      // Explicit join (not an auto-retry) clears the deliberate-disconnect flag
+      if (retryCount === 0) isDisconnectingRef.current = false;
+
       // Disconnect existing connection and wait for cleanup
       if (connectionRef.current) {
-        isDisconnectingRef.current = true;
         connectionRef.current.disconnect();
         connectionRef.current = null;
-        // Give Supabase time to close the old WebSocket before opening a new one
-        // on the same channel name
+        // Give Supabase time to fully close the old WebSocket for the same
+        // channel name before opening a new one.
         await new Promise<void>((resolve) => {
           retryTimerRef.current = setTimeout(() => {
             retryTimerRef.current = null;
-            isDisconnectingRef.current = false;
             resolve();
           }, RETRY_DELAY_MS);
         });
@@ -176,22 +178,57 @@ export function useJoinDen(options: P2PManagerOptions): UseJoinDenReturn {
         return;
       }
 
+      const visitorId = generateVisitorId();
       const connection = new VisitorConnection(denKey, denKey.denId, options);
-      connection.onStatusChange((s) => setStatus(s));
+
+      connection.onStatusChange((s) => {
+        setStatus(s);
+        // Auto-retry on unexpected disconnect (not a deliberate disconnect() call)
+        if (s === "offline" && !isDisconnectingRef.current) {
+          if (retryCount >= MAX_AUTO_RETRIES) {
+            console.warn(
+              `[@meerkat/p2p] Max retries (${MAX_AUTO_RETRIES}) reached — giving up`,
+            );
+            return;
+          }
+          const next = retryCount + 1;
+          console.log(
+            `[@meerkat/p2p] Connection dropped — auto-retry ${next}/${MAX_AUTO_RETRIES} in ${RETRY_DELAY_MS}ms`,
+          );
+          retryTimerRef.current = setTimeout(() => {
+            retryTimerRef.current = null;
+            join(denKey, next).catch(() => {});
+          }, RETRY_DELAY_MS);
+        }
+      });
+
       connectionRef.current = connection;
 
       try {
-        await connection.connect(visitorIdRef.current);
+        await connection.connect(visitorId);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Connection failed";
         setError(msg);
         setStatus("offline");
+        // onStatusChange will NOT fire for a thrown error (connect() threw before
+        // the status handler could fire), so schedule retry directly here.
+        if (!isDisconnectingRef.current && retryCount < MAX_AUTO_RETRIES) {
+          const next = retryCount + 1;
+          console.log(
+            `[@meerkat/p2p] Handshake failed — auto-retry ${next}/${MAX_AUTO_RETRIES} in ${RETRY_DELAY_MS}ms`,
+          );
+          retryTimerRef.current = setTimeout(() => {
+            retryTimerRef.current = null;
+            join(denKey, next).catch(() => {});
+          }, RETRY_DELAY_MS);
+        }
       }
     },
     [options],
   );
 
   const disconnect = useCallback(() => {
+    isDisconnectingRef.current = true;
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
