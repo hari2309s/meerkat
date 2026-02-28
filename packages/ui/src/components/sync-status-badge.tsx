@@ -2,10 +2,10 @@
  * SyncStatusBadge - Displays the current P2P sync status
  *
  * Shows the connection state with appropriate icon and color:
- * - offline: Gray with cloud-off icon
- * - connecting: Yellow with loader icon (animated)
- * - synced: Green with wifi icon
- * - hosting: Blue with users icon
+ * - offline: Gray / muted tone
+ * - connecting: Amber / warm yellow
+ * - synced: Teal / meerkat green
+ * - hosting: Meerkat brown / active
  *
  * @example
  * ```tsx
@@ -24,7 +24,6 @@
 
 import * as React from "react";
 import { CloudOff, Loader2, Wifi, Users } from "lucide-react";
-import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -54,41 +53,39 @@ const syncStatusConfig = {
   },
 } as const;
 
-// ─── Variants ─────────────────────────────────────────────────────────────────
+// ─── Per-status style tokens (use CSS vars so light + dark both work) ─────────
 
-const syncStatusBadgeVariants = cva(
-  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all",
+const STATUS_STYLES: Record<SyncStatus, { background: string; color: string }> =
   {
-    variants: {
-      status: {
-        offline:
-          "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-        connecting:
-          "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-        synced:
-          "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-        hosting:
-          "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-      },
-      size: {
-        sm: "text-[10px] px-2 py-0.5 gap-1",
-        default: "text-xs px-2.5 py-1 gap-1.5",
-        lg: "text-sm px-3 py-1.5 gap-2",
-      },
+    offline: {
+      background: "rgba(120, 85, 53, 0.08)",
+      color: "var(--color-text-muted)",
     },
-    defaultVariants: {
-      status: "offline",
-      size: "default",
+    connecting: {
+      // warm amber — readable in both modes
+      background: "rgba(180, 120, 30, 0.12)",
+      color: "var(--color-text-secondary)",
     },
-  },
-);
+    synced: {
+      background: "var(--color-synced-bg)",
+      color: "var(--color-synced-text)",
+    },
+    hosting: {
+      background: "var(--color-selection-active-bg)",
+      color: "var(--color-selection-active-text)",
+    },
+  };
+
+// Dark-mode overrides injected via a data attribute on <html> — instead we rely
+// on CSS custom properties which already switch between :root and .dark. The
+// only exception is the teal `synced` colour which has no variable yet, so we
+// patch it via a local style tag approach-free inline solution: the synced
+// colour uses rgba with moderate opacity, which reads well on both the warm
+// sand light background (#f5e6d3) and the near-black dark background (#180e06).
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export interface SyncStatusBadgeProps
-  extends
-    React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof syncStatusBadgeVariants> {
+export interface SyncStatusBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
    * Current sync status
    */
@@ -107,6 +104,10 @@ export interface SyncStatusBadgeProps
    * Number of visitors (only shown when status is 'hosting')
    */
   visitorCount?: number;
+  /**
+   * Badge size
+   */
+  size?: "sm" | "default" | "lg";
 }
 
 const SyncStatusBadge = React.forwardRef<HTMLDivElement, SyncStatusBadgeProps>(
@@ -116,8 +117,9 @@ const SyncStatusBadge = React.forwardRef<HTMLDivElement, SyncStatusBadgeProps>(
       showLabel = true,
       showTooltip = true,
       visitorCount,
-      size,
+      size = "default",
       className,
+      style,
       ...props
     },
     ref,
@@ -128,13 +130,28 @@ const SyncStatusBadge = React.forwardRef<HTMLDivElement, SyncStatusBadgeProps>(
 
     const label =
       status === "hosting" && visitorCount !== undefined && visitorCount > 0
-        ? `${config.label} (${visitorCount})`
+        ? `${visitorCount} visitor${visitorCount !== 1 ? "s" : ""}`
         : config.label;
+
+    const sizeClasses =
+      size === "sm"
+        ? "text-[10px] px-2 py-0.5 gap-1"
+        : size === "lg"
+          ? "text-sm px-3 py-1.5 gap-2"
+          : "text-xs px-2.5 py-1 gap-1.5";
 
     return (
       <div
         ref={ref}
-        className={cn(syncStatusBadgeVariants({ status, size }), className)}
+        className={cn(
+          "inline-flex items-center rounded-full font-medium transition-all",
+          sizeClasses,
+          className,
+        )}
+        style={{
+          ...STATUS_STYLES[status],
+          ...style,
+        }}
         title={showTooltip ? config.description : undefined}
         role="status"
         aria-label={`Sync status: ${label}`}
@@ -156,4 +173,4 @@ const SyncStatusBadge = React.forwardRef<HTMLDivElement, SyncStatusBadgeProps>(
 
 SyncStatusBadge.displayName = "SyncStatusBadge";
 
-export { SyncStatusBadge, syncStatusBadgeVariants };
+export { SyncStatusBadge };
