@@ -1,24 +1,6 @@
 // ─── signaling.ts ─────────────────────────────────────────────────────────────
 //
 // Supabase Realtime broadcast channel wrapper for WebRTC signaling.
-//
-// All WebRTC handshake messages (offer, answer, ICE candidates, host presence)
-// flow through a single Realtime broadcast channel per den:
-//
-//   Channel name: p2p:den:{denId}
-//
-// Why Supabase Realtime?
-//   - Already in the stack (auth uses it)
-//   - Pure pub/sub — no database rows, no RLS complexity
-//   - Low-latency broadcast to all subscribers
-//   - The server never interprets these messages — just relays bytes
-//
-// Message flow:
-//   HOST   subscribes and listens for "join-request", "ice-candidate:visitor"
-//   VISITOR subscribes and listens for "join-response", "ice-candidate:host",
-//           "host-online", "host-offline"
-//
-// All events are namespaced to avoid cross-talk on the same channel.
 
 import type {
   SupabaseRealtimeChannelLike,
@@ -39,36 +21,8 @@ export const SIGNAL_EVENTS = {
 } as const;
 
 type SignalEventName = (typeof SIGNAL_EVENTS)[keyof typeof SIGNAL_EVENTS];
-
 type SignalHandler<T extends SignalMessage> = (msg: T) => void;
 
-// ─── SignalingChannel ─────────────────────────────────────────────────────────
-
-/**
- * Wraps a Supabase Realtime broadcast channel with typed signal methods.
- *
- * One instance per den per side (host or visitor). Created by passing the
- * channel factory from P2PManagerOptions.
- *
- * @example
- * ```ts
- * const sig = new SignalingChannel(
- *   createSupabaseChannel(`p2p:den:${denId}`),
- *   denId,
- * );
- * await sig.connect();
- *
- * // Host: listen for join requests
- * const off = sig.onJoinRequest((msg) => handleJoin(msg));
- *
- * // Visitor: send a join request
- * await sig.sendJoinRequest({ ... });
- *
- * // Cleanup
- * off(); // remove listener
- * await sig.disconnect();
- * ```
- */
 export class SignalingChannel {
   private readonly channel: SupabaseRealtimeChannelLike;
   private readonly denId: string;
@@ -79,12 +33,6 @@ export class SignalingChannel {
     this.denId = denId;
   }
 
-  // ── Connection lifecycle ──────────────────────────────────────────────────
-
-  /**
-   * Subscribe to the Realtime channel.
-   * Returns a promise that resolves when the channel is SUBSCRIBED.
-   */
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -121,19 +69,11 @@ export class SignalingChannel {
     return this.connected;
   }
 
-  // ── Listeners ─────────────────────────────────────────────────────────────
-
-  /**
-   * Listen for a specific broadcast event. Returns an unsubscribe function.
-   * The Supabase Realtime API attaches all listeners before subscribing,
-   * so call `on*` before `connect()`.
-   */
   private on<T extends SignalMessage>(
     event: SignalEventName,
     handler: SignalHandler<T>,
   ): () => void {
     this.channel.on("broadcast", { event }, (payload) => {
-      // Supabase Realtime passes the payload directly; some backends wrap as { payload }
       const msg: T =
         payload &&
         typeof payload === "object" &&
@@ -143,11 +83,8 @@ export class SignalingChannel {
           : (payload as unknown as T);
       handler(msg);
     });
-    // Supabase Realtime doesn't support removing individual broadcast listeners
-    // via the JS SDK — the channel must be unsubscribed and recreated to stop.
-    // We return a no-op so callers can treat it uniformly with other cleanup fns.
     return () => {
-      /* listener removal not supported; disconnect the channel to stop all */
+      /* Supabase doesn't support individual listener removal */
     };
   }
 
@@ -170,8 +107,6 @@ export class SignalingChannel {
   onHostOffline(handler: SignalHandler<HostOfflineSignal>): () => void {
     return this.on(SIGNAL_EVENTS.HOST_OFFLINE, handler);
   }
-
-  // ── Senders ───────────────────────────────────────────────────────────────
 
   async sendJoinRequest(msg: JoinRequestSignal): Promise<void> {
     await this.channel.send({
@@ -219,15 +154,44 @@ export class SignalingChannel {
   }
 }
 
-// ─── Channel name helper ──────────────────────────────────────────────────────
-
 export function signalingChannelName(denId: string): string {
   return `p2p:den:${denId}`;
 }
 
-// ─── Default ICE servers ──────────────────────────────────────────────────────
-
+/**
+ * ICE server list.
+ *
+ * STUN alone fails when both peers are behind NAT (home routers / symmetric NAT).
+ * TURN relays traffic when direct peer-to-peer is impossible.
+ *
+ * Using Open Relay Project (free, no account needed, rate-limited but fine for dev/low-traffic):
+ *   https://www.metered.ca/tools/openrelay/
+ *
+ * For production with real users, replace with a dedicated TURN service
+ * (Twilio, Metered.ca paid, coturn self-hosted) and put credentials in env vars.
+ */
 export const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
+  // STUN — discover public IP, works when at least one peer is NOT behind NAT
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:openrelay.metered.ca:80" },
+
+  // TURN over UDP (port 80 — passes most firewalls)
+  {
+    urls: "turn:openrelay.metered.ca:80",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  // TURN over TCP (fallback when UDP is blocked)
+  {
+    urls: "turn:openrelay.metered.ca:443",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  // TURNS over TLS (port 443 — works through almost any corporate firewall)
+  {
+    urls: "turns:openrelay.metered.ca:443",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
 ];

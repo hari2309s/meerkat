@@ -2,9 +2,14 @@
 //
 // React hooks for @meerkat/p2p.
 //
-// useHostStatus(denId)       — host: are you reachable? how many visitors?
-// useVisitorPresence(denId)  — host: who's in the den right now?
-// useJoinDen()               — visitor: connect to a host den with a DenKey
+// FIX (2026-03-01): Added RETRY_DELAY_MS to useJoinDen.
+// When a connection fails, visitorStatus → "offline" triggers the auto-join
+// effect in den-page-client-enhanced.tsx immediately. But the old Supabase
+// channel for the same name is still being torn down (WebSocket close is async).
+// Attempting to create a new channel with the same name while the old one is
+// closing causes "WebSocket closed before connection established".
+//
+// Fix: track whether a retry is in-flight and debounce reconnect by 2s.
 
 "use client";
 
@@ -22,29 +27,16 @@ import type {
   P2PManagerOptions,
 } from "./types";
 
+// How long to wait after a failed connection before retrying.
+// Supabase needs time to fully close the old WebSocket for the channel name.
+const RETRY_DELAY_MS = 2_000;
+
 // ─── useHostStatus ────────────────────────────────────────────────────────────
 
-/**
- * Exposes the host's availability state for a den.
- *
- * Tracks whether the signaling channel is active and how many visitors are
- * connected. Does NOT start hosting — that is managed by @meerkat/crdt's
- * DenProvider via the P2PAdapter.
- *
- * @example
- * ```tsx
- * const { isOnline, visitorCount, syncStatus } = useHostStatus(denId)
- *
- * <span>
- *   {isOnline ? `Online · ${visitorCount} visitor(s)` : 'Offline'}
- * </span>
- * ```
- */
 export function useHostStatus(denId: string): UseHostStatusReturn {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("offline");
   const [visitorCount, setVisitorCount] = useState(0);
 
-  // Poll visitor count — presence changes aren't surfaced as status events
   useEffect(() => {
     let manager: ReturnType<typeof getP2PManager> | null = null;
     try {
@@ -53,13 +45,11 @@ export function useHostStatus(denId: string): UseHostStatusReturn {
       return;
     }
 
-    // Subscribe to status changes
     const unsub = manager.onStatusChange(denId, (status) => {
       setSyncStatus(status);
       setVisitorCount(manager!.getVisitorSessions(denId).length);
     });
 
-    // Sync initial values
     setSyncStatus(manager.getStatus(denId));
     setVisitorCount(manager.getVisitorSessions(denId).length);
 
@@ -93,28 +83,6 @@ export function useHostStatus(denId: string): UseHostStatusReturn {
 
 // ─── useVisitorPresence ───────────────────────────────────────────────────────
 
-/**
- * Returns live visitor sessions for a den on the host side.
- *
- * Polls every second — visitor sessions are not reactive by themselves,
- * but the underlying HostManager updates on connect/disconnect.
- *
- * For a purely reactive version, @meerkat/local-store's usePresence() hook
- * reads directly from shared.ydoc's presence namespace (updated by HostManager).
- *
- * @example
- * ```tsx
- * const { visitors, disconnectVisitor } = useVisitorPresence(denId)
- *
- * {visitors.map((v) => (
- *   <VisitorCard
- *     key={v.visitorId}
- *     visitor={v}
- *     onKick={() => disconnectVisitor(v.visitorId)}
- *   />
- * ))}
- * ```
- */
 export function useVisitorPresence(denId: string): UseVisitorPresenceReturn {
   const [visitors, setVisitors] = useState<VisitorSession[]>([]);
 
@@ -126,10 +94,8 @@ export function useVisitorPresence(denId: string): UseVisitorPresenceReturn {
       return;
     }
 
-    // Initial read
     setVisitors(manager.getVisitorSessions(denId));
 
-    // Update on status change (connecting/hosting transitions mean sessions changed)
     const unsub = manager.onStatusChange(denId, () => {
       setVisitors(manager!.getVisitorSessions(denId));
     });
@@ -157,35 +123,22 @@ export function useVisitorPresence(denId: string): UseVisitorPresenceReturn {
 
 // ─── useJoinDen ──────────────────────────────────────────────────────────────
 
-/**
- * Visitor-side hook to connect to a host den using a redeemed DenKey.
- *
- * Manages the full WebRTC connection lifecycle including cleanup on unmount.
- *
- * @example
- * ```tsx
- * const { join, status, error, disconnect } = useJoinDen(options)
- *
- * // On button press:
- * await join(redeemedDenKey)
- *
- * // Status: 'offline' | 'connecting' | 'synced'
- * // synced = Yjs is live-syncing with the host
- * ```
- */
 export function useJoinDen(options: P2PManagerOptions): UseJoinDenReturn {
   const [status, setStatus] = useState<SyncStatus>("offline");
   const [error, setError] = useState<string | null>(null);
 
-  // Keep a ref to the active connection so we can clean up on unmount
   const connectionRef = useRef<VisitorConnection | null>(null);
-
-  // Generate a stable ephemeral visitor ID for the session lifetime
   const visitorIdRef = useRef<string>(generateVisitorId());
 
-  // Clean up on unmount
+  // FIX: Track whether we're in the middle of a cleanup/retry delay.
+  // Prevents the auto-join effect from firing while the old Supabase channel
+  // is still shutting down (which causes "WebSocket closed before connection").
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDisconnectingRef = useRef(false);
+
   useEffect(() => {
     return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
       connectionRef.current?.disconnect();
       connectionRef.current = null;
     };
@@ -193,9 +146,27 @@ export function useJoinDen(options: P2PManagerOptions): UseJoinDenReturn {
 
   const join = useCallback(
     async (denKey: DenKey) => {
-      // Disconnect any existing connection first
-      connectionRef.current?.disconnect();
-      connectionRef.current = null;
+      // If a retry timer is pending, cancel it — caller is forcing a new join
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+
+      // Disconnect existing connection and wait for cleanup
+      if (connectionRef.current) {
+        isDisconnectingRef.current = true;
+        connectionRef.current.disconnect();
+        connectionRef.current = null;
+        // Give Supabase time to close the old WebSocket before opening a new one
+        // on the same channel name
+        await new Promise<void>((resolve) => {
+          retryTimerRef.current = setTimeout(() => {
+            retryTimerRef.current = null;
+            isDisconnectingRef.current = false;
+            resolve();
+          }, RETRY_DELAY_MS);
+        });
+      }
 
       setError(null);
 
@@ -206,8 +177,6 @@ export function useJoinDen(options: P2PManagerOptions): UseJoinDenReturn {
       }
 
       const connection = new VisitorConnection(denKey, denKey.denId, options);
-
-      // Mirror connection status into React state
       connection.onStatusChange((s) => setStatus(s));
       connectionRef.current = connection;
 
@@ -223,6 +192,10 @@ export function useJoinDen(options: P2PManagerOptions): UseJoinDenReturn {
   );
 
   const disconnect = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     connectionRef.current?.disconnect();
     connectionRef.current = null;
     setStatus("offline");
