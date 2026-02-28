@@ -40,7 +40,7 @@ export async function addVoiceMemo(
   analysis?: VoiceMemoData["analysis"],
   sender?: VoiceMemoData["sender"],
 ): Promise<VoiceMemoData> {
-  const { privateDen } = await openDen(denId);
+  const { privateDen, sharedDen } = await openDen(denId);
 
   const memo: VoiceMemoData = {
     id: generateId(),
@@ -53,6 +53,9 @@ export async function addVoiceMemo(
 
   privateDen.ydoc.transact(() => {
     privateDen.voiceMemos.push([memo]);
+  });
+  sharedDen.ydoc.transact(() => {
+    sharedDen.voiceThread.push([memo]);
   });
 
   // If there's mood data, also append to the mood journal
@@ -102,7 +105,7 @@ export async function attachAnalysis(
   memoId: string,
   analysis: NonNullable<VoiceMemoData["analysis"]>,
 ): Promise<VoiceMemoData> {
-  const { privateDen } = await openDen(denId);
+  const { privateDen, sharedDen } = await openDen(denId);
   const memos = privateDen.voiceMemos.toArray();
   const idx = memos.findIndex((m) => m.id === memoId);
 
@@ -117,6 +120,16 @@ export async function attachAnalysis(
     privateDen.voiceMemos.delete(idx, 1);
     privateDen.voiceMemos.insert(idx, [updated]);
   });
+
+  // Also update the shared voice thread for visitors
+  const sharedMemos = sharedDen.voiceThread.toArray();
+  const sharedIdx = sharedMemos.findIndex((m) => m.id === memoId);
+  if (sharedIdx !== -1) {
+    sharedDen.ydoc.transact(() => {
+      sharedDen.voiceThread.delete(sharedIdx, 1);
+      sharedDen.voiceThread.insert(sharedIdx, [updated]);
+    });
+  }
 
   // Append mood journal entry
   await appendMoodEntry(denId, {
