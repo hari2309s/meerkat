@@ -55,3 +55,7 @@ supabase/.temp
 
 # OS
 Thumbs.db
+
+# Claude
+CLAUDE.md
+SKILLS.md
