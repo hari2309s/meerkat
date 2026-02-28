@@ -176,6 +176,7 @@ export function DenPageClientEnhanced({
     join: joinDen,
     status: visitorStatus,
     disconnect: leaveP2P,
+    error: p2pError,
   } = useJoinDen(p2pOptions);
 
   const { validKeys } = useStoredKeys();
@@ -403,7 +404,28 @@ export function DenPageClientEnhanced({
         <TopNav user={user} />
 
         <main className="max-w-4xl mx-auto px-4 pt-8 pb-32">
-          {/* Top bar */}
+          {/* TEMP DEBUG BANNER */}
+          {!isOwner && (
+            <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 mb-8 text-xs font-mono text-red-500 overflow-auto">
+              <p className="font-bold mb-2">P2P VISITOR DIAGNOSTICS:</p>
+              pre-conditions:{" "}
+              {JSON.stringify({
+                useLocalFirst,
+                p2pEnabled,
+                hasKey: !!activeDenKey,
+                isOwner,
+                visitorStatus,
+                p2pError,
+              })}
+              <br />
+              active key preview:{" "}
+              {activeDenKey
+                ? JSON.stringify(activeDenKey).substring(0, 100) + "..."
+                : "null"}
+              <br />
+              validKeys count: {validKeys.length}
+            </div>
+          )}
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={handleBack}
