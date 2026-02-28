@@ -197,21 +197,23 @@ export function DenPageClientEnhanced({
     }
   }, [p2pError, isOwner]);
 
-  // Auto-connect as visitor when all conditions are met
+  // Auto-connect as visitor — fires once on mount (or when the key changes),
+  // NOT on every visitorStatus change. Retries after failure are handled
+  // inside useJoinDen with a 2s delay to let Supabase clean up the old channel.
+  const hasAttemptedJoinRef = useRef(false);
+  useEffect(() => {
+    // Reset on key change so a new key triggers a fresh attempt
+    hasAttemptedJoinRef.current = false;
+  }, [activeDenKey]);
+
   useEffect(() => {
     if (isOwner || !useLocalFirst || !p2pEnabled || !activeDenKey) return;
-    if (visitorStatus !== "offline") return;
+    if (hasAttemptedJoinRef.current) return; // already attempted this session
+    hasAttemptedJoinRef.current = true;
     joinDen(activeDenKey).catch((err) => {
       console.warn("[@meerkat/web] Visitor P2P join failed:", err);
     });
-  }, [
-    isOwner,
-    useLocalFirst,
-    p2pEnabled,
-    activeDenKey,
-    visitorStatus,
-    joinDen,
-  ]);
+  }, [isOwner, useLocalFirst, p2pEnabled, activeDenKey, joinDen]);
 
   // Disconnect visitor session on unmount
   useEffect(() => {
