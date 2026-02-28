@@ -10,7 +10,6 @@ export { ModalShell } from "./components/modal-shell";
 // ─── Meerkat Components ───────────────────────────────────────────────────────
 export {
   SyncStatusBadge,
-  syncStatusBadgeVariants,
   type SyncStatusBadgeProps,
   type SyncStatus,
 } from "./components/sync-status-badge";
