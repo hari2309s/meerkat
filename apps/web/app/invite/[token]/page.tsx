@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { InvitePageClient } from "@/components/invite-page-client";
+import { InviteAuthGate } from "@/components/invite-auth-gate";
 
 interface InvitePageProps {
   params: { token: string };
@@ -13,9 +13,11 @@ export default async function InvitePage({ params }: InvitePageProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Not logged in — send to signup (they likely don't have an account yet).
-  // Preserve the invite URL as ?next= so they land back here after auth.
-  if (!user) redirect(`/signup?next=/invite/${params.token}`);
+  // Not logged in — render client gate to save hash (#sk=) to sessionStorage
+  // before redirecting, so it can be recovered after auth.
+  if (!user) {
+    return <InviteAuthGate token={params.token} />;
+  }
 
   // Look up the invite bypassing RLS using the service role key.
   // We need this because the user is not yet a member, so RLS on `dens` hides the joined data.

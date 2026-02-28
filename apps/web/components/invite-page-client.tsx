@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useRedeemKey } from "@meerkat/keys";
 import { fromBase64 } from "@meerkat/crypto";
+import { recoverInviteSecret } from "@/components/invite-auth-gate";
 
 type InviteStatus =
   | "valid"
@@ -82,10 +83,13 @@ export function InvitePageClient({
 
       // Redeem DenKey if a flower pot was attached to this invite.
       // The ephemeral secret key travels in the URL hash (#sk=...) and is
-      // never sent to the server — extract it here on the client.
+      // never sent to the server. If we came back from signup, it may be in
+      // sessionStorage (saved by InviteAuthGate before redirect).
       if (flowerPotToken) {
         const hash = typeof window !== "undefined" ? window.location.hash : "";
-        const sk = new URLSearchParams(hash.slice(1)).get("sk");
+        let sk =
+          new URLSearchParams(hash.slice(1)).get("sk") ??
+          recoverInviteSecret(token);
         if (sk) {
           await redeem({
             token: flowerPotToken,
@@ -101,6 +105,14 @@ export function InvitePageClient({
           }).catch(() => {
             // Non-fatal — member can still access the den; host can re-issue a key
           });
+        } else {
+          toast.warning(
+            "You joined, but real-time sync needs the full invite link.",
+            {
+              description:
+                "Ask the owner to copy and send you the complete invite link (from the Copy button).",
+            },
+          );
         }
       }
 

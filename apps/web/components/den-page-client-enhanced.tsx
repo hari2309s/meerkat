@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState, useMemo } from "react";
+import { useEffect, useCallback, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -182,6 +182,20 @@ export function DenPageClientEnhanced({
   const { validKeys } = useStoredKeys();
   const activeDenKey =
     validKeys.find((s) => s.key.denId === activeDen.id)?.key ?? null;
+
+  // Surface P2P connection errors to the visitor (once per error)
+  const p2pErrorShownRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (p2pError && !isOwner && p2pError !== p2pErrorShownRef.current) {
+      p2pErrorShownRef.current = p2pError;
+      toast.error("Could not connect to den", {
+        description: p2pError,
+        duration: 5000,
+      });
+    } else if (!p2pError) {
+      p2pErrorShownRef.current = null;
+    }
+  }, [p2pError, isOwner]);
 
   // Auto-connect as visitor when all conditions are met
   useEffect(() => {
@@ -404,28 +418,6 @@ export function DenPageClientEnhanced({
         <TopNav user={user} />
 
         <main className="max-w-4xl mx-auto px-4 pt-8 pb-32">
-          {/* TEMP DEBUG BANNER */}
-          {!isOwner && (
-            <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 mb-8 text-xs font-mono text-red-500 overflow-auto">
-              <p className="font-bold mb-2">P2P VISITOR DIAGNOSTICS:</p>
-              pre-conditions:{" "}
-              {JSON.stringify({
-                useLocalFirst,
-                p2pEnabled,
-                hasKey: !!activeDenKey,
-                isOwner,
-                visitorStatus,
-                p2pError,
-              })}
-              <br />
-              active key preview:{" "}
-              {activeDenKey
-                ? JSON.stringify(activeDenKey).substring(0, 100) + "..."
-                : "null"}
-              <br />
-              validKeys count: {validKeys.length}
-            </div>
-          )}
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={handleBack}
