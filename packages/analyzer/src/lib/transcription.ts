@@ -73,6 +73,7 @@ export async function transcribe(
  * Handles varying output shapes across pipeline versions.
  */
 function extractTranscriptText(output: unknown): string {
+  if (typeof output === "string") return output.trim();
   const out = output as { text?: string; chunks?: { text?: string }[] };
   const text =
     typeof out?.text === "string"

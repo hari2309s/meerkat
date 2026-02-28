@@ -107,9 +107,18 @@ export async function analyzeVoice(
   const audioMood = inferMoodFromAudio(audioFeatures);
 
   // Step 5: Text-based emotion classification (ONNX model).
-  const textEmotion = transcript
-    ? await classifyEmotion(transcript, onProgress)
-    : null;
+  // Wrap in try-catch — tokenizer may call .replace() on input; ensure string
+  let textEmotion: Awaited<ReturnType<typeof classifyEmotion>> = null;
+  if (transcript && typeof transcript === "string" && transcript.trim()) {
+    try {
+      textEmotion = await classifyEmotion(
+        String(transcript).trim(),
+        onProgress,
+      );
+    } catch {
+      // Non-fatal — fall back to audio-only mood
+    }
+  }
 
   // Step 6: Fuse audio signal + text classification into final result.
   let finalMood: ReturnType<typeof buildNeutralResult>;
