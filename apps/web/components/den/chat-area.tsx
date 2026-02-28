@@ -89,9 +89,9 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
 
   // Convert CRDT voice memos to Message format for display
   const voiceMemoMessages = useMemo((): Message[] => {
-    if (!useLocalFirst || !denContext?.voiceMemos) return [];
+    if (!useLocalFirst || !denContext?.shared.voiceThread) return [];
 
-    return denContext.voiceMemos.map(
+    return denContext.shared.voiceThread.map(
       (memo: VoiceMemoData): Message => ({
         id: memo.id,
         den_id: den.id,
@@ -105,7 +105,7 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
         analysis: memo.analysis as Message["analysis"],
       }),
     );
-  }, [useLocalFirst, denContext?.voiceMemos, den.id, currentUserId]);
+  }, [useLocalFirst, denContext?.shared.voiceThread, den.id, currentUserId]);
 
   // Use CRDT voice memos in local-first mode, otherwise use legacy messages
   const messages = useLocalFirst ? voiceMemoMessages : legacyMessages;
