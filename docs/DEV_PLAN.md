@@ -148,7 +148,7 @@ meerkat/
 - [x] Web UI
   - [x] Invite modal generates DenKey + flower pot on link creation
   - [x] Invite URL embeds ephemeral secret key in hash fragment (`#sk=BASE64`)
-    — hash fragment never sent to server (zero-knowledge delivery)
+        — hash fragment never sent to server (zero-knowledge delivery)
   - [x] Invite acceptance page redeems DenKey automatically on join
   - [x] DenKey stored in `localStorage` (`meerkat:den-keys`) for P2P use
 - [x] Supabase schema

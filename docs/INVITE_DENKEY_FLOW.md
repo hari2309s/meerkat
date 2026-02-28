@@ -49,6 +49,7 @@ Den page (den-page-client-enhanced.tsx)
 ```
 
 The server stores only:
+
 - `flower_pots.encrypted_bundle` — an opaque ciphertext (server is zero-knowledge)
 - `den_invites.flower_pot_token` — foreign reference to the flower pot
 
@@ -104,6 +105,7 @@ Deposits a sealed DenKey bundle.
 **Auth**: Required (session cookie).
 
 **Body**:
+
 ```json
 {
   "denId": "uuid",
@@ -113,6 +115,7 @@ Deposits a sealed DenKey bundle.
 ```
 
 **Response** `200`:
+
 ```json
 { "token": "unique-token-string" }
 ```
@@ -122,6 +125,7 @@ Deposits a sealed DenKey bundle.
 Fetches a sealed bundle for redemption. Public — anyone with the token can fetch.
 
 **Response** `200`:
+
 ```json
 { "encryptedBundle": "base64-ciphertext" }
 ```
@@ -140,16 +144,16 @@ Revokes a flower pot. RLS enforces creator-only deletion.
 
 ## Files Changed
 
-| Action   | File                                                        | Purpose |
-|----------|-------------------------------------------------------------|---------|
-| CREATE   | `apps/web/app/api/flower-pots/route.ts`                    | REST API for flower pot CRUD |
-| MODIFY   | `apps/web/components/den/invite-modal.tsx`                 | Generate + deposit DenKey on invite creation |
-| MODIFY   | `apps/web/app/invite/[token]/page.tsx`                     | Pass `flowerPotToken` to client component |
-| MODIFY   | `apps/web/components/invite-page-client.tsx`               | Redeem DenKey on invite acceptance |
-| MODIFY   | `apps/web/app/dens/[id]/layout.tsx`                        | Remove DenProvider (moved to page) |
-| MODIFY   | `apps/web/app/dens/[id]/page.tsx`                          | Wrap with `DenProvider readOnly={!isOwner}` |
-| MODIFY   | `apps/web/components/den-page-client-enhanced.tsx`         | Visitor P2P auto-join via `useJoinDen` |
-| MODIFY   | `apps/web/components/den/visitor-panel.tsx`                | Fix hosting UI (was stuck on "Not hosting") |
+| Action | File                                               | Purpose                                      |
+| ------ | -------------------------------------------------- | -------------------------------------------- |
+| CREATE | `apps/web/app/api/flower-pots/route.ts`            | REST API for flower pot CRUD                 |
+| MODIFY | `apps/web/components/den/invite-modal.tsx`         | Generate + deposit DenKey on invite creation |
+| MODIFY | `apps/web/app/invite/[token]/page.tsx`             | Pass `flowerPotToken` to client component    |
+| MODIFY | `apps/web/components/invite-page-client.tsx`       | Redeem DenKey on invite acceptance           |
+| MODIFY | `apps/web/app/dens/[id]/layout.tsx`                | Remove DenProvider (moved to page)           |
+| MODIFY | `apps/web/app/dens/[id]/page.tsx`                  | Wrap with `DenProvider readOnly={!isOwner}`  |
+| MODIFY | `apps/web/components/den-page-client-enhanced.tsx` | Visitor P2P auto-join via `useJoinDen`       |
+| MODIFY | `apps/web/components/den/visitor-panel.tsx`        | Fix hosting UI (was stuck on "Not hosting")  |
 
 ---
 
@@ -169,6 +173,7 @@ The `generate()` effect (runs on mount) now:
 7. Stores `toBase64(secretKey)` in state → appended to the invite URL as `#sk=`.
 
 The **invite link** format:
+
 ```
 https://app.meerkat.io/invite/TOKEN#sk=BASE64_SECRET_KEY
 ```
@@ -194,10 +199,14 @@ if (flowerPotToken) {
       token: flowerPotToken,
       visitorSecretKey: fromBase64(sk),
       fetchFromServer: async (t) => {
-        const res = await fetch(`/api/flower-pots?token=${encodeURIComponent(t)}`);
+        const res = await fetch(
+          `/api/flower-pots?token=${encodeURIComponent(t)}`,
+        );
         return res.ok ? res.json() : null;
       },
-    }).catch(() => { /* non-fatal */ });
+    }).catch(() => {
+      /* non-fatal */
+    });
   }
 }
 ```
@@ -250,6 +259,7 @@ Effect (cleanup):
 `p2pOptions` is a stable `useMemo` value wrapping a Supabase Realtime channel factory — same pattern used in `P2PProvider`.
 
 `DenHeaderEnhanced` receives the correct sync status for each role:
+
 - Owner: `syncStatus` (from `useDenContext()`)
 - Visitor: `visitorStatus` (from `useJoinDen()`)
 
@@ -264,6 +274,7 @@ Effect (cleanup):
 **Root cause**: `isHosting` was `syncStatus === "hosting" || syncStatus === "connecting"`. When hosting starts, `HostManager` transitions to `"synced"` (signaling channel active, no visitors yet), which was incorrectly treated as "not hosting".
 
 **Fix**:
+
 ```ts
 // Before
 const isHosting = syncStatus === "hosting" || syncStatus === "connecting";
