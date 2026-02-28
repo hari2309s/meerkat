@@ -8,12 +8,15 @@ interface ModalShellProps {
   onClose: () => void;
   children: React.ReactNode;
   maxWidth?: string;
+  /** Optional style overrides for the inner card panel (e.g. custom background). */
+  cardStyle?: React.CSSProperties;
 }
 
 export function ModalShell({
   onClose,
   children,
   maxWidth = "max-w-sm",
+  cardStyle,
 }: ModalShellProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -46,6 +49,7 @@ export function ModalShell({
           border: "1.5px solid var(--color-border-card)",
           boxShadow:
             "0 24px 64px rgba(0,0,0,0.22), 0 1px 0 rgba(255,255,255,0.06) inset",
+          ...cardStyle,
         }}
         onClick={(e) => e.stopPropagation()}
       >
