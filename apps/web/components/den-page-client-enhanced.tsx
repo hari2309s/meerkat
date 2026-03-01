@@ -12,7 +12,7 @@ import { startNavigationProgress } from "@/components/navigation-progress";
 import { createClient } from "@/lib/supabase/client";
 import { useFeature } from "@/lib/feature-flags-context";
 import { useDenContextSafe } from "@meerkat/crdt";
-import { useVisitorPresence, useJoinDen } from "@meerkat/p2p";
+import { useJoinDen } from "@meerkat/p2p";
 import { useStoredKeys } from "@meerkat/keys";
 import type { P2PManagerOptions } from "@meerkat/p2p";
 
@@ -76,9 +76,6 @@ export function DenPageClientEnhanced({
 
   // Local-first context (may be null if feature flag is disabled)
   const denContext = useDenContextSafe();
-
-  // P2P visitor presence — handles missing P2P manager gracefully
-  const { disconnectVisitor } = useVisitorPresence(initialDen.id);
 
   // Prevent hydration mismatch
   const [mounted, setMounted] = useState(false);
