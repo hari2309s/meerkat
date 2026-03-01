@@ -403,17 +403,20 @@ export class HostManager {
       const { sharedDen } = await openDen(this.denId);
       const now = Date.now();
       const staleEntries: string[] = [];
-      
+
       // Find stale entries
       for (const [visitorId, presence] of sharedDen.presence.entries()) {
         if (now - presence.lastSeenAt > PRESENCE_TTL_MS) {
           staleEntries.push(visitorId);
         }
       }
-      
+
       // Remove stale entries
       if (staleEntries.length > 0) {
-        console.log(`[@meerkat/p2p:host] Cleaning up ${staleEntries.length} stale presence entries:`, staleEntries);
+        console.log(
+          `[@meerkat/p2p:host] Cleaning up ${staleEntries.length} stale presence entries:`,
+          staleEntries,
+        );
         sharedDen.ydoc.transact(() => {
           for (const visitorId of staleEntries) {
             sharedDen.presence.delete(visitorId);
@@ -421,7 +424,10 @@ export class HostManager {
         });
       }
     } catch (err) {
-      console.error("[@meerkat/p2p:host] Error cleaning up stale presence:", err);
+      console.error(
+        "[@meerkat/p2p:host] Error cleaning up stale presence:",
+        err,
+      );
     }
   }
 
