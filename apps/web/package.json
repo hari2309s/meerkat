@@ -21,6 +21,7 @@
     "@meerkat/ui": "workspace:*",
     "@meerkat/utils": "workspace:*",
     "@meerkat/voice": "workspace:*",
+    "@scure/bip39": "^2.0.1",
     "@supabase/ssr": "^0.1.0",
     "@supabase/supabase-js": "^2.95.3",
     "@tanstack/react-query": "^5.17.19",

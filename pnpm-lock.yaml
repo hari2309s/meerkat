@@ -59,6 +59,9 @@ importers:
       '@meerkat/voice':
         specifier: workspace:*
         version: link:../../packages/voice
+      '@scure/bip39':
+        specifier: ^2.0.1
+        version: 2.0.1
       '@supabase/ssr':
         specifier: ^0.1.0
         version: 0.1.0(@supabase/supabase-js@2.95.3)
@@ -1564,6 +1567,11 @@ packages:
     dev: false
     optional: true
 
+  /@noble/hashes@2.0.1:
+    resolution: {integrity: sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==}
+    engines: {node: '>= 20.19.0'}
+    dev: false
+
   /@nodelib/fs.scandir@2.1.5:
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
     engines: {node: '>= 8'}
@@ -1913,6 +1921,17 @@ packages:
   /@rushstack/eslint-patch@1.15.0:
     resolution: {integrity: sha512-ojSshQPKwVvSMR8yT2L/QtUkV5SXi/IfDiJ4/8d6UbTPjiHVmxZzUAzGD8Tzks1b9+qQkZa0isUOvYObedITaw==}
     dev: true
+
+  /@scure/base@2.0.0:
+    resolution: {integrity: sha512-3E1kpuZginKkek01ovG8krQ0Z44E3DHPjc5S2rjJw9lZn3KSQOs8S7wqikF/AH7iRanHypj85uGyxk0XAyC37w==}
+    dev: false
+
+  /@scure/bip39@2.0.1:
+    resolution: {integrity: sha512-PsxdFj/d2AcJcZDX1FXN3dDgitDDTmwf78rKZq1a6c1P1Nan1X/Sxc7667zU3U+AN60g7SxxP0YCVw2H/hBycg==}
+    dependencies:
+      '@noble/hashes': 2.0.1
+      '@scure/base': 2.0.0
+    dev: false
 
   /@sinclair/typebox@0.27.10:
     resolution: {integrity: sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA==}
