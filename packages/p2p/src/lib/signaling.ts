@@ -1,6 +1,4 @@
 // ─── signaling.ts ─────────────────────────────────────────────────────────────
-//
-// Supabase Realtime broadcast channel wrapper for WebRTC signaling.
 
 import type {
   SupabaseRealtimeChannelLike,
@@ -83,66 +81,54 @@ export class SignalingChannel {
           : (payload as unknown as T);
       handler(msg);
     });
-    return () => {
-      /* Supabase doesn't support individual listener removal */
-    };
+    return () => {};
   }
 
-  onJoinRequest(handler: SignalHandler<JoinRequestSignal>): () => void {
+  onJoinRequest(handler: SignalHandler<JoinRequestSignal>) {
     return this.on(SIGNAL_EVENTS.JOIN_REQUEST, handler);
   }
-
-  onJoinResponse(handler: SignalHandler<JoinResponseSignal>): () => void {
+  onJoinResponse(handler: SignalHandler<JoinResponseSignal>) {
     return this.on(SIGNAL_EVENTS.JOIN_RESPONSE, handler);
   }
-
-  onIceCandidate(handler: SignalHandler<IceCandidateSignal>): () => void {
+  onIceCandidate(handler: SignalHandler<IceCandidateSignal>) {
     return this.on(SIGNAL_EVENTS.ICE_CANDIDATE, handler);
   }
-
-  onHostOnline(handler: SignalHandler<HostOnlineSignal>): () => void {
+  onHostOnline(handler: SignalHandler<HostOnlineSignal>) {
     return this.on(SIGNAL_EVENTS.HOST_ONLINE, handler);
   }
-
-  onHostOffline(handler: SignalHandler<HostOfflineSignal>): () => void {
+  onHostOffline(handler: SignalHandler<HostOfflineSignal>) {
     return this.on(SIGNAL_EVENTS.HOST_OFFLINE, handler);
   }
 
-  async sendJoinRequest(msg: JoinRequestSignal): Promise<void> {
+  async sendJoinRequest(msg: JoinRequestSignal) {
     await this.channel.send({
       type: "broadcast",
       event: SIGNAL_EVENTS.JOIN_REQUEST,
       payload: msg,
     });
   }
-
-  async sendJoinResponse(msg: JoinResponseSignal): Promise<void> {
+  async sendJoinResponse(msg: JoinResponseSignal) {
     await this.channel.send({
       type: "broadcast",
       event: SIGNAL_EVENTS.JOIN_RESPONSE,
       payload: msg,
     });
   }
-
-  async sendIceCandidate(msg: IceCandidateSignal): Promise<void> {
+  async sendIceCandidate(msg: IceCandidateSignal) {
     await this.channel.send({
       type: "broadcast",
       event: SIGNAL_EVENTS.ICE_CANDIDATE,
       payload: msg,
     });
   }
-
-  async broadcastHostOnline(
-    msg: Omit<HostOnlineSignal, "type">,
-  ): Promise<void> {
+  async broadcastHostOnline(msg: Omit<HostOnlineSignal, "type">) {
     await this.channel.send({
       type: "broadcast",
       event: SIGNAL_EVENTS.HOST_ONLINE,
       payload: { type: "host-online", ...msg } satisfies HostOnlineSignal,
     });
   }
-
-  async broadcastHostOffline(): Promise<void> {
+  async broadcastHostOffline() {
     await this.channel.send({
       type: "broadcast",
       event: SIGNAL_EVENTS.HOST_OFFLINE,
@@ -159,39 +145,131 @@ export function signalingChannelName(denId: string): string {
 }
 
 /**
- * ICE server list.
+ * Build the ICE server list.
  *
- * STUN alone fails when both peers are behind NAT (home routers / symmetric NAT).
- * TURN relays traffic when direct peer-to-peer is impossible.
+ * Priority:
+ *   1. NEXT_PUBLIC_TURN_URLS env var (comma-separated, with credentials)
+ *      Format: "turn:host:port?username=u&credential=p,turns:host:port?username=u&credential=p"
+ *   2. Metered.ca credentials from env vars (recommended for production)
+ *   3. Cloudflare TURN from env vars
+ *   4. Hardcoded Metered.ca free-tier fallback (may be rate-limited)
  *
- * Using Open Relay Project (free, no account needed, rate-limited but fine for dev/low-traffic):
- *   https://www.metered.ca/tools/openrelay/
+ * For Metered.ca (free tier, reliable):
+ *   1. Sign up at https://www.metered.ca/ (free, 2 min)
+ *   2. Create an app → copy the TURN credentials from the dashboard
+ *   3. Add to Vercel env vars:
+ *        NEXT_PUBLIC_METERED_TURN_USERNAME=<your-username>
+ *        NEXT_PUBLIC_METERED_TURN_CREDENTIAL=<your-credential>
+ *        NEXT_PUBLIC_METERED_TURN_HOST=<your-host>.relay.metered.ca
  *
- * For production with real users, replace with a dedicated TURN service
- * (Twilio, Metered.ca paid, coturn self-hosted) and put credentials in env vars.
+ * For Cloudflare TURN (free under Cloudflare Calls):
+ *   1. https://dash.cloudflare.com → Calls → TURN keys → Create a key
+ *   2. Add to Vercel env vars:
+ *        NEXT_PUBLIC_CF_TURN_KEY_ID=<key-id>
+ *        NEXT_PUBLIC_CF_TURN_KEY_API_TOKEN=<api-token>
+ *        (Then call https://rtc.live.cloudflare.com/v1/turn/keys/{id}/credentials/generate)
+ *        NEXT_PUBLIC_CF_TURN_USERNAME=<generated-username>
+ *        NEXT_PUBLIC_CF_TURN_CREDENTIAL=<generated-credential>
  */
-export const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
-  // STUN — discover public IP, works when at least one peer is NOT behind NAT
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-  { urls: "stun:openrelay.metered.ca:80" },
+export function buildIceServers(overrides?: RTCIceServer[]): RTCIceServer[] {
+  if (overrides && overrides.length > 0) return overrides;
 
-  // TURN over UDP (port 80 — passes most firewalls)
-  {
-    urls: "turn:openrelay.metered.ca:80",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  // TURN over TCP (fallback when UDP is blocked)
-  {
-    urls: "turn:openrelay.metered.ca:443",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  // TURNS over TLS (port 443 — works through almost any corporate firewall)
-  {
-    urls: "turns:openrelay.metered.ca:443",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-];
+  const servers: RTCIceServer[] = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ];
+
+  // Metered.ca env-var credentials (recommended)
+  const meteredHost = process.env.NEXT_PUBLIC_METERED_TURN_HOST;
+  const meteredUser = process.env.NEXT_PUBLIC_METERED_TURN_USERNAME;
+  const meteredCred = process.env.NEXT_PUBLIC_METERED_TURN_CREDENTIAL;
+
+  if (meteredHost && meteredUser && meteredCred) {
+    console.log(`[@meerkat/p2p] Using Metered.ca TURN: ${meteredHost}`);
+    servers.push(
+      { urls: `stun:${meteredHost}` },
+      {
+        urls: `turn:${meteredHost}:80?transport=udp`,
+        username: meteredUser,
+        credential: meteredCred,
+      },
+      {
+        urls: `turn:${meteredHost}:80?transport=tcp`,
+        username: meteredUser,
+        credential: meteredCred,
+      },
+      {
+        urls: `turn:${meteredHost}:443?transport=tcp`,
+        username: meteredUser,
+        credential: meteredCred,
+      },
+      {
+        urls: `turns:${meteredHost}:443?transport=tcp`,
+        username: meteredUser,
+        credential: meteredCred,
+      },
+    );
+    return servers;
+  }
+
+  // Cloudflare TURN env-var credentials
+  const cfUser = process.env.NEXT_PUBLIC_CF_TURN_USERNAME;
+  const cfCred = process.env.NEXT_PUBLIC_CF_TURN_CREDENTIAL;
+
+  if (cfUser && cfCred) {
+    console.log(`[@meerkat/p2p] Using Cloudflare TURN`);
+    servers.push(
+      {
+        urls: "turn:turn.cloudflare.com:3478?transport=udp",
+        username: cfUser,
+        credential: cfCred,
+      },
+      {
+        urls: "turn:turn.cloudflare.com:3478?transport=tcp",
+        username: cfUser,
+        credential: cfCred,
+      },
+      {
+        urls: "turns:turn.cloudflare.com:5349?transport=tcp",
+        username: cfUser,
+        credential: cfCred,
+      },
+    );
+    return servers;
+  }
+
+  // Fallback: hardcoded Metered free-tier (no account, but rate-limited & unreliable)
+  // Remove this block once you have real credentials configured above.
+  console.warn(
+    "[@meerkat/p2p] No TURN credentials configured — using free public fallback. " +
+      "Set NEXT_PUBLIC_METERED_TURN_HOST/USERNAME/CREDENTIAL in Vercel env vars for reliable connections.",
+  );
+  servers.push(
+    { urls: "stun:stun.relay.metered.ca:80" },
+    {
+      urls: "turn:global.relay.metered.ca:80",
+      username: "e84722a5e85d41e9de8c3dc2",
+      credential: "FpnPCEfTf5aBbUfZ",
+    },
+    {
+      urls: "turn:global.relay.metered.ca:80?transport=tcp",
+      username: "e84722a5e85d41e9de8c3dc2",
+      credential: "FpnPCEfTf5aBbUfZ",
+    },
+    {
+      urls: "turn:global.relay.metered.ca:443",
+      username: "e84722a5e85d41e9de8c3dc2",
+      credential: "FpnPCEfTf5aBbUfZ",
+    },
+    {
+      urls: "turns:global.relay.metered.ca:443?transport=tcp",
+      username: "e84722a5e85d41e9de8c3dc2",
+      credential: "FpnPCEfTf5aBbUfZ",
+    },
+  );
+
+  return servers;
+}
+
+/** Legacy export — used by existing code that passes iceServers directly */
+export const DEFAULT_ICE_SERVERS: RTCIceServer[] = buildIceServers();

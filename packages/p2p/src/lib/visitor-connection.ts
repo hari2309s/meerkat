@@ -1,23 +1,4 @@
 // ─── visitor-connection.ts ───────────────────────────────────────────────────
-//
-// FIX SUMMARY (2026-03-01):
-//
-// BUG 1 — Listeners registered AFTER subscribe() [ROOT CAUSE of stuck "Connecting"]
-//   Supabase Realtime requires ALL .on("broadcast",...) calls BEFORE .subscribe().
-//   The original code called waitForHostOnline() and waitForJoinResponse() after
-//   signaling.connect(). Any host-online or join-response that arrived while
-//   subscribing was silently dropped forever.
-//
-//   Fix: Register onHostOnline + onJoinResponse + onIceCandidate BEFORE connect().
-//
-// BUG 2 — DataChannel created on wrong side
-//   Visitor is the offerer (calls createOffer). In WebRTC the offerer MUST call
-//   createDataChannel() — it embeds the channel in the SDP. The host (answerer)
-//   receives it via ondatachannel. Original code had this backwards: host called
-//   createDataChannel(), channel never opened, Yjs never wired, stuck forever.
-//
-//   Fix: Visitor calls createDataChannel() before createOffer().
-//        Host uses ondatachannel (see host-manager.ts).
 
 import * as awarenessProtocol from "y-protocols/awareness";
 import { validateKey } from "@meerkat/keys";
@@ -25,7 +6,7 @@ import { openDen } from "@meerkat/local-store";
 import type { DenKey } from "@meerkat/keys";
 import {
   SignalingChannel,
-  DEFAULT_ICE_SERVERS,
+  buildIceServers,
   signalingChannelName,
 } from "./signaling";
 import { wireScopedYjsSync } from "./yjs-sync";
@@ -49,7 +30,6 @@ export class VisitorConnection {
   private peer: RTCPeerConnection | null = null;
   private yjsCleanup: (() => void) | null = null;
   private pendingCandidates: RTCIceCandidateInit[] = [];
-
   private statusHandlers = new Set<(status: SyncStatus) => void>();
   private _status: SyncStatus = "offline";
 
@@ -72,42 +52,39 @@ export class VisitorConnection {
     console.log(
       `[@meerkat/p2p:visitor] connect() — visitorId=${visitorId} den=${this.hostDenId}`,
     );
-
-    if (!validateKey(this.denKey)) {
-      console.error(`[@meerkat/p2p:visitor] DenKey invalid or expired`);
+    if (!validateKey(this.denKey))
       throw new Error("[@meerkat/p2p] DenKey is invalid or expired");
-    }
 
     this._setStatus("connecting");
 
-    // 1. Create signaling wrapper (NOT subscribed yet)
     const rawChannel = this.options.createSignalingChannel(
       signalingChannelName(this.hostDenId),
     );
     this.signaling = new SignalingChannel(rawChannel, this.hostDenId);
+
+    // Build ICE servers — picks up env-var TURN credentials
+    const iceServers = buildIceServers(this.options.iceServers);
+    const hasRelay = iceServers.some((s) =>
+      [s.urls]
+        .flat()
+        .some(
+          (u) =>
+            String(u).startsWith("turn:") || String(u).startsWith("turns:"),
+        ),
+    );
     console.log(
-      `[@meerkat/p2p:visitor] Signaling wrapper created for p2p:den:${this.hostDenId}`,
+      `[@meerkat/p2p:visitor] ICE: ${iceServers.length} servers, TURN relay: ${hasRelay ? "✅ YES" : "❌ NO — will fail behind NAT"}`,
     );
 
-    // 2. Create RTCPeerConnection
-    // iceCandidatePoolSize pre-gathers STUN/TURN candidates before the offer,
-    // so relay candidates are available sooner after setLocalDescription.
-    const peer = new RTCPeerConnection({
-      iceServers: this.options.iceServers ?? DEFAULT_ICE_SERVERS,
-      iceCandidatePoolSize: 2,
-    });
+    const peer = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 2 });
     this.peer = peer;
 
-    // 3. FIX BUG 2: Visitor is the offerer — create DataChannel BEFORE createOffer()
+    // Visitor is offerer — MUST createDataChannel before createOffer()
     const dataChannel = peer.createDataChannel(DATA_CHANNEL_LABEL, {
       ordered: true,
     });
-    console.log(
-      `[@meerkat/p2p:visitor] DataChannel created (visitor is offerer)`,
-    );
-
     dataChannel.onopen = async () => {
-      console.log(`[@meerkat/p2p:visitor] DataChannel OPEN`);
+      console.log(`[@meerkat/p2p:visitor] ✅ DataChannel OPEN`);
       await this.wireYjsSync(dataChannel);
     };
     dataChannel.onclose = () =>
@@ -115,16 +92,23 @@ export class VisitorConnection {
     dataChannel.onerror = (e) =>
       console.error(`[@meerkat/p2p:visitor] DataChannel error:`, e);
 
-    // 4. ICE + connection state logging
+    // ICE candidate logging — shows whether relay candidates are gathered
+    let relayGathered = false;
     peer.onicecandidate = async ({ candidate }) => {
       if (!candidate) {
-        console.log(`[@meerkat/p2p:visitor] ICE gathering complete`);
+        console.log(
+          `[@meerkat/p2p:visitor] ICE gathering complete — relay gathered: ${relayGathered ? "✅ YES" : "❌ NO"}`,
+        );
+        if (!relayGathered)
+          console.warn(
+            `[@meerkat/p2p:visitor] ⚠️ No relay candidates — check TURN server env vars`,
+          );
         return;
       }
-      const type = candidate.type ?? "unknown";
-      const proto = candidate.protocol ?? "";
+      const type = candidate.type ?? "?";
+      if (type === "relay") relayGathered = true;
       console.log(
-        `[@meerkat/p2p:visitor] New ICE candidate — type=${type} proto=${proto} — sending to host`,
+        `[@meerkat/p2p:visitor] Gathered: type=${type} proto=${candidate.protocol}${type === "relay" ? " ✅ RELAY" : ""}`,
       );
       if (!this.signaling?.isConnected) return;
       await this.signaling.sendIceCandidate({
@@ -136,107 +120,77 @@ export class VisitorConnection {
       });
     };
     peer.oniceconnectionstatechange = () =>
-      console.log(
-        `[@meerkat/p2p:visitor] ICE state → ${peer.iceConnectionState}`,
-      );
+      console.log(`[@meerkat/p2p:visitor] ICE → ${peer.iceConnectionState}`);
     peer.onconnectionstatechange = () => {
       console.log(
-        `[@meerkat/p2p:visitor] Connection state → ${peer.connectionState}`,
+        `[@meerkat/p2p:visitor] Connection → ${peer.connectionState}`,
       );
-      if (["disconnected", "failed", "closed"].includes(peer.connectionState)) {
-        // Full teardown so the signaling channel is unsubscribed and the failed
-        // peer connection is released. disconnect() is idempotent.
+      if (["disconnected", "failed", "closed"].includes(peer.connectionState))
         this.disconnect();
-      }
     };
 
-    // 5. FIX BUG 1: Register ALL broadcast listeners BEFORE calling connect()
-    //    Supabase Realtime requires .on() calls before .subscribe().
-
-    // 5a. host-online — resolve immediately if received, or after timeout
-    let hostOnlineTimeoutId: ReturnType<typeof setTimeout>;
+    // ALL listeners BEFORE subscribe()
     let resolveHostOnline!: () => void;
     const hostOnlinePromise = new Promise<void>((resolve) => {
-      resolveHostOnline = () => {
-        clearTimeout(hostOnlineTimeoutId);
-        resolve();
-      };
-      hostOnlineTimeoutId = setTimeout(() => {
-        console.warn(
-          `[@meerkat/p2p:visitor] host-online not received within ${HOST_ONLINE_WAIT_MS}ms — proceeding anyway`,
-        );
+      resolveHostOnline = resolve;
+      setTimeout(() => {
+        console.warn(`[@meerkat/p2p:visitor] host-online timeout — proceeding`);
         resolve();
       }, HOST_ONLINE_WAIT_MS);
     });
     this.signaling.onHostOnline((msg) => {
-      console.log(
-        `[@meerkat/p2p:visitor] ✅ host-online received from den=${msg.denId}`,
-      );
+      console.log(`[@meerkat/p2p:visitor] ✅ host-online den=${msg.denId}`);
       resolveHostOnline();
     });
 
-    // 5b. join-response
     let resolveResponse!: (msg: JoinResponseSignal) => void;
     let rejectResponse!: (err: Error) => void;
     const responsePromise = new Promise<JoinResponseSignal>((res, rej) => {
       resolveResponse = res;
       rejectResponse = rej;
     });
-    const responseTimeout = setTimeout(() => {
-      rejectResponse(
-        new Error(
-          `[@meerkat/p2p] No join-response after ${HANDSHAKE_TIMEOUT_MS}ms — ` +
-            `check host console for handleJoinRequest logs`,
+    const responseTimeout = setTimeout(
+      () =>
+        rejectResponse(
+          new Error(
+            `[@meerkat/p2p] No join-response after ${HANDSHAKE_TIMEOUT_MS}ms`,
+          ),
         ),
-      );
-    }, HANDSHAKE_TIMEOUT_MS);
+      HANDSHAKE_TIMEOUT_MS,
+    );
 
     this.signaling.onJoinResponse((msg: JoinResponseSignal) => {
+      if (msg.visitorId !== visitorId) return;
       console.log(
-        `[@meerkat/p2p:visitor] join-response received: accepted=${msg.accepted} for visitorId=${msg.visitorId}`,
+        `[@meerkat/p2p:visitor] join-response: accepted=${msg.accepted}`,
       );
-      if (msg.visitorId !== visitorId) {
-        console.warn(
-          `[@meerkat/p2p:visitor] visitorId mismatch — expected ${visitorId}, got ${msg.visitorId}`,
-        );
-        return;
-      }
       clearTimeout(responseTimeout);
       resolveResponse(msg);
     });
 
-    // 5c. ICE from host
     this.signaling.onIceCandidate(async (msg: IceCandidateSignal) => {
       if (msg.from !== "host" || msg.visitorId !== visitorId) return;
-      console.log(`[@meerkat/p2p:visitor] ICE candidate received from host`);
+      const c = msg.candidate as RTCIceCandidateInit & { type?: string };
+      console.log(
+        `[@meerkat/p2p:visitor] ICE from host: type=${c.type ?? "?"}${c.type === "relay" ? " ✅ RELAY" : ""}`,
+      );
       if (peer.remoteDescription) {
         await peer
           .addIceCandidate(msg.candidate)
-          .catch((e) =>
-            console.warn(`[@meerkat/p2p:visitor] addIceCandidate error:`, e),
-          );
+          .catch((e) => console.warn(`addIceCandidate error:`, e));
       } else {
-        console.log(
-          `[@meerkat/p2p:visitor] Queuing ICE candidate (no remote desc yet)`,
-        );
         this.pendingCandidates.push(msg.candidate);
       }
     });
 
-    // 6. NOW subscribe
-    console.log(`[@meerkat/p2p:visitor] Subscribing to signaling channel...`);
+    console.log(`[@meerkat/p2p:visitor] Subscribing...`);
     await this.signaling.connect();
-    console.log(`[@meerkat/p2p:visitor] ✅ Signaling channel SUBSCRIBED`);
+    console.log(`[@meerkat/p2p:visitor] ✅ Subscribed`);
 
-    // 7. Wait for host-online
-    console.log(`[@meerkat/p2p:visitor] Waiting for host-online...`);
     await hostOnlinePromise;
 
-    // 8. Send join-request
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
-    console.log(`[@meerkat/p2p:visitor] Offer created, sending join-request`);
-
     await this.signaling.sendJoinRequest({
       type: "join-request",
       visitorId,
@@ -244,47 +198,32 @@ export class VisitorConnection {
       sdpOffer: offer.sdp ?? "",
       denKey: this.denKey,
     });
-    console.log(
-      `[@meerkat/p2p:visitor] join-request sent — awaiting response...`,
-    );
+    console.log(`[@meerkat/p2p:visitor] join-request sent`);
 
-    // 9. Await response
     const response = await responsePromise;
     if (!response.accepted) {
       this._setStatus("offline");
-      throw new Error(
-        `[@meerkat/p2p] Rejected: ${response.reason ?? "unknown"}`,
-      );
+      throw new Error(`[@meerkat/p2p] Rejected: ${response.reason}`);
     }
 
-    // 10. Set remote description
-    console.log(`[@meerkat/p2p:visitor] Setting remote description`);
     await peer.setRemoteDescription({
       type: "answer",
       sdp: response.sdpAnswer,
     });
 
-    // 11. Flush queued ICE
     console.log(
       `[@meerkat/p2p:visitor] Flushing ${this.pendingCandidates.length} queued ICE candidates`,
     );
-    for (const c of this.pendingCandidates) {
-      await peer
-        .addIceCandidate(c)
-        .catch((e) =>
-          console.warn(`[@meerkat/p2p:visitor] queued ICE failed:`, e),
-        );
-    }
+    for (const c of this.pendingCandidates)
+      await peer.addIceCandidate(c).catch(() => {});
     this.pendingCandidates = [];
 
     console.log(
       `[@meerkat/p2p:visitor] Handshake complete — waiting for DataChannel.onopen`,
     );
-    // → dataChannel.onopen → wireYjsSync → _setStatus("synced")
   }
 
   disconnect(): void {
-    console.log(`[@meerkat/p2p:visitor] disconnect()`);
     this.yjsCleanup?.();
     this.yjsCleanup = null;
     this.peer?.close();
@@ -296,9 +235,6 @@ export class VisitorConnection {
 
   private async wireYjsSync(channel: RTCDataChannel): Promise<void> {
     try {
-      console.log(
-        `[@meerkat/p2p:visitor] Opening den ${this.hostDenId} for Yjs sync`,
-      );
       const { sharedDen } = await openDen(this.hostDenId);
       const awareness = new awarenessProtocol.Awareness(sharedDen.ydoc);
       this.yjsCleanup = wireScopedYjsSync({
@@ -308,7 +244,7 @@ export class VisitorConnection {
         canWrite: this.denKey.scope.write,
         role: "visitor",
       });
-      console.log(`[@meerkat/p2p:visitor] ✅ Yjs sync wired → status "synced"`);
+      console.log(`[@meerkat/p2p:visitor] ✅ Yjs synced`);
       this._setStatus("synced");
     } catch (err) {
       console.error("[@meerkat/p2p:visitor] wireYjsSync failed:", err);
@@ -323,9 +259,7 @@ export class VisitorConnection {
     for (const h of this.statusHandlers) {
       try {
         h(next);
-      } catch (e) {
-        console.error("[@meerkat/p2p:visitor] status handler threw:", e);
-      }
+      } catch {}
     }
   }
 }
