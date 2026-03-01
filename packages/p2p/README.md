@@ -9,40 +9,119 @@ WebRTC peer connections for Meerkat visitor sessions.
 ## How it works
 
 ```
-VISITOR                     SERVER                     HOST
-   |                    (Supabase Realtime)               |
-   |── join-request (SDP offer) ──────────────────────►  |
-   |                                                      |── validates DenKey
-   |◄── join-response (SDP answer) ─────────────────────  |
-   |                                                      |
-   |←──────────── ICE candidates (both ways) ───────────►|
-   |                                                      |
-   |◄═══════════ RTCDataChannel open ══════════════════► |
-   |                                                      |
-   |◄────────── Yjs sync (scoped by DenKey) ────────────►|
+VISITOR                       SERVER                       HOST
+   |                     (Supabase Realtime)                 |
+   |── join-request (SDP offer) ─────────────────────────►  |
+   |                                                         |── validates DenKey
+   |◄── join-response (SDP answer) ─────────────────────────|
+   |                                                         |
+   |←──────── ICE candidates (both ways, via TURN if NAT) ─►|
+   |                                                         |
+   |◄══════════════ RTCDataChannel open ══════════════════► |
+   |                                                         |
+   |◄─────────── Yjs sync (scoped by DenKey) ───────────────|
 ```
 
-Signaling uses **Supabase Realtime broadcast** — zero additional infrastructure. Once the WebRTC connection is established, all Yjs updates flow directly peer-to-peer.
+Signaling uses **Supabase Realtime broadcast** — zero additional server infrastructure. Once the WebRTC connection is established, all Yjs updates flow directly peer-to-peer (or via TURN relay when NAT blocks direct paths).
 
 ---
 
 ## Setup
 
-Call `initP2P()` once at app startup, passing a Supabase channel factory:
+### 1. Initialize once at app startup
 
-```ts
-// app/providers.tsx or similar
-import { initP2P } from "@meerkat/p2p";
+Call `initP2P()` synchronously during render inside a provider component that wraps den pages. It **must not** be deferred to a `useEffect` — the singleton must exist before any child component effects attempt to use it.
+
+```tsx
+// apps/web/providers/p2p-provider.tsx
+"use client";
+import { initP2P, getP2PManager } from "@meerkat/p2p";
 import { createClient } from "@/lib/supabase/client";
 
-initP2P({
-  createSignalingChannel: (name) => createClient().channel(name),
-  // Optional: custom STUN/TURN servers
-  // iceServers: [{ urls: "turn:your-turn.example.com" }],
-});
+export function P2PProvider({ children }: { children: React.ReactNode }) {
+  if (typeof window !== "undefined") {
+    try {
+      getP2PManager(); // no-op if already initialised
+    } catch {
+      initP2P({
+        createSignalingChannel: (name) => createClient().channel(name),
+      });
+    }
+  }
+  return <>{children}</>;
+}
 ```
 
-`@meerkat/crdt` then picks this up automatically via dynamic import — no further wiring needed.
+### 2. Visitor must use a SEPARATE Supabase client
+
+> ⚠️ **Critical**: Do NOT pass `createClient()` into the visitor's `p2pOptions`.
+>
+> `createClient()` returns a cached singleton that shares a WebSocket with the host's `P2PProvider`. Supabase Realtime does not deliver broadcast messages back to the sending socket — so if both peers share the same connection, the visitor silently receives **zero ICE candidates** from the host and the WebRTC handshake stalls permanently.
+
+Use `createBrowserClient()` directly to get a fresh, independent WebSocket:
+
+```tsx
+// apps/web/components/den-page-client-enhanced.tsx
+import { createBrowserClient } from "@supabase/ssr";
+import { clientEnv } from "@meerkat/config";
+
+const p2pOptions = useMemo<P2PManagerOptions>(() => {
+  // Fresh client = dedicated WebSocket = ICE candidates actually arrive
+  const supabase = createBrowserClient(
+    clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+    clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+  return {
+    createSignalingChannel: (channelName: string) => {
+      const ch = supabase.channel(channelName);
+      return {
+        on(event, config, callback) {
+          ch.on(event, config, callback);
+          return this;
+        },
+        subscribe(cb) {
+          ch.subscribe(cb);
+          return this;
+        },
+        async send(args) {
+          await ch.send(args);
+        },
+        async unsubscribe() {
+          await supabase.removeChannel(ch);
+        },
+      };
+    },
+  };
+}, []); // empty deps — intentional, supabase client is stable for session lifetime
+```
+
+### 3. Configure TURN servers (required for cross-network connections)
+
+STUN alone fails when both peers are behind home routers (symmetric NAT). TURN relay is required for real-world use outside the same local network.
+
+Set these environment variables in Vercel:
+
+```bash
+# Option A: Metered.ca (free tier — sign up at metered.ca, copy from TURN Credentials tab)
+NEXT_PUBLIC_METERED_TURN_HOST=global.relay.metered.ca
+NEXT_PUBLIC_METERED_TURN_USERNAME=<username from dashboard>
+NEXT_PUBLIC_METERED_TURN_CREDENTIAL=<credential from dashboard>
+
+# Option B: Cloudflare TURN (Cloudflare Calls — free tier available)
+NEXT_PUBLIC_CF_TURN_USERNAME=<generated username>
+NEXT_PUBLIC_CF_TURN_CREDENTIAL=<generated credential>
+```
+
+`buildIceServers()` in `lib/signaling.ts` reads these automatically — no code changes needed. If neither is set, a hardcoded public free-tier fallback is used (rate-limited, unreliable, not suitable for production).
+
+**Verify TURN is working** — visitor console after connecting:
+
+```
+[@meerkat/p2p] Using Metered.ca TURN: global.relay.metered.ca
+[@meerkat/p2p:visitor] ICE: 7 servers, TURN relay: ✅ YES
+[@meerkat/p2p:visitor] Gathered: type=relay proto=udp ✅ RELAY
+[@meerkat/p2p:visitor] ICE → connected
+```
 
 ---
 
@@ -51,17 +130,15 @@ initP2P({
 ```
 @meerkat/p2p
 │
-├── createP2PAdapter()           ← entry point for @meerkat/crdt
-│
 ├── lib/
-│   ├── p2p-manager.ts           ← P2PManager singleton (P2PAdapter impl.)
-│   ├── host-manager.ts          ← one HostManager per den being hosted
-│   ├── visitor-connection.ts    ← one VisitorConnection per den being visited
-│   ├── signaling.ts             ← Supabase Realtime broadcast wrapper
-│   ├── yjs-sync.ts              ← y-protocols sync over RTCDataChannel
-│   └── offline-drops.ts        ← Letterbox async upload/collect path
+│   ├── p2p-manager.ts        ← P2PManager singleton (implements P2PAdapter for @meerkat/crdt)
+│   ├── host-manager.ts       ← one HostManager per den being hosted
+│   ├── visitor-connection.ts ← one VisitorConnection per den being visited
+│   ├── signaling.ts          ← Supabase Realtime broadcast wrapper + buildIceServers()
+│   ├── yjs-sync.ts           ← y-protocols sync over RTCDataChannel
+│   └── offline-drops.ts      ← Letterbox async upload/collect
 │
-└── hooks.ts                     ← useHostStatus, useVisitorPresence, useJoinDen
+└── hooks.ts                  ← useHostStatus, useVisitorPresence, useJoinDen
 ```
 
 ---
@@ -73,121 +150,147 @@ initP2P({
 ```tsx
 import { useHostStatus, useVisitorPresence } from "@meerkat/p2p";
 
-// Is the den accepting connections?
-const { isOnline, visitorCount, syncStatus } = useHostStatus(denId);
+// Sync status + hosting controls
+const { isOnline, visitorCount, syncStatus, startHosting, stopHosting } =
+  useHostStatus(denId);
 
-// Who's here right now?
+// Live visitor list
 const { visitors, disconnectVisitor } = useVisitorPresence(denId);
-
-// Kick a visitor
-<button onClick={() => disconnectVisitor(visitor.visitorId)}>Remove</button>;
 ```
+
+Hosting starts automatically via `@meerkat/crdt`'s `DenSyncMachine` when `DenProvider` mounts (for owners only — `readOnly={!isOwner}` prevents visitors from hosting). `startHosting` / `stopHosting` are for manual UI controls.
 
 ### Visitor side
 
 ```tsx
 import { useJoinDen } from "@meerkat/p2p";
-import { createClient } from "@/lib/supabase/client";
 
-const { join, status, error, disconnect } = useJoinDen({
-  createSignalingChannel: (name) => createClient().channel(name),
-});
+const { join, status, error, disconnect } = useJoinDen(p2pOptions);
 
-// Connect with a redeemed DenKey
-await join(redeemedDenKey);
-// status: 'connecting' → 'synced'
-// shared.ydoc now syncing live with host
+// Auto-join when a valid DenKey becomes available
+// NOTE: do NOT include `status` in deps — that causes an infinite retry loop
+useEffect(() => {
+  if (!isOwner && activeDenKey) {
+    join(activeDenKey).catch(console.warn);
+  }
+}, [isOwner, activeDenKey, join]);
 ```
 
-### Offline Letterbox drops
+`status` values: `"offline"` | `"connecting"` | `"synced"`
 
-When the host is offline, visitors with a Letterbox key upload encrypted drops to Supabase Storage. The host imports them on reconnect.
+---
 
-```ts
-import { OfflineDropManager } from "@meerkat/p2p";
-import { addToDropbox } from "@meerkat/local-store";
+## WebRTC Handshake — Roles and Order
 
-// Visitor side: upload drop when host is offline
-const mgr = new OfflineDropManager({
-  uploadDrop: async (path, data, meta) => {
-    await supabase.storage.from("drops").upload(path, data, {
-      metadata: meta,
-    });
-  },
-  listDrops: async (prefix) => {
-    const { data } = await supabase.storage.from("drops").list(prefix);
-    return data?.map((f) => `${prefix}${f.name}`) ?? [];
-  },
-  downloadDrop: async (path) => {
-    const { data } = await supabase.storage.from("drops").download(path);
-    const bytes = new Uint8Array(await data!.arrayBuffer());
-    // metadata stored in Supabase Storage object metadata
-    return { data: bytes, metadata: ... };
-  },
-  deleteDrop: async (path) => {
-    await supabase.storage.from("drops").remove([path]);
-  },
-});
+Roles are fixed: visitor is always the **offerer**, host is always the **answerer**.
 
-// Visitor: upload
-const drop = await mgr.uploadDrop(denId, visitorId, encryptedBytes, iv);
-
-// Host: collect on reconnect
-const drops = await mgr.collectPendingDrops(denId);
-for (const drop of drops) {
-  await addToDropbox(denId, drop.visitorId, drop.encryptedPayload);
-  await mgr.confirmDrop(drop); // deletes from storage
-}
+```
+VISITOR (offerer)                              HOST (answerer)
+─────────────────                              ──────────────
+1. Register ALL broadcast listeners
+   (must happen before subscribe — Supabase
+   drops messages with no registered handler)
+2. signaling.connect()  ← .subscribe()
+3. Wait for host-online (6 s timeout)
+4. peer.createDataChannel()  ← BEFORE createOffer
+   (embeds channel negotiation into SDP)
+5. peer.createOffer()
+6. peer.setLocalDescription(offer)
+7. signaling.sendJoinRequest(offer) ────────►  8. validateKey()
+                                               9. peer.setRemoteDescription(offer)
+                                              10. peer.createAnswer()
+                                              11. peer.setLocalDescription(answer)
+                        ◄──────────────────── 12. signaling.sendJoinResponse(answer)
+13. peer.setRemoteDescription(answer)
+14. ICE gathering (host + relay candidates)
+    ◄────── exchange ICE candidates ────────►
+15. ICE → connected
+16. peer.ondatachannel → dataChannel.onopen    17. peer.ondatachannel → dataChannel.onopen
+17. wireYjsSync() → status "synced"            18. wireYjsSync() → status "hosting"
 ```
 
----
+**Three invariants that must hold:**
 
-## Scope enforcement
-
-`@meerkat/p2p` enforces the DenKey scope at two levels:
-
-**Document level** — only `shared.ydoc` is ever passed to `wireScopedYjsSync`. `private.ydoc` is never touched. Visitors have zero access to private notes, voice memos, or settings regardless of their key.
-
-**Write level** — `canWrite` is derived from `denKey.scope.write`. For Peek keys (`write: false`), Yjs update messages from the visitor are silently discarded by the host. The visitor can read but every write they attempt is a no-op.
-
-**Validation** — every join request triggers `validateKey(denKey)` on the host. Expired or malformed keys are rejected before any WebRTC state is created.
-
-**Namespace key encryption** — even if a visitor somehow received an update containing `sharedNotes` data, they couldn't decrypt it without the `sharedNotes` namespace key. Their `DenKey.namespaceKeys` only contains bytes for the namespaces their key type grants (enforced in `@meerkat/keys generateKey()`).
+1. All `.on("broadcast", ...)` registrations happen **before** `.subscribe()` — Supabase requirement
+2. Visitor calls `createDataChannel()` before `createOffer()` — WebRTC spec requirement (offerer controls channel negotiation in SDP)
+3. Visitor uses a **separate** Supabase client from the host — to avoid self-delivery suppression on the shared WebSocket
 
 ---
 
-## Signaling protocol
+## Scope Enforcement
 
-All signals flow through a single Supabase Realtime broadcast channel per den: `p2p:den:{denId}`.
+| Key type  | Namespaces synced                              | Write? | Live P2P?          |
+| --------- | ---------------------------------------------- | ------ | ------------------ |
+| Come Over | sharedNotes + voiceThread + presence           | ✅     | ✅                 |
+| House-sit | sharedNotes + voiceThread + dropbox + presence | ✅     | ✅                 |
+| Peek      | sharedNotes + presence                         | ❌     | ✅                 |
+| Letterbox | dropbox only                                   | ✅     | ❌ (offline drops) |
 
-| Event           | Direction      | Purpose                   |
-| --------------- | -------------- | ------------------------- |
-| `host-online`   | host → all     | Advertise availability    |
-| `host-offline`  | host → all     | Graceful shutdown         |
-| `join-request`  | visitor → host | SDP offer + DenKey        |
-| `join-response` | host → visitor | SDP answer (or rejection) |
-| `ice-candidate` | both           | ICE candidate relay       |
-
----
-
-## Dependencies
-
-| Package                | Used for                                         |
-| ---------------------- | ------------------------------------------------ |
-| `@meerkat/keys`        | `validateKey()`, `DenKey` type, `Namespace` type |
-| `@meerkat/local-store` | `openDen()`, writing presence to `shared.ydoc`   |
-| `yjs`                  | CRDT document model                              |
-| `y-protocols`          | Yjs sync protocol messages                       |
-| `lib0`                 | Binary encoding/decoding                         |
-
-**No Supabase dependency in package core.** The `createSignalingChannel` factory is caller-provided, keeping the server boundary explicit and the package testable in isolation.
+The host passes only `shared.ydoc` (never `private.ydoc`) to `wireScopedYjsSync`. For read-only keys (`canWrite: false`), the visitor's local Yjs updates are silently discarded before transmission.
 
 ---
 
-## Phase 4 exit criteria
+## Security
 
-- Open den on device A (host). `syncStatus` transitions to `"connecting"`.
-- Open den on device B with a Come Over key token. Both devices show each other's presence. `syncStatus` on both sides shows `"hosting"` and `"synced"` respectively.
-- Create a note on A — it appears on B within 1 second via Yjs sync.
-- Go offline on A — B's `syncStatus` drops to `"offline"`. B can still read cached content but cannot push new changes.
-- Letterbox visitor uploads a drop while host is offline. Host imports it on reconnect via `collectPendingDrops`.
+- **Server blindness**: Supabase sees only SDP/ICE signaling messages. Den content flows peer-to-peer over the RTCDataChannel.
+- **DTLS-SRTP**: All WebRTC data channel traffic is end-to-end encrypted by the browser.
+- **DenKey validation**: Host validates the visitor's DenKey (expiry, `denId` match) before accepting the handshake.
+- **Namespace isolation**: Visitor can only read namespaces included in their DenKey's `namespaceKeys`. Other namespace content remains encrypted with keys the visitor doesn't hold.
+- **No persistent visitor identity**: `visitorId` is a random UUID generated per session.
+
+---
+
+## Debugging
+
+### Console log reference — happy path
+
+```
+# Visitor
+[@meerkat/p2p] Using Metered.ca TURN: global.relay.metered.ca
+[@meerkat/p2p:visitor] ICE: 7 servers, TURN relay: ✅ YES
+[@meerkat/p2p:visitor] Subscribing...
+[@meerkat/p2p:visitor] ✅ Subscribed
+[@meerkat/p2p:visitor] ✅ host-online den=<denId>
+[@meerkat/p2p:visitor] join-request sent
+[@meerkat/p2p:visitor] join-response: accepted=true
+[@meerkat/p2p:visitor] Gathered: type=host proto=udp
+[@meerkat/p2p:visitor] Gathered: type=srflx proto=udp
+[@meerkat/p2p:visitor] Gathered: type=relay proto=udp ✅ RELAY
+[@meerkat/p2p:visitor] ICE from host: type=relay ✅ RELAY
+[@meerkat/p2p:visitor] ICE → connected
+[@meerkat/p2p:visitor] Connection → connected
+[@meerkat/p2p:visitor] ✅ DataChannel OPEN
+[@meerkat/p2p:visitor] ✅ Yjs synced
+[@meerkat/p2p:visitor] Status: connecting → synced
+
+# Host
+[@meerkat/p2p:host] join-request received from visitorId=<id>
+[@meerkat/p2p:host] ✅ join-response sent to visitorId=<id>
+[@meerkat/p2p:host] Sending ICE candidate type=host proto=udp to visitorId=<id>
+[@meerkat/p2p:host] Sending ICE candidate type=relay proto=udp to visitorId=<id>
+[@meerkat/p2p:host] ICE state for <id> → connected
+[@meerkat/p2p:host] ondatachannel fired label=yjs-sync
+[@meerkat/p2p:host] DataChannel OPEN for visitorId=<id>
+[@meerkat/p2p:host] ✅ Yjs sync wired for visitorId=<id>
+[@meerkat/p2p:host] Status: synced → hosting
+```
+
+### Failure diagnosis
+
+| Symptom                                        | Cause                                                                        | Fix                                                                                    |
+| ---------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `TURN relay: ❌ NO` then ICE fails             | No TURN env vars set, or wrong credentials                                   | Set `NEXT_PUBLIC_METERED_TURN_*` in Vercel and redeploy                                |
+| Visitor receives zero ICE candidates from host | Host and visitor share same Supabase WebSocket (singleton)                   | Use `createBrowserClient()` for visitor `p2pOptions`, not `createClient()`             |
+| `host-online` never received                   | Broadcast listener registered after `.subscribe()`                           | Register all `.on()` handlers before calling `signaling.connect()`                     |
+| DataChannel never opens despite ICE connected  | Host called `createDataChannel()` instead of using `ondatachannel`           | Visitor creates channel before `createOffer()`; host receives via `peer.ondatachannel` |
+| Auto-join retrying in infinite loop            | `visitorStatus` included in `useEffect` deps                                 | Remove `visitorStatus` from deps array — only re-join when key changes                 |
+| Yjs sync never starts                          | `openDen()` throws (IndexedDB not available or `localFirstStorage` flag off) | Verify `NEXT_PUBLIC_FF_LOCAL_FIRST=true` and IndexedDB is accessible                   |
+
+---
+
+## Known Limitations
+
+- **Namespace key placeholders**: `generateDenNamespaceKeys()` creates structurally valid keys but real namespace-level content encryption (transferring the host's actual namespace key material to the visitor) is Phase 5.
+- **Letterbox offline drops**: `OfflineDropManager` is implemented but the visitor upload path and host auto-collect path are not yet wired in the web app (Phase 5).
+- **Single flower pot per invite**: Lost localStorage means the visitor needs a fresh invite link.
+- **No re-request UI**: DenKey redemption failure is non-fatal and silent — no retry button yet.
