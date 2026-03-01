@@ -27,6 +27,8 @@ import type {
 
 const DATA_CHANNEL_LABEL = "yjs-sync";
 const PRESENCE_HEARTBEAT_MS = 15_000;
+const PRESENCE_CLEANUP_MS = 30_000; // Clean up stale entries every 30 seconds
+const PRESENCE_TTL_MS = 60_000; // Remove entries older than 60 seconds
 
 interface ActiveSession {
   session: VisitorSession;
@@ -43,6 +45,7 @@ export class HostManager {
   private _status: SyncStatus = "offline";
   private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
   private hostOnlineHeartbeat: ReturnType<typeof setInterval> | null = null;
+  private presenceCleanup: ReturnType<typeof setInterval> | null = null;
   private static readonly HOST_ONLINE_INTERVAL_MS = 5_000;
   private _startPromise: Promise<() => void> | null = null;
 
@@ -96,6 +99,11 @@ export class HostManager {
             .catch(() => {});
         }, HostManager.HOST_ONLINE_INTERVAL_MS);
 
+        // Start periodic cleanup of stale presence entries
+        this.presenceCleanup = setInterval(() => {
+          this.cleanupStalePresence().catch(() => {});
+        }, PRESENCE_CLEANUP_MS);
+
         this._setStatus("synced");
         console.log(`[@meerkat/p2p:host] ✅ Hosting started — status=synced`);
 
@@ -114,6 +122,10 @@ export class HostManager {
     if (this.hostOnlineHeartbeat) {
       clearInterval(this.hostOnlineHeartbeat);
       this.hostOnlineHeartbeat = null;
+    }
+    if (this.presenceCleanup) {
+      clearInterval(this.presenceCleanup);
+      this.presenceCleanup = null;
     }
     try {
       await this.signaling?.broadcastHostOffline();
@@ -383,6 +395,33 @@ export class HostManager {
       }
     } catch {
       /* non-fatal */
+    }
+  }
+
+  private async cleanupStalePresence(): Promise<void> {
+    try {
+      const { sharedDen } = await openDen(this.denId);
+      const now = Date.now();
+      const staleEntries: string[] = [];
+      
+      // Find stale entries
+      for (const [visitorId, presence] of sharedDen.presence.entries()) {
+        if (now - presence.lastSeenAt > PRESENCE_TTL_MS) {
+          staleEntries.push(visitorId);
+        }
+      }
+      
+      // Remove stale entries
+      if (staleEntries.length > 0) {
+        console.log(`[@meerkat/p2p:host] Cleaning up ${staleEntries.length} stale presence entries:`, staleEntries);
+        sharedDen.ydoc.transact(() => {
+          for (const visitorId of staleEntries) {
+            sharedDen.presence.delete(visitorId);
+          }
+        });
+      }
+    } catch (err) {
+      console.error("[@meerkat/p2p:host] Error cleaning up stale presence:", err);
     }
   }
 
