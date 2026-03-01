@@ -26,10 +26,6 @@ export function VisitorPanel({
     return null;
   }
 
-  // Debug: Log visitors data to understand the count issue
-  console.log(`[@meerkat/visitor-panel] Visitors for den ${denId}:`, visitors);
-  console.log(`[@meerkat/visitor-panel] Visitor count: ${visitors.length}`);
-
   const isHosting = syncStatus !== "offline";
 
   const statusText =
