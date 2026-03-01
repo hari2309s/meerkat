@@ -477,9 +477,6 @@ export function DenPageClientEnhanced({
               syncStatus={syncStatus}
               visitors={visitors}
               canDisconnect={isOwner}
-              onDisconnectVisitor={(visitorId) => {
-                disconnectVisitor(visitorId);
-              }}
             />
           )}
 
