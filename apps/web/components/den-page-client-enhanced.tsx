@@ -42,6 +42,8 @@ import { ConfirmModal } from "@/components/den/confirm-modal";
 import { VoiceNoteRecorder } from "@/components/den/voice-note-recorder";
 
 import type { Den, DenMember } from "@/types/den";
+import { createBrowserClient } from "@supabase/ssr";
+import { clientEnv } from "@meerkat/config";
 
 interface DenPageClientEnhancedProps {
   den: Den;
@@ -137,10 +139,15 @@ export function DenPageClientEnhanced({
   // ── Visitor P2P join (non-owners with a stored DenKey) ────────────────────
   const p2pEnabled = useFeature("p2pSync");
 
-  // Stable signaling options — same channel factory pattern as P2PProvider.
-  // useMemo with empty deps is safe because createClient() returns a cached singleton.
   const p2pOptions = useMemo<P2PManagerOptions>(() => {
-    const supabase = createClient();
+    // IMPORTANT: Do NOT use createClient() here — it returns a cached singleton
+    // that shares a WebSocket with P2PProvider. Supabase won't deliver broadcasts
+    // back to the same socket, so ICE candidates from the host would be silently
+    // dropped. We need a fresh client with its own dedicated WebSocket.
+    const supabase = createBrowserClient(
+      clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+      clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    );
     return {
       createSignalingChannel: (channelName: string) => {
         const ch = supabase.channel(channelName);
