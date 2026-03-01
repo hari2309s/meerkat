@@ -161,9 +161,17 @@ const publicRoutes = [
 
 ## Screenshots
 
-### Sign Up
+### Welcome
 
-![Sign up screen](docs/screenshots/signup.png)
+![Welcome](docs/screenshots/welcome.png)
+
+### New here
+
+![new-here](docs/screenshots/new-here.png)
+
+### Welcome back
+
+![Welcome back](docs/screenshots/welcome-back.png)
 
 ### Dashboard
 
