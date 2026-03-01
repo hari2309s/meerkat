@@ -25,7 +25,15 @@ import { TRANSCRIPTION_MODEL_ID, EMOTION_MODEL_ID } from "../constants";
 
 // We import transformers.js dynamically to avoid SSR issues in Next.js.
 // The types below mirror what we need from the library.
-type Pipeline = (input: string | string[]) => Promise<unknown>;
+//
+// Pipeline accepts options so callers can pass { top_k: null } to force the
+// batched output shape in transformers.js v3 (required to avoid the tokenizer
+// receiving a non-string and throwing "e.replace is not a function").
+type Pipeline = (
+  input: string | string[],
+  options?: Record<string, unknown>,
+) => Promise<unknown>;
+
 type AutomaticSpeechRecognitionPipeline = (
   input: Float32Array | string,
   options?: Record<string, unknown>,
