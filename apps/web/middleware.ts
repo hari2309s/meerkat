@@ -58,6 +58,8 @@ export async function middleware(request: NextRequest) {
     "/forgot-password",
     "/auth/callback",
     "/auth/confirm",
+    "/v2/login",
+    "/v2/signup",
   ];
   const isPublic =
     publicRoutes.includes(pathname) ||
