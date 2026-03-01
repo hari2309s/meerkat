@@ -7,23 +7,12 @@ import type { PresenceInfo, SyncStatus } from "@meerkat/crdt";
 
 interface VisitorPanelProps {
   denId: string;
-  /** Authoritative sync status from DenContext (properly wired via DenSyncMachine). */
   syncStatus: SyncStatus;
   visitors: PresenceInfo[];
   canDisconnect?: boolean;
   onDisconnectVisitor?: (visitorId: string) => void;
 }
 
-/**
- * Visitor Panel Component
- *
- * Displays connected visitors and Start/Stop hosting controls for the den owner.
- *
- * syncStatus is passed in from denContext (correctly propagated by DenSyncMachine)
- * rather than read from useHostStatus, which has a stale-subscription problem when
- * the HostManager is created after the hook mounts. useHostStatus is used only for
- * its startHosting / stopHosting action callbacks.
- */
 export function VisitorPanel({
   denId,
   syncStatus,
@@ -32,14 +21,14 @@ export function VisitorPanel({
   onDisconnectVisitor,
 }: VisitorPanelProps) {
   const showNewUI = useFeature("newUI");
-  // Only used for startHosting / stopHosting — NOT for the status display.
   const { startHosting, stopHosting } = useHostStatus(denId);
 
-  if (!showNewUI) {
+  // Only render for owners (canDisconnect === true means owner)
+  // Visitors should never see this panel
+  if (!showNewUI || !canDisconnect) {
     return null;
   }
 
-  // Transform PresenceInfo to VisitorInfo
   const visitorInfos: VisitorInfo[] = visitors.map((v) => ({
     visitorId: v.visitorId,
     name: v.displayName,
@@ -55,41 +44,42 @@ export function VisitorPanel({
 
   const isHosting = syncStatus !== "offline";
 
+  const statusText =
+    visitors.length > 0
+      ? `${visitors.length} visitor${visitors.length !== 1 ? "s" : ""} connected`
+      : syncStatus === "connecting" ||
+          syncStatus === "synced" ||
+          syncStatus === "hosting"
+        ? "Waiting for visitors…"
+        : "Not hosting";
+
   return (
     <div className="mb-6">
-      {/* Start/Stop hosting controls (owner only) */}
-      {canDisconnect && (
-        <div className="flex items-center justify-between mb-3">
-          <span
-            className="text-xs font-medium"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            {visitors.length > 0
-              ? `${visitors.length} visitor${visitors.length !== 1 ? "s" : ""} connected`
-              : syncStatus === "connecting" ||
-                  syncStatus === "synced" ||
-                  syncStatus === "hosting"
-                ? "Waiting for visitors…"
-                : "Not hosting"}
-          </span>
-          <button
-            onClick={isHosting ? stopHosting : startHosting}
-            className="text-xs font-medium px-3 py-1 rounded-lg transition-opacity hover:opacity-75"
-            style={
-              isHosting
-                ? { background: "rgba(192,57,43,0.10)", color: "#c0392b" }
-                : {
-                    background: "rgba(138,96,53,0.10)",
-                    color: "var(--color-text-secondary)",
-                  }
-            }
-          >
-            {isHosting ? "Stop hosting" : "Start hosting"}
-          </button>
-        </div>
-      )}
+      {/* Status row + stop/start button — always shown for owner */}
+      <div className="flex items-center justify-between mb-3">
+        <span
+          className="text-xs font-medium"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          {statusText}
+        </span>
+        <button
+          onClick={isHosting ? stopHosting : startHosting}
+          className="text-xs font-medium px-3 py-1 rounded-lg transition-opacity hover:opacity-75"
+          style={
+            isHosting
+              ? { background: "rgba(192,57,43,0.10)", color: "#c0392b" }
+              : {
+                  background: "rgba(138,96,53,0.10)",
+                  color: "var(--color-text-secondary)",
+                }
+          }
+        >
+          {isHosting ? "Stop hosting" : "Start hosting"}
+        </button>
+      </div>
 
-      {/* Visitor list */}
+      {/* Visitor list — only shown when visitors are actually connected */}
       {visitorInfos.length > 0 && (
         <VisitorPresenceList
           visitors={visitorInfos}
