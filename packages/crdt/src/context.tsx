@@ -177,8 +177,10 @@ export function DenProvider({
     const readPresence = () => {
       const now = Date.now();
       const all = Array.from(sharedDen.presence.values());
+      console.log(`[@meerkat/crdt] Raw presence data:`, all);
       // Prune stale presence entries (browser closed without cleanup)
       const live = all.filter((p) => now - p.lastSeenAt < 60_000);
+      console.log(`[@meerkat/crdt] Filtered live visitors:`, live);
       setVisitors(live);
     };
 
