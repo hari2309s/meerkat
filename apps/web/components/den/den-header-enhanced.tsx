@@ -4,8 +4,6 @@ import { motion } from "framer-motion";
 import { Crown, Users, BellOff } from "lucide-react";
 import { formatFullDate } from "@meerkat/utils/time";
 import { SyncStatusBadge, type SyncStatus } from "@meerkat/ui";
-import { useFeature } from "@/lib/feature-flags-context";
-import { useState, useEffect } from "react";
 import type { Den } from "@/types/den";
 
 interface DenHeaderEnhancedProps {
@@ -14,20 +12,10 @@ interface DenHeaderEnhancedProps {
   isOwner: boolean;
   muted: boolean;
   onMembersClick: () => void;
-  // New local-first props
   syncStatus?: SyncStatus;
   visitorCount?: number;
 }
 
-/**
- * Enhanced Den Header with Local-First UI Components
- *
- * When the newUI feature flag is enabled, this component displays:
- * - SyncStatusBadge showing P2P sync status
- * - Visitor count for hosting mode
- *
- * When the feature flag is disabled, it shows the legacy UI.
- */
 export function DenHeaderEnhanced({
   den,
   memberCount,
@@ -37,14 +25,6 @@ export function DenHeaderEnhanced({
   syncStatus = "offline",
   visitorCount = 0,
 }: DenHeaderEnhancedProps) {
-  const showNewUI = useFeature("newUI");
-  const [mounted, setMounted] = useState(false);
-
-  // Prevent hydration mismatch by only rendering feature-flag-dependent UI after mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -86,16 +66,13 @@ export function DenHeaderEnhanced({
           <Users className="h-3 w-3" />
           {memberCount} {memberCount === 1 ? "member" : "members"}
         </button>
-        {/* New UI: Show SyncStatusBadge when feature flag is enabled */}
-        {mounted && showNewUI && (
-          <SyncStatusBadge
-            status={syncStatus}
-            showLabel={true}
-            showTooltip={true}
-            visitorCount={visitorCount}
-            className="text-xs"
-          />
-        )}
+        <SyncStatusBadge
+          status={syncStatus}
+          showLabel={true}
+          showTooltip={true}
+          visitorCount={visitorCount}
+          className="text-xs"
+        />
         {muted && (
           <span
             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"

@@ -3,9 +3,7 @@
 import { useRef, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { MessageSquare } from "lucide-react";
-import { useChatStore } from "@/stores/use-chat-store";
 import { useDenContextSafe } from "@meerkat/crdt";
-import { useFeature } from "@/lib/feature-flags-context";
 import { VoiceNoteMessage } from "@/components/den/voice-note-message";
 import { formatMessageTime } from "@meerkat/utils/time";
 import { getSenderName } from "@meerkat/utils/string";
@@ -82,16 +80,14 @@ function TextMessage({
 }
 
 export function ChatArea({ den, currentUserId }: ChatAreaProps) {
-  const legacyMessages = useChatStore((s) => s.messages);
   const denContext = useDenContextSafe();
-  const useLocalFirst = useFeature("localFirstStorage");
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Convert CRDT voice memos to Message format for display
+  // In the voiceMemoMessages useMemo, also include dropbox items for the owner:
   const voiceMemoMessages = useMemo((): Message[] => {
-    if (!useLocalFirst || !denContext?.shared.voiceThread) return [];
+    if (!denContext) return [];
 
-    return denContext.shared.voiceThread.map(
+    const threadMsgs = denContext.shared.voiceThread.map(
       (memo: VoiceMemoData): Message => ({
         id: memo.id,
         den_id: den.id,
@@ -105,11 +101,38 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
         analysis: memo.analysis as Message["analysis"],
       }),
     );
-  }, [useLocalFirst, denContext?.shared.voiceThread, den.id, currentUserId]);
 
-  // Use CRDT voice memos in local-first mode, otherwise use legacy messages
-  const messages = useLocalFirst ? voiceMemoMessages : legacyMessages;
+    // Visitor voice drops appear in the dropbox namespace
+    // Note: DropboxItem structure doesn't include type field, so we process all items
+    // The actual type determination would happen after decrypting the encryptedPayload
+    const dropboxMsgs = denContext.shared.dropbox.map(
+      (item): Message => ({
+        id: item.id,
+        den_id: den.id,
+        user_id: "visitor", // Dropbox items are from visitors
+        type: "voice" as const, // Assuming all dropbox items are voice for now
+        content: null,
+        voice_url: "", // Would be extracted from encryptedPayload after decryption
+        voice_duration: 0, // Would be extracted from encryptedPayload after decryption
+        created_at: new Date(item.droppedAt).toISOString(),
+        sender: {
+          email: item.visitorId,
+          full_name: null,
+          preferred_name: null,
+        },
+        analysis: undefined,
+      }),
+    );
 
+    return [...threadMsgs, ...dropboxMsgs];
+  }, [
+    denContext?.shared.voiceThread,
+    denContext?.shared.dropbox,
+    den.id,
+    currentUserId,
+  ]);
+
+  const messages = voiceMemoMessages;
   // Sort ASC so oldest message is at top, newest at bottom
   const sortedMessages = useMemo(
     () =>
@@ -175,7 +198,10 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
     >
       {sortedMessages.map((msg) => {
         const senderName = getSenderName(msg.sender);
-        const isOwn = msg.user_id === currentUserId;
+        // Visitor messages from dropbox should appear on the left (not own)
+        // Owner messages from voiceThread should appear on the right (own)
+        const isOwn =
+          msg.user_id === currentUserId && msg.user_id !== "visitor";
 
         if (msg.type === "voice") {
           return (
