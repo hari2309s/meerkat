@@ -102,6 +102,7 @@ export function DenProvider({
     notes: [],
     voiceThread: [],
     dropbox: [],
+    chatThread: []
   });
   const [visitors, setVisitors] = useState<PresenceInfo[]>([]);
 
@@ -170,6 +171,7 @@ export function DenProvider({
           (a, b) => b.updatedAt - a.updatedAt,
         ),
         voiceThread: sharedDen.voiceThread.toArray(),
+        chatThread: sharedDen.chatThread.toArray(),
         dropbox: sharedDen.dropbox.toArray(),
       });
     };
@@ -187,6 +189,7 @@ export function DenProvider({
 
     sharedDen.sharedNotes.observe(readShared);
     sharedDen.voiceThread.observe(readShared);
+    sharedDen.chatThread.observe(readShared);
     sharedDen.dropbox.observe(readShared);
     sharedDen.presence.observe(readPresence);
 
@@ -195,6 +198,7 @@ export function DenProvider({
       privateDen.voiceMemos.unobserve(readVoiceMemos);
       sharedDen.sharedNotes.unobserve(readShared);
       sharedDen.voiceThread.unobserve(readShared);
+      sharedDen.chatThread.unobserve(readShared);
       sharedDen.dropbox.unobserve(readShared);
       sharedDen.presence.unobserve(readPresence);
     };

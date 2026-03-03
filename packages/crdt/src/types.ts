@@ -26,6 +26,7 @@ import type {
   VoiceMemoData,
   DropboxItem,
   PresenceInfo,
+  ChatMessageData,
   CreateNoteInput,
   UpdateNoteInput,
   SearchNotesOptions,
@@ -51,6 +52,8 @@ export interface SharedDenView {
   notes: NoteData[];
   /** Voice notes in the shared thread. */
   voiceThread: VoiceMemoData[];
+  /** Chat messages (text + media) in the shared thread. */
+  chatThread: ChatMessageData[];
   /** Visitor-write dropbox items (host-read). */
   dropbox: DropboxItem[];
 }
