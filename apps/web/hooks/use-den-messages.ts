@@ -21,6 +21,10 @@ async function fetchMessages(denId: string): Promise<Message[]> {
       content,
       voice_url,
       voice_duration,
+      attachment_url,
+      attachment_name,
+      attachment_mime,
+      attachment_size,
       created_at,
       sender:users!user_id (
         full_name,
@@ -162,5 +166,111 @@ export function useDenMessages(denId: string) {
     },
   });
 
-  return { query, sendText, sendVoice };
+  const uploadAttachment = async (file: File, userId: string): Promise<{
+    url: string;
+    name: string;
+    mime: string;
+    size: number;
+  }> => {
+    const supabase = createClient();
+    const ext = file.name.split(".").pop() ?? "bin";
+    const safeExt = ext.toLowerCase();
+    const fileName = `${denId}/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${safeExt}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from("attachments")
+      .upload(fileName, file, {
+        contentType: file.type || "application/octet-stream",
+      });
+    
+    if (uploadErr) {
+      throw new Error(
+        `Failed to upload attachment: ${uploadErr.message}. ` +
+          `Make sure the 'attachments' bucket exists in Supabase Storage.`,
+      );
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("attachments")
+      .getPublicUrl(fileName);
+
+    return {
+      url: urlData.publicUrl,
+      name: file.name,
+      mime: file.type || "application/octet-stream",
+      size: file.size,
+    };
+  };
+
+  const sendImage = useMutation({
+    mutationFn: async ({
+      userId,
+      file,
+      caption,
+    }: {
+      userId: string;
+      file: File;
+      caption?: string;
+    }) => {
+      const { url, name, mime, size } = await uploadAttachment(file, userId);
+      const supabase = createClient();
+      
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({
+          den_id: denId,
+          user_id: userId,
+          type: "image",
+          content: caption || null,
+          voice_url: null,
+          voice_duration: null,
+          attachment_url: url,
+          attachment_name: name,
+          attachment_mime: mime,
+          attachment_size: size,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as Message;
+    },
+  });
+
+  const sendDocument = useMutation({
+    mutationFn: async ({
+      userId,
+      file,
+      caption,
+    }: {
+      userId: string;
+      file: File;
+      caption?: string;
+    }) => {
+      const { url, name, mime, size } = await uploadAttachment(file, userId);
+      const supabase = createClient();
+      
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({
+          den_id: denId,
+          user_id: userId,
+          type: "document",
+          content: caption || null,
+          voice_url: null,
+          voice_duration: null,
+          attachment_url: url,
+          attachment_name: name,
+          attachment_mime: mime,
+          attachment_size: size,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as Message;
+    },
+  });
+
+  return { query, sendText, sendVoice, sendImage, sendDocument };
 }

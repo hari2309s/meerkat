@@ -51,9 +51,15 @@ export interface Message {
   den_id: string;
   user_id: string;
   type: MessageType;
-  content: string | null; // text content or null for voice/media
+  content: string | null; // text content or null for pure media
   voice_url: string | null; // storage URL for voice notes
   voice_duration: number | null; // seconds
+  // Optional attachment fields for image/document messages
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_mime?: string | null;
+  attachment_size?: number | null;
+  attachment_data?: string | null; // base64 data for local-first storage
   created_at: string;
   sender?: {
     full_name: string | null;
@@ -83,4 +89,7 @@ export type ModalType =
   | "leave"
   | "delete"
   | "voice_recorder"
+  | "text_message"
+  | "image_picker"
+  | "document_picker"
   | null;

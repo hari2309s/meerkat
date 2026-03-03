@@ -33,6 +33,8 @@ import { MembersModal } from "@/components/den/members-modal";
 import { MuteModal } from "@/components/den/mute-modal";
 import { ConfirmModal } from "@/components/den/confirm-modal";
 import { VoiceNoteRecorder } from "@/components/den/voice-note-recorder";
+import { TextComposerModal } from "@/components/den/text-composer-modal";
+import { AttachmentPickerModal } from "@/components/den/attachment-picker-modal";
 
 import type { Den, DenMember } from "@/types/den";
 
@@ -88,7 +90,7 @@ export function DenPageClient({
   useDenPresence(activeDen.id, currentUserId);
 
   // ── Messages (TanStack Query + Realtime) ──────────────────────────────────
-  const { sendVoice } = useDenMessages(activeDen.id);
+  const { sendVoice, sendText, sendImage, sendDocument } = useDenMessages(activeDen.id);
 
   // ── Realtime: den updates / member changes ────────────────────────────────
   const handleDenUpdate = useCallback(
@@ -259,13 +261,21 @@ export function DenPageClient({
       openModal("voice_recorder");
       return;
     }
-    const messages: Record<string, string> = {
-      text: "Text composer coming soon",
-      photo: "Photo picker coming soon",
-      camera: "Camera coming soon",
-      document: "Document picker coming soon",
-    };
-    toast(messages[key] ?? "Coming soon", { duration: 2200 });
+    if (key === "text") {
+      openModal("text_message");
+      return;
+    }
+    if (key === "photo") {
+      openModal("image_picker");
+      return;
+    }
+    if (key === "document") {
+      openModal("document_picker");
+      return;
+    }
+    if (key === "camera") {
+      toast("Camera capture coming soon", { duration: 2200 });
+    }
   };
 
   const handleToggleMute = () => {
@@ -395,6 +405,46 @@ export function DenPageClient({
                 userId: currentUserId,
                 blob,
                 durationSeconds: duration,
+              });
+            }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {modal === "text_message" && (
+          <TextComposerModal
+            onClose={closeModal}
+            onSend={async (content) => {
+              await sendText.mutateAsync({ userId: currentUserId, content });
+            }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {modal === "image_picker" && (
+          <AttachmentPickerModal
+            kind="image"
+            onClose={closeModal}
+            onSend={async (file, caption) => {
+              await sendImage.mutateAsync({
+                userId: currentUserId,
+                file,
+                caption,
+              });
+            }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {modal === "document_picker" && (
+          <AttachmentPickerModal
+            kind="document"
+            onClose={closeModal}
+            onSend={async (file, caption) => {
+              await sendDocument.mutateAsync({
+                userId: currentUserId,
+                file,
+                caption,
               });
             }}
           />

@@ -35,6 +35,8 @@ import { MembersModal } from "@/components/den/members-modal";
 import { MuteModal } from "@/components/den/mute-modal";
 import { ConfirmModal } from "@/components/den/confirm-modal";
 import { VoiceNoteRecorder } from "@/components/den/voice-note-recorder";
+import { TextComposerModal } from "@/components/den/text-composer-modal";
+import { AttachmentPickerModal } from "@/components/den/attachment-picker-modal";
 
 import type { Den, DenMember } from "@/types/den";
 import { createBrowserClient } from "@supabase/ssr";
@@ -332,13 +334,21 @@ export function DenPageClientEnhanced({
       openModal("voice_recorder");
       return;
     }
-    const messages: Record<string, string> = {
-      text: "Text composer coming soon",
-      photo: "Photo picker coming soon",
-      camera: "Camera coming soon",
-      document: "Document picker coming soon",
-    };
-    toast(messages[key] ?? "Coming soon", { duration: 2200 });
+    if (key === "text") {
+      openModal("text_message");
+      return;
+    }
+    if (key === "photo") {
+      openModal("image_picker");
+      return;
+    }
+    if (key === "document") {
+      openModal("document_picker");
+      return;
+    }
+    if (key === "camera") {
+      toast("Camera capture coming soon", { duration: 2200 });
+    }
   };
 
   const handleToggleMute = () => {
@@ -406,6 +416,109 @@ export function DenPageClientEnhanced({
         throw err;
       }
     }
+  };
+
+  // ── Local-first text/image/document chat (shared.chatThread) ─────────────
+  const handleSendText = async (content: string) => {
+    const { sharedDen } = await openDen(activeDen.id);
+    const msg = {
+      id: crypto.randomUUID(),
+      userId: currentUserId,
+      kind: "text" as const,
+      text: content,
+      createdAt: Date.now(),
+      sender: {
+        full_name: user.name,
+        preferred_name: user.preferredName ?? undefined,
+        email: user.email,
+      },
+    };
+    sharedDen.ydoc.transact(() => {
+      sharedDen.chatThread.push([msg]);
+    });
+  };
+
+  const uploadAttachment = async (file: File): Promise<{
+    path: string;
+    size: number;
+    mime: string;
+    name: string;
+    data: string; // base64 encoded file data for local storage
+  }> => {
+    // Convert file to base64 for local-first storage in CRDT
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const base64Data = reader.result as string;
+          const ext = file.name.split(".").pop() ?? "bin";
+          const safeExt = ext.toLowerCase();
+          const path = `${activeDen.id}/${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${safeExt}`;
+
+          resolve({
+            path,
+            size: file.size,
+            mime: file.type || "application/octet-stream",
+            name: file.name,
+            data: base64Data,
+          });
+        } catch (error) {
+          reject(new Error(`Failed to process file: ${error}`));
+        }
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleSendImage = async (file: File, caption?: string) => {
+    const { path, size, mime, name, data } = await uploadAttachment(file);
+    const { sharedDen } = await openDen(activeDen.id);
+    const msg = {
+      id: crypto.randomUUID(),
+      userId: currentUserId,
+      kind: "image" as const,
+      text: caption ?? null,
+      attachmentPath: path,
+      attachmentName: name,
+      attachmentMime: mime,
+      attachmentSize: size,
+      attachmentData: data, // store base64 data locally
+      createdAt: Date.now(),
+      sender: {
+        full_name: user.name,
+        preferred_name: user.preferredName ?? undefined,
+        email: user.email,
+      },
+    };
+    sharedDen.ydoc.transact(() => {
+      sharedDen.chatThread.push([msg]);
+    });
+  };
+
+  const handleSendDocument = async (file: File, caption?: string) => {
+    const { path, size, mime, name, data } = await uploadAttachment(file);
+    const { sharedDen } = await openDen(activeDen.id);
+    const msg = {
+      id: crypto.randomUUID(),
+      userId: currentUserId,
+      kind: "document" as const,
+      text: caption ?? null,
+      attachmentPath: path,
+      attachmentName: name,
+      attachmentMime: mime,
+      attachmentSize: size,
+      attachmentData: data, // store base64 data locally
+      createdAt: Date.now(),
+      sender: {
+        full_name: user.name,
+        preferred_name: user.preferredName ?? undefined,
+        email: user.email,
+      },
+    };
+    sharedDen.ydoc.transact(() => {
+      sharedDen.chatThread.push([msg]);
+    });
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -528,6 +641,32 @@ export function DenPageClientEnhanced({
       <AnimatePresence>
         {modal === "voice_recorder" && (
           <VoiceNoteRecorder onClose={closeModal} onSend={handleVoiceSend} />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {modal === "text_message" && (
+          <TextComposerModal
+            onClose={closeModal}
+            onSend={handleSendText}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {modal === "image_picker" && (
+          <AttachmentPickerModal
+            kind="image"
+            onClose={closeModal}
+            onSend={handleSendImage}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {modal === "document_picker" && (
+          <AttachmentPickerModal
+            kind="document"
+            onClose={closeModal}
+            onSend={handleSendDocument}
+          />
         )}
       </AnimatePresence>
     </>
