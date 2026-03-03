@@ -99,15 +99,22 @@ export async function transcribeSamples(
 ): Promise<string> {
   if (isSilent(samples)) return "";
 
-  const pipe = await getTranscriptionPipeline(onProgress);
+  try {
+    const pipe = await getTranscriptionPipeline(onProgress);
 
-  const output = await pipe(samples, {
-    // Omit language/task — English-only model rejects those options.
-    chunk_length_s: 30,
-    stride_length_s: 5,
-    return_timestamps: false,
-    sampling_rate: WHISPER_SAMPLE_RATE,
-  });
+    const output = await pipe(samples, {
+      // Omit language/task — English-only model rejects those options.
+      chunk_length_s: 30,
+      stride_length_s: 5,
+      return_timestamps: false,
+      sampling_rate: WHISPER_SAMPLE_RATE,
+    });
 
-  return extractTranscriptText(output);
+    return extractTranscriptText(output);
+  } catch {
+    // Swallow transformer/URL runtime issues (e.g. RelativeURL/url.replace)
+    // and fall back to an empty transcript so callers can continue with
+    // audio-only analysis instead of failing the entire pipeline.
+    return "";
+  }
 }
