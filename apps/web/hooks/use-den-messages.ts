@@ -166,7 +166,10 @@ export function useDenMessages(denId: string) {
     },
   });
 
-  const uploadAttachment = async (file: File, userId: string): Promise<{
+  const uploadAttachment = async (
+    file: File,
+    userId: string,
+  ): Promise<{
     url: string;
     name: string;
     mime: string;
@@ -182,7 +185,7 @@ export function useDenMessages(denId: string) {
       .upload(fileName, file, {
         contentType: file.type || "application/octet-stream",
       });
-    
+
     if (uploadErr) {
       throw new Error(
         `Failed to upload attachment: ${uploadErr.message}. ` +
@@ -214,7 +217,7 @@ export function useDenMessages(denId: string) {
     }) => {
       const { url, name, mime, size } = await uploadAttachment(file, userId);
       const supabase = createClient();
-      
+
       const { data, error } = await supabase
         .from("messages")
         .insert({
@@ -231,7 +234,7 @@ export function useDenMessages(denId: string) {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       return data as Message;
     },
@@ -249,7 +252,7 @@ export function useDenMessages(denId: string) {
     }) => {
       const { url, name, mime, size } = await uploadAttachment(file, userId);
       const supabase = createClient();
-      
+
       const { data, error } = await supabase
         .from("messages")
         .insert({
@@ -266,7 +269,7 @@ export function useDenMessages(denId: string) {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       return data as Message;
     },

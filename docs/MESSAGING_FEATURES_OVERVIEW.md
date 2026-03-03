@@ -5,6 +5,7 @@ This document provides a comprehensive overview of the messaging capabilities in
 ## Overview
 
 Meerkat supports multiple types of messaging through a unified interface:
+
 - **Text Messages** - Rich text composition with real-time delivery
 - **Image Sharing** - Photo uploads from device library with optional captions
 - **Document Sharing** - File uploads with metadata and optional captions
@@ -31,6 +32,7 @@ The codebase contains two parallel implementations:
 ### Key Components
 
 #### 1. Floating Action Button (FAB)
+
 - **Location**: `apps/web/components/den/fab.tsx`
 - **Purpose**: Primary entry point for all messaging actions
 - **Actions Available**:
@@ -41,6 +43,7 @@ The codebase contains two parallel implementations:
   - Document (purple)
 
 #### 2. Text Composer Modal
+
 - **Location**: `apps/web/components/den/text-composer-modal.tsx`
 - **Features**:
   - Multi-line text input
@@ -49,6 +52,7 @@ The codebase contains two parallel implementations:
   - Auto-focus on open
 
 #### 3. Attachment Picker Modal
+
 - **Location**: `apps/web/components/den/attachment-picker-modal.tsx`
 - **Supports**: Images and documents
 - **Features**:
@@ -62,6 +66,7 @@ The codebase contains two parallel implementations:
 ### Text Messages
 
 #### Enhanced Implementation
+
 ```typescript
 const handleSendText = async (content: string) => {
   const { sharedDen } = await openDen(activeDen.id);
@@ -71,7 +76,9 @@ const handleSendText = async (content: string) => {
     kind: "text" as const,
     text: content,
     createdAt: Date.now(),
-    sender: { /* user info */ }
+    sender: {
+      /* user info */
+    },
   };
   sharedDen.ydoc.transact(() => {
     sharedDen.chatThread.push([msg]);
@@ -80,6 +87,7 @@ const handleSendText = async (content: string) => {
 ```
 
 #### Basic Implementation
+
 ```typescript
 const sendText = useMutation({
   mutationFn: async ({ userId, content }) => {
@@ -104,11 +112,15 @@ const sendText = useMutation({
 ### Image & Document Sharing
 
 #### Enhanced Implementation
+
 Both image and document sharing follow the same pattern:
 
 1. **File Upload**:
+
 ```typescript
-const uploadAttachment = async (file: File): Promise<{
+const uploadAttachment = async (
+  file: File,
+): Promise<{
   path: string;
   size: number;
   mime: string;
@@ -124,12 +136,13 @@ const uploadAttachment = async (file: File): Promise<{
     .upload(path, file, {
       contentType: file.type || "application/octet-stream",
     });
-  
+
   return { path, size: file.size, mime: file.type, name: file.name };
 };
 ```
 
 2. **Message Creation**:
+
 ```typescript
 const handleSendImage = async (file: File, caption?: string) => {
   const { path, size, mime, name } = await uploadAttachment(file);
@@ -144,7 +157,9 @@ const handleSendImage = async (file: File, caption?: string) => {
     attachmentMime: mime,
     attachmentSize: size,
     createdAt: Date.now(),
-    sender: { /* user info */ }
+    sender: {
+      /* user info */
+    },
   };
   sharedDen.ydoc.transact(() => {
     sharedDen.chatThread.push([msg]);
@@ -153,19 +168,22 @@ const handleSendImage = async (file: File, caption?: string) => {
 ```
 
 #### Basic Implementation (Placeholder)
+
 Currently shows error toast indicating feature not implemented:
+
 ```typescript
 const sendImage = {
   mutateAsync: async ({ userId, file, caption }) => {
     toast.error("Image sharing not implemented yet");
     throw new Error("Image sharing not implemented");
-  }
+  },
 };
 ```
 
 ## Message Schema
 
 ### Enhanced (CRDT) Schema
+
 ```typescript
 interface Message {
   id: string;
@@ -186,6 +204,7 @@ interface Message {
 ```
 
 ### Basic (Supabase) Schema
+
 ```sql
 CREATE TABLE messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

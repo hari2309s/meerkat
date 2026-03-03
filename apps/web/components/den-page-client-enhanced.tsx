@@ -438,7 +438,9 @@ export function DenPageClientEnhanced({
     });
   };
 
-  const uploadAttachment = async (file: File): Promise<{
+  const uploadAttachment = async (
+    file: File,
+  ): Promise<{
     path: string;
     size: number;
     mime: string;
@@ -645,10 +647,7 @@ export function DenPageClientEnhanced({
       </AnimatePresence>
       <AnimatePresence>
         {modal === "text_message" && (
-          <TextComposerModal
-            onClose={closeModal}
-            onSend={handleSendText}
-          />
+          <TextComposerModal onClose={closeModal} onSend={handleSendText} />
         )}
       </AnimatePresence>
       <AnimatePresence>

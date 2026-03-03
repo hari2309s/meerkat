@@ -117,7 +117,7 @@ function useStandaloneDen(denId: string): DenState {
     notes: [],
     voiceThread: [],
     dropbox: [],
-    chatThread: []
+    chatThread: [],
   });
   const [visitors, setVisitors] = useState<PresenceInfo[]>([]);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>

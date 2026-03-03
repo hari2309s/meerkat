@@ -102,7 +102,7 @@ export function DenProvider({
     notes: [],
     voiceThread: [],
     dropbox: [],
-    chatThread: []
+    chatThread: [],
   });
   const [visitors, setVisitors] = useState<PresenceInfo[]>([]);
 

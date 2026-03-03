@@ -29,9 +29,7 @@ export function TextComposerModal({ onClose, onSend }: TextComposerModalProps) {
       setValue("");
       onClose();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to send message.",
-      );
+      setError(err instanceof Error ? err.message : "Failed to send message.");
       setSending(false);
     }
   };
@@ -119,4 +117,3 @@ export function TextComposerModal({ onClose, onSend }: TextComposerModalProps) {
     </ModalShell>
   );
 }
-

@@ -29,7 +29,9 @@ interface ChatMessageData {
   attachmentMime?: string | null; // file type
   attachmentSize?: number | null; // file size in bytes
   attachmentData?: string | null; // base64 encoded file data
-  sender: { /* sender info */ };
+  sender: {
+    /* sender info */
+  };
   createdAt: number;
 }
 ```
@@ -37,16 +39,19 @@ interface ChatMessageData {
 ## Benefits
 
 ### ✅ True Local-First
+
 - **No external dependencies**: Files work offline without any server
 - **Instant availability**: No upload delays, files appear immediately
 - **Privacy**: Files never leave the user's device unless shared via P2P
 
 ### ✅ Real-time Collaboration
+
 - **WebRTC sync**: Files automatically sync to other den participants
 - **Conflict resolution**: CRDT handles concurrent edits automatically
 - **Offline support**: Works without internet connection
 
 ### ✅ Data Ownership
+
 - **User control**: Files are stored in user's local IndexedDB
 - **No vendor lock-in**: Data isn't tied to external storage services
 - **Portability**: Complete den can be exported/imported as needed
@@ -56,7 +61,9 @@ interface ChatMessageData {
 ### File Processing
 
 ```typescript
-const uploadAttachment = async (file: File): Promise<{
+const uploadAttachment = async (
+  file: File,
+): Promise<{
   path: string;
   size: number;
   mime: string;
@@ -69,7 +76,13 @@ const uploadAttachment = async (file: File): Promise<{
       const base64Data = reader.result as string;
       // Generate logical path for organization
       const path = `${denId}/${userId}/${timestamp}-${random}.${ext}`;
-      resolve({ path, size: file.size, mime: file.type, name: file.name, data: base64Data });
+      resolve({
+        path,
+        size: file.size,
+        mime: file.type,
+        name: file.name,
+        data: base64Data,
+      });
     };
     reader.readAsDataURL(file);
   });
@@ -90,7 +103,9 @@ const msg = {
   attachmentSize: size,
   attachmentData: data, // base64 data stored in CRDT
   createdAt: Date.now(),
-  sender: { /* sender info */ }
+  sender: {
+    /* sender info */
+  },
 };
 
 // Store in CRDT for real-time sync
@@ -102,35 +117,39 @@ sharedDen.ydoc.transact(() => {
 ## Performance Considerations
 
 ### File Size Limits
+
 - **Recommended**: Images < 10MB, Documents < 50MB
 - **Technical limit**: Limited by IndexedDB and browser memory
 - **Optimization**: Consider image compression for large files
 
 ### Storage Efficiency
+
 - **Base64 overhead**: ~33% increase over binary size
 - **Compression**: Browser automatically compresses IndexedDB
 - **Cleanup**: Old attachments can be pruned via den management
 
 ## Comparison with Traditional Approach
 
-| Aspect | Local-First (CRDT) | Traditional (Supabase) |
-|--------|-------------------|------------------------|
-| **Offline Support** | ✅ Full | ❌ Requires network |
-| **Upload Speed** | ✅ Instant | ❌ Upload delay |
-| **Privacy** | ✅ Local only | ❌ Server storage |
-| **Reliability** | ✅ No SPOF | ❌ Dependent on service |
-| **Scalability** | ⚠️ Browser limits | ✅ Cloud storage |
-| **Cost** | ✅ Free | ❌ Storage fees |
+| Aspect              | Local-First (CRDT) | Traditional (Supabase)  |
+| ------------------- | ------------------ | ----------------------- |
+| **Offline Support** | ✅ Full            | ❌ Requires network     |
+| **Upload Speed**    | ✅ Instant         | ❌ Upload delay         |
+| **Privacy**         | ✅ Local only      | ❌ Server storage       |
+| **Reliability**     | ✅ No SPOF         | ❌ Dependent on service |
+| **Scalability**     | ⚠️ Browser limits  | ✅ Cloud storage        |
+| **Cost**            | ✅ Free            | ❌ Storage fees         |
 
 ## Future Enhancements
 
 ### Planned Optimizations
+
 1. **Compression**: Client-side image compression before base64 encoding
 2. **Lazy Loading**: Load large attachments on demand
 3. **External Sync**: Optional cloud backup for large files
 4. **Thumbnails**: Generate smaller preview versions
 
 ### Storage Management
+
 1. **Cleanup Tools**: Remove old/large attachments
 2. **Storage Monitoring**: Track IndexedDB usage
 3. **Export Options**: Download attachments separately
@@ -138,11 +157,13 @@ sharedDen.ydoc.transact(() => {
 ## Security Considerations
 
 ### Data Protection
+
 - **Local encryption**: Files can be encrypted before CRDT storage
 - **Access control**: CRDT permissions control who can see attachments
 - **Privacy**: No third-party access to file data
 
 ### Sharing Safety
+
 - **WebRTC security**: Encrypted peer-to-peer connections
 - **Capability keys**: Granular access control
 - **Content scanning**: Optional malware scanning for shared files

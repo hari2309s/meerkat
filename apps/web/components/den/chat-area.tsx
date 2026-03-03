@@ -164,10 +164,7 @@ function DocumentMessage({
 }) {
   const createdAt = message.created_at;
   const url = message.attachment_url ?? "";
-  const name =
-    message.attachment_name ??
-    message.content ??
-    "Document";
+  const name = message.attachment_name ?? message.content ?? "Document";
 
   return (
     <motion.div
@@ -280,28 +277,30 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
     if (!denContext) return [];
 
     const chat = denContext.shared.chatThread as ChatMessageData[];
-    return chat.map((msg): Message => ({
-      id: msg.id,
-      den_id: den.id,
-      user_id: msg.userId,
-      type: msg.kind,
-      content: msg.text,
-      voice_url: null,
-      voice_duration: null,
-      attachment_url: msg.attachmentData ?? null, // Use base64 data for local-first
-      attachment_data: msg.attachmentData ?? null, // Store base64 data directly
-      attachment_name: msg.attachmentName ?? null,
-      attachment_mime: msg.attachmentMime ?? null,
-      attachment_size: msg.attachmentSize ?? null,
-      created_at: new Date(msg.createdAt).toISOString(),
-      sender: msg.sender
-        ? {
-            full_name: msg.sender.full_name,
-            preferred_name: msg.sender.preferred_name,
-            email: msg.sender.email,
-          }
-        : undefined,
-    }));
+    return chat.map(
+      (msg): Message => ({
+        id: msg.id,
+        den_id: den.id,
+        user_id: msg.userId,
+        type: msg.kind,
+        content: msg.text,
+        voice_url: null,
+        voice_duration: null,
+        attachment_url: msg.attachmentData ?? null, // Use base64 data for local-first
+        attachment_data: msg.attachmentData ?? null, // Store base64 data directly
+        attachment_name: msg.attachmentName ?? null,
+        attachment_mime: msg.attachmentMime ?? null,
+        attachment_size: msg.attachmentSize ?? null,
+        created_at: new Date(msg.createdAt).toISOString(),
+        sender: msg.sender
+          ? {
+              full_name: msg.sender.full_name,
+              preferred_name: msg.sender.preferred_name,
+              email: msg.sender.email,
+            }
+          : undefined,
+      }),
+    );
   }, [denContext?.shared.chatThread, den.id]);
 
   const messages: Message[] = useMemo(

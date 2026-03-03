@@ -90,7 +90,9 @@ export function DenPageClient({
   useDenPresence(activeDen.id, currentUserId);
 
   // ── Messages (TanStack Query + Realtime) ──────────────────────────────────
-  const { sendVoice, sendText, sendImage, sendDocument } = useDenMessages(activeDen.id);
+  const { sendVoice, sendText, sendImage, sendDocument } = useDenMessages(
+    activeDen.id,
+  );
 
   // ── Realtime: den updates / member changes ────────────────────────────────
   const handleDenUpdate = useCallback(

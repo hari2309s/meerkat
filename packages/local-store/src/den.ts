@@ -118,5 +118,13 @@ async function openSharedDen(denId: string): Promise<SharedDenDoc> {
     ydoc.destroy();
   }
 
-  return { ydoc, sharedNotes, voiceThread, chatThread, dropbox, presence, destroy };
+  return {
+    ydoc,
+    sharedNotes,
+    voiceThread,
+    chatThread,
+    dropbox,
+    presence,
+    destroy,
+  };
 }
