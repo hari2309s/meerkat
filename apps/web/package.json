@@ -21,6 +21,7 @@
     "@meerkat/ui": "workspace:*",
     "@meerkat/utils": "workspace:*",
     "@meerkat/voice": "workspace:*",
+    "@huggingface/transformers": "3.8.1",
     "@scure/bip39": "^2.0.1",
     "@supabase/ssr": "^0.1.0",
     "@supabase/supabase-js": "^2.95.3",
