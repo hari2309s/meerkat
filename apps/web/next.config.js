@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+const path = require("path");
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: [
@@ -36,11 +37,24 @@ const nextConfig = {
     }
 
     if (!isServer) {
+      // `@huggingface/transformers` does not export `./package.json`, so we
+      // resolve its main CJS entry and derive the dist directory from that.
+      const transformersEntry = require.resolve("@huggingface/transformers");
+      const transformersDistDir = path.dirname(transformersEntry);
+      const transformersWebBuild = path.join(
+        transformersDistDir,
+        "transformers.web.js",
+      );
+
       config.resolve.alias = {
         ...config.resolve.alias,
+        // Force the explicit browser build of transformers.js.
+        // This avoids webpack runtime URL resolution issues like:
+        // "TypeError: url.replace is not a function" inside RelativeURL.
+        '@huggingface/transformers$': transformersWebBuild,
         // Force @huggingface/transformers to use web version
-        'onnxruntime-node': false,
-        'sharp': false,
+        'onnxruntime-node$': false,
+        'sharp$': false,
       };
 
       // onnxruntime-web ships .mjs files that use import.meta.url.
