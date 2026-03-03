@@ -101,40 +101,61 @@ export function deriveTone(valence: number, arousal: number): ToneLabel {
 /**
  * Decodes an audio Blob into a mono Float32Array at 16kHz.
  *
- * Whisper expects 16kHz mono PCM. If the source audio has a different
- * sample rate, the AudioContext will resample it on decode.
+ * Whisper expects 16kHz mono PCM. This function:
+ *   1. Decodes the blob at its native sample rate using AudioContext.
+ *   2. Resamples to exactly 16kHz using OfflineAudioContext.
  *
- * This function requires the Web Audio API (browser + AudioWorklet contexts).
- * It will throw in Node / pure Worker environments without a polyfill.
+ * Using a plain AudioContext's decodeAudioData is NOT sufficient —
+ * decodeAudioData always returns audio at the source file's native sample
+ * rate (typically 48kHz from MediaRecorder WebM), regardless of the
+ * AudioContext's own sampleRate setting. Without the resample step,
+ * Whisper receives 48kHz data labelled as 16kHz, making audio appear
+ * 3x too slow, producing empty or garbage transcripts.
  *
  * @param blob — Raw audio blob (WebM, MP4, WAV, etc.)
- * @returns   — Float32Array of mono PCM samples at WHISPER_SAMPLE_RATE.
+ * @returns   — Float32Array of mono PCM samples at WHISPER_SAMPLE_RATE (16kHz).
  */
 export async function blobToFloat32(blob: Blob): Promise<Float32Array> {
   const arrayBuffer = await blob.arrayBuffer();
 
-  // OfflineAudioContext gives us a consistent 16kHz mono output regardless
-  // of the input format. We don't know the duration up front, so we
-  // decode once to get duration, then re-decode at the target sample rate.
-  const audioCtx = new AudioContext({ sampleRate: WHISPER_SAMPLE_RATE });
-
-  let decoded: AudioBuffer;
+  // Step 1: Decode to native sample rate to get an AudioBuffer.
+  const decodeCtx = new AudioContext();
+  let nativeBuffer: AudioBuffer;
   try {
-    decoded = await audioCtx.decodeAudioData(arrayBuffer);
+    nativeBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
   } finally {
-    // Close the context to free system audio resources.
-    await audioCtx.close();
+    await decodeCtx.close();
   }
+
+  // Step 2: Resample to WHISPER_SAMPLE_RATE (16kHz) using OfflineAudioContext.
+  // OfflineAudioContext renders to a buffer at the specified sample rate,
+  // performing resampling automatically via its internal scheduler.
+  const nativeDuration = nativeBuffer.duration;
+  const targetLength = Math.ceil(nativeDuration * WHISPER_SAMPLE_RATE);
 
   // Clamp to MAX_AUDIO_SECONDS to avoid OOM on long recordings.
   const maxSamples = MAX_AUDIO_SECONDS * WHISPER_SAMPLE_RATE;
-  const sourceData = decoded.getChannelData(0); // mono — take channel 0
-  const samples =
-    sourceData.length > maxSamples
-      ? sourceData.slice(0, maxSamples)
-      : sourceData;
+  const outputLength = Math.min(targetLength, maxSamples);
+  const renderDuration = outputLength / WHISPER_SAMPLE_RATE;
 
-  return new Float32Array(samples);
+  const offlineCtx = new OfflineAudioContext(
+    1, // mono output
+    outputLength,
+    WHISPER_SAMPLE_RATE,
+  );
+
+  const source = offlineCtx.createBufferSource();
+  source.buffer = nativeBuffer;
+  // Downmix to mono: if stereo, connect both channels to the single output.
+  source.connect(offlineCtx.destination);
+  source.start(0);
+  // Only render up to renderDuration in case we clamped to MAX_AUDIO_SECONDS.
+  source.stop(renderDuration);
+
+  const resampled = await offlineCtx.startRendering();
+
+  // getChannelData(0) is mono — OfflineAudioContext was created with 1 channel.
+  return new Float32Array(resampled.getChannelData(0));
 }
 
 // ─── Confidence scaling ───────────────────────────────────────────────────────
