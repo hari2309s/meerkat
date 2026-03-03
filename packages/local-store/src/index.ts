@@ -103,6 +103,7 @@ export type {
   MoodEntry,
   DropboxItem,
   PresenceInfo,
+  ChatMessageData,
   CreateNoteInput,
   UpdateNoteInput,
   SearchNotesOptions,

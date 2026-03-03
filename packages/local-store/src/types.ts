@@ -47,6 +47,8 @@ export interface SharedDenDoc {
   readonly sharedNotes: import("yjs").Map<NoteData>;
   /** Voice notes in the shared thread. */
   readonly voiceThread: import("yjs").Array<VoiceMemoData>;
+  /** Chat messages (text + media) in the shared thread. */
+  readonly chatThread: import("yjs").Array<ChatMessageData>;
   /** Visitor-write dropbox — host reads, visitors write. */
   readonly dropbox: import("yjs").Array<DropboxItem>;
   /** Ephemeral presence map — who is currently in the den. */
@@ -130,6 +132,37 @@ export interface PresenceInfo {
   scopes: string[];
   connectedAt: number; // Unix ms
   lastSeenAt: number; // Unix ms
+}
+
+/** A chat message stored in the shared doc chatThread namespace. */
+export interface ChatMessageData {
+  id: string;
+  /** Sender user ID (host or visitor). */
+  userId: string;
+  /** Message kind. */
+  kind: "text" | "image" | "document" | "voice";
+  /** Text content (for text messages or captions). */
+  text: string | null;
+  /** Storage path for any attached blob (image/document). */
+  attachmentPath?: string | null;
+  attachmentName?: string | null;
+  attachmentMime?: string | null;
+  attachmentSize?: number | null;
+  /** Base64 encoded file data for local-first storage (image/document). */
+  attachmentData?: string | null;
+  /** Voice URL for voice messages. */
+  voiceUrl?: string | null;
+  /** Voice duration in seconds. */
+  voiceDuration?: number | null;
+  /** Sender info (cached for offline display). */
+  sender?:
+    | {
+        full_name: string | null;
+        preferred_name?: string | null;
+        email: string;
+      }
+    | undefined;
+  createdAt: number; // Unix ms
 }
 
 // ─── Operation result types ──────────────────────────────────────────────────

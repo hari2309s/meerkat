@@ -20,6 +20,7 @@ import type {
   MoodEntry,
   DropboxItem,
   PresenceInfo,
+  ChatMessageData,
 } from "./types.js";
 import {
   privateDbName,
@@ -108,6 +109,7 @@ async function openSharedDen(denId: string): Promise<SharedDenDoc> {
   // Typed accessors for each namespace
   const sharedNotes = ydoc.getMap<NoteData>(SHARED_KEYS.SHARED_NOTES);
   const voiceThread = ydoc.getArray<VoiceMemoData>(SHARED_KEYS.VOICE_THREAD);
+  const chatThread = ydoc.getArray<ChatMessageData>(SHARED_KEYS.CHAT_THREAD);
   const dropbox = ydoc.getArray<DropboxItem>(SHARED_KEYS.DROPBOX);
   const presence = ydoc.getMap<PresenceInfo>(SHARED_KEYS.PRESENCE);
 
@@ -116,5 +118,5 @@ async function openSharedDen(denId: string): Promise<SharedDenDoc> {
     ydoc.destroy();
   }
 
-  return { ydoc, sharedNotes, voiceThread, dropbox, presence, destroy };
+  return { ydoc, sharedNotes, voiceThread, chatThread, dropbox, presence, destroy };
 }

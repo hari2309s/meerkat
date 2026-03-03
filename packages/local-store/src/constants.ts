@@ -31,6 +31,7 @@ export const SHARED_KEYS = {
   VOICE_THREAD: "voiceThread",
   DROPBOX: "dropbox",
   PRESENCE: "presence",
+  CHAT_THREAD: "chatThread",
 } as const;
 
 /** How long a presence entry is considered "live" before being pruned (ms). */
