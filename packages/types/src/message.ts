@@ -10,6 +10,11 @@ export interface Message {
   voice_duration: number | null;
   created_at: string;
   sender?: { full_name: string | null; email: string };
+  // Optional attachment fields for image/document messages
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_mime?: string | null;
+  attachment_size?: number | null;
   /**
    * On-device analysis result, present on voice messages after
    * @meerkat/analyzer has run. Stored in the local Yjs doc, not Supabase.
