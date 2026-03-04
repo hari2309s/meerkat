@@ -135,12 +135,14 @@ function MoodSidePanel({
 interface VoiceNoteMessageProps {
   message: Message;
   isOwn: boolean;
+  /** When true, the mood accordion starts open. Defaults to false. */
+  isLatest?: boolean;
 }
 
-export function VoiceNoteMessage({ message, isOwn }: VoiceNoteMessageProps) {
+export function VoiceNoteMessage({ message, isOwn, isLatest = false }: VoiceNoteMessageProps) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [moodExpanded, setMoodExpanded] = useState(true);
+  const [moodExpanded, setMoodExpanded] = useState(isLatest);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const displayName = getSenderName(message.sender);

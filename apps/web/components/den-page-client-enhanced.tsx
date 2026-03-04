@@ -179,6 +179,30 @@ export function DenPageClientEnhanced({
     return undefined;
   }, [isOwner, leaveP2P]);
 
+  // Reconnect after phone lock/unlock or tab backgrounding.
+  // When the screen wakes, WebRTC connections are dead. The auto-retry inside
+  // useJoinDen exhausts MAX_AUTO_RETRIES while the device is still waking up,
+  // leaving the visitor permanently stuck on "offline". A visibilitychange
+  // listener re-triggers a fresh join (retryCount=0) when the page is foregrounded.
+  const visitorStatusRef = useRef(visitorStatus);
+  visitorStatusRef.current = visitorStatus;
+  useEffect(() => {
+    if (isOwner || !activeDenKey) return;
+
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState === "visible" &&
+        visitorStatusRef.current !== "synced"
+      ) {
+        joinDen(activeDenKey);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [isOwner, activeDenKey, joinDen]);
+
   // ── Realtime subscriptions for den metadata (rename, delete, members) ─────
   const handleDenUpdate = useCallback(
     (payload: { new: Den }) => {

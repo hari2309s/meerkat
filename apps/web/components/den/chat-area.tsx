@@ -328,6 +328,14 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
     [messages],
   );
 
+  // ID of the most recent voice message — its mood accordion starts open
+  const latestVoiceId = useMemo(() => {
+    for (let i = sortedMessages.length - 1; i >= 0; i--) {
+      if (sortedMessages[i]!.type === "voice") return sortedMessages[i]!.id;
+    }
+    return null;
+  }, [sortedMessages]);
+
   // Auto-scroll to bottom of chat container on new messages
   useEffect(() => {
     if (containerRef.current) {
@@ -389,7 +397,7 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
         if (msg.type === "voice") {
           return (
             <div key={msg.id} className={`flex ${alignClass}`}>
-              <VoiceNoteMessage message={msg} isOwn={isOwn} />
+              <VoiceNoteMessage message={msg} isOwn={isOwn} isLatest={msg.id === latestVoiceId} />
             </div>
           );
         }
