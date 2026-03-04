@@ -316,16 +316,18 @@ export function DenPageClientEnhanced({
   const handleFabAction = (key: string) => {
     useDenStore.getState().setFabOpen(false);
     if (key === "voice") {
-      // Check if user is visitor and if both owner and visitor are online
+      // Visitors need write access on voiceThread and an active P2P connection.
       if (!isOwner) {
-        const isOwnerOnline =
-          syncStatus === "synced" || syncStatus === "hosting";
-        const isVisitorOnline = visitorStatus === "synced";
-
-        if (!isOwnerOnline || !isVisitorOnline) {
+        if (!activeDenKey?.scope.write) {
           toast.error("Cannot send voice message", {
-            description:
-              "Both owner and visitor must be online to send voice messages",
+            description: "Your access key does not allow sending messages",
+            duration: 3000,
+          });
+          return;
+        }
+        if (visitorStatus !== "synced") {
+          toast.error("Cannot send voice message", {
+            description: "You must be connected to the den to send voice messages",
             duration: 3000,
           });
           return;
