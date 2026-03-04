@@ -48,7 +48,7 @@ const MOOD_TEXT_LABEL: Record<MoodLabel, string> = {
 
 interface MoodSidePanelProps {
   mood: MoodLabel;
-  tone: ToneLabel;
+  tone?: ToneLabel;
   valence: number;
   arousal: number;
   confidence: number;
@@ -58,7 +58,6 @@ interface MoodSidePanelProps {
 
 function MoodSidePanel({
   mood,
-  tone,
   valence,
   arousal,
   confidence,
