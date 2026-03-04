@@ -390,6 +390,7 @@ export function DenPageClientEnhanced({
         duration,
         analysisPayload,
         senderInfo,
+        currentUserId,
       );
       toast.success(
         analysis ? "Voice memo saved with analysis" : "Voice memo saved",
@@ -400,6 +401,7 @@ export function DenPageClientEnhanced({
         const { sharedDen } = await openDen(activeDen.id);
         const voiceMemo = {
           id: crypto.randomUUID(),
+          userId: currentUserId,
           blobRef: voiceUrl,
           durationSeconds: duration,
           createdAt: Date.now(),
@@ -580,7 +582,7 @@ export function DenPageClientEnhanced({
             canDisconnect={isOwner}
           />
 
-          <ChatArea den={activeDen} currentUserId={currentUserId} />
+          <ChatArea den={activeDen} currentUserId={currentUserId} isOwner={isOwner} />
         </main>
 
         <Fab onAction={handleFabAction} />

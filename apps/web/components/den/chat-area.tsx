@@ -14,6 +14,7 @@ import { useChatStore } from "@/stores/use-chat-store";
 interface ChatAreaProps {
   den: Den;
   currentUserId: string;
+  isOwner: boolean;
 }
 
 function TextMessage({
@@ -219,7 +220,7 @@ function DocumentMessage({
   );
 }
 
-export function ChatArea({ den, currentUserId }: ChatAreaProps) {
+export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
   const denContext = useDenContextSafe();
   const containerRef = useRef<HTMLDivElement>(null);
   const { messages: legacyMessages } = useChatStore();
@@ -232,7 +233,10 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
       (memo: VoiceMemoData): Message => ({
         id: memo.id,
         den_id: den.id,
-        user_id: currentUserId,
+        // Use stored userId when available. For legacy memos without userId,
+        // assume they were written by the owner (only owners wrote to voiceThread
+        // before per-sender tracking was added).
+        user_id: memo.userId ?? (isOwner ? currentUserId : "__owner__"),
         type: "voice" as const,
         content: null,
         voice_url: memo.blobRef,
@@ -271,6 +275,7 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
     denContext?.shared.dropbox,
     den.id,
     currentUserId,
+    isOwner,
   ]);
 
   const chatThreadMessages = useMemo((): Message[] => {
@@ -378,10 +383,7 @@ export function ChatArea({ den, currentUserId }: ChatAreaProps) {
     >
       {sortedMessages.map((msg) => {
         const senderName = getSenderName(msg.sender);
-        // Visitor messages from dropbox should appear on the left (not own)
-        // Owner messages from voiceThread should appear on the right (own)
-        const isOwn =
-          msg.user_id === currentUserId && msg.user_id !== "visitor";
+        const isOwn = msg.user_id === currentUserId;
 
         if (msg.type === "voice") {
           return (
