@@ -327,7 +327,8 @@ export function DenPageClientEnhanced({
         }
         if (visitorStatus !== "synced") {
           toast.error("Cannot send voice message", {
-            description: "You must be connected to the den to send voice messages",
+            description:
+              "You must be connected to the den to send voice messages",
             duration: 3000,
           });
           return;
