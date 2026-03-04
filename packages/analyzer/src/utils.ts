@@ -85,11 +85,12 @@ export function deriveTone(valence: number, arousal: number): ToneLabel {
   const absValence = Math.abs(valence);
   const { neutralValence, lowArousal, highArousal } = TONE_THRESHOLDS;
 
-  // Near-zero valence → neutral regardless of arousal.
-  // Previously required BOTH low valence AND low arousal, which caused
-  // typical conversational speech (slight negative valence, moderate arousal)
-  // to incorrectly land in the "calm" bucket.
-  if (absValence < neutralValence) return "neutral";
+  // Near-zero valence AND low-to-moderate arousal → neutral.
+  // Both conditions required: high arousal with near-zero valence (e.g. surprised
+  // or tense speech with flat words) should not collapse to neutral.
+  // Thresholds widened (0.25 / 0.4) so typical conversational speech
+  // (valence ≈ −0.195, arousal ≈ 0.35) correctly lands here rather than "calm".
+  if (absValence < neutralValence && arousal < lowArousal) return "neutral";
 
   if (valence > 0) {
     return arousal >= highArousal ? "energetic" : "positive";

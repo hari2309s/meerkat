@@ -66,9 +66,9 @@ export const MOOD_DIMENSIONS: Record<
  */
 export const TONE_THRESHOLDS = {
   /** Below this absolute valence, considered neutral */
-  neutralValence: 0.2,
+  neutralValence: 0.25,
   /** Below this arousal, considered low-energy */
-  lowArousal: 0.3,
+  lowArousal: 0.4,
   /** Above this arousal, considered high-energy */
   highArousal: 0.55,
 } as const;
