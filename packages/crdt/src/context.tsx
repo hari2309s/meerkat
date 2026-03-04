@@ -292,6 +292,7 @@ export function DenProvider({
         durationSeconds: number,
         analysis?: VoiceMemoData["analysis"],
         sender?: VoiceMemoData["sender"],
+        userId?: string,
       ) => {
         // Add the voice memo to the local store with optional analysis
         // Analysis is performed at the web layer (using @meerkat/analyzer)
@@ -302,6 +303,7 @@ export function DenProvider({
           durationSeconds,
           analysis,
           sender,
+          userId,
         );
 
         return memo;

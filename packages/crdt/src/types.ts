@@ -79,6 +79,7 @@ export interface DenActions {
     durationSeconds: number,
     analysis?: VoiceMemoData["analysis"],
     sender?: VoiceMemoData["sender"],
+    userId?: string,
   ) => Promise<VoiceMemoData>;
 }
 
