@@ -39,6 +39,7 @@ export async function addVoiceMemo(
   durationSeconds: number,
   analysis?: VoiceMemoData["analysis"],
   sender?: VoiceMemoData["sender"],
+  userId?: string,
 ): Promise<VoiceMemoData> {
   const { privateDen, sharedDen } = await openDen(denId);
 
@@ -47,6 +48,7 @@ export async function addVoiceMemo(
     blobRef,
     durationSeconds,
     createdAt: Date.now(),
+    ...(userId !== undefined && { userId }),
     ...(analysis !== undefined && { analysis }),
     ...(sender !== undefined && { sender }),
   };
