@@ -30,13 +30,18 @@ const MOOD_EMOJI: Record<MoodLabel, string> = {
   neutral: "😐",
 };
 
-const TONE_LABEL: Record<ToneLabel, string> = {
-  positive: "Positive",
-  negative: "Low",
+// Human-readable label for the discrete mood from the classifier.
+// Shown as the primary text in the mood side panel — more varied than the
+// derived tone (which used to always show "Calm" or "Neutral" when the
+// audio-only fallback was used).
+const MOOD_TEXT_LABEL: Record<MoodLabel, string> = {
+  happy: "Happy",
+  sad: "Sad",
+  angry: "Angry",
+  fearful: "Anxious",
+  disgusted: "Displeased",
+  surprised: "Surprised",
   neutral: "Neutral",
-  energetic: "Energetic",
-  calm: "Calm",
-  tense: "Tense",
 };
 
 // ─── Compact mood side panel (detail content only) ───────────────────────────
@@ -61,7 +66,6 @@ function MoodSidePanel({
   isOwn,
 }: MoodSidePanelProps) {
   const color = MOOD_COLOR[mood];
-  const toneLabel = TONE_LABEL[tone];
   const pct = Math.round(confidence * 100);
   const valencePct = Math.round(((valence + 1) / 2) * 100);
   const arousalPct = Math.round(arousal * 100);
@@ -76,7 +80,7 @@ function MoodSidePanel({
         className="text-[10px] font-semibold leading-none px-0.5 truncate w-full"
         style={{ color: "var(--color-text-muted)" }}
       >
-        {toneLabel} · {pct}%
+        {MOOD_TEXT_LABEL[mood]} · {pct}%
       </div>
 
       {/* Compact valence / arousal bars */}
