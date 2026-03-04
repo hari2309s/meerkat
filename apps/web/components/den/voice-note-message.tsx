@@ -139,7 +139,11 @@ interface VoiceNoteMessageProps {
   isLatest?: boolean;
 }
 
-export function VoiceNoteMessage({ message, isOwn, isLatest = false }: VoiceNoteMessageProps) {
+export function VoiceNoteMessage({
+  message,
+  isOwn,
+  isLatest = false,
+}: VoiceNoteMessageProps) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [moodExpanded, setMoodExpanded] = useState(isLatest);

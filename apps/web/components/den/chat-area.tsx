@@ -397,7 +397,11 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
         if (msg.type === "voice") {
           return (
             <div key={msg.id} className={`flex ${alignClass}`}>
-              <VoiceNoteMessage message={msg} isOwn={isOwn} isLatest={msg.id === latestVoiceId} />
+              <VoiceNoteMessage
+                message={msg}
+                isOwn={isOwn}
+                isLatest={msg.id === latestVoiceId}
+              />
             </div>
           );
         }
