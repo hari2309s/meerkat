@@ -582,7 +582,11 @@ export function DenPageClientEnhanced({
             canDisconnect={isOwner}
           />
 
-          <ChatArea den={activeDen} currentUserId={currentUserId} isOwner={isOwner} />
+          <ChatArea
+            den={activeDen}
+            currentUserId={currentUserId}
+            isOwner={isOwner}
+          />
         </main>
 
         <Fab onAction={handleFabAction} />
