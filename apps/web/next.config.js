@@ -26,46 +26,6 @@ const nextConfig = {
     ],
   },
 
-  // ─── Vercel serverless function size fix ────────────────────────────────────
-  //
-  // @huggingface/transformers pulls in onnxruntime-node (~405 MB) and sharp
-  // (~32 MB) as npm dependencies, but these are NEVER used at runtime on
-  // Vercel — all ML inference runs on-device via onnxruntime-web (WASM).
-  //
-  // Next.js's file-tracing crawls the require() graph and mistakenly includes
-  // these native packages in every serverless function bundle, pushing the
-  // /dens/[id] function to ~444 MB (Vercel hard-limits at 250 MB unzipped).
-  //
-  // outputFileTracingExcludes tells the tracer to drop them unconditionally.
-  // The glob patterns match the pnpm virtual store layout used in the build.
-  //
-  // Voice analysis is unaffected: the analyzer package only imports
-  // @huggingface/transformers via a dynamic import() inside browser code,
-  // which webpack resolves to the transformers.web.js browser build
-  // (see the alias below). onnxruntime-node is never loaded at runtime.
-  //
-  outputFileTracingExcludes: {
-    "*": [
-      // onnxruntime-node native addon (~405 MB) — server-side ONNX runtime,
-      // not needed because we use onnxruntime-web (WASM) in the browser.
-      "node_modules/.pnpm/onnxruntime-node@*/**",
-      "node_modules/onnxruntime-node/**",
-
-      // sharp native image processing (~32 MB) — pulled in transitively by
-      // @huggingface/transformers but never called in this app.
-      "node_modules/.pnpm/@img+sharp*/**",
-      "node_modules/.pnpm/sharp@*/**",
-      "node_modules/@img/**",
-      "node_modules/sharp/**",
-
-      // The transformers package itself is large (~2.7 MB) and browser-only;
-      // it is excluded from the server bundle via config.externals (below)
-      // but the file tracer still picks up its dist folder.
-      "node_modules/.pnpm/@huggingface+transformers@*/**",
-      "node_modules/@huggingface/transformers/**",
-    ],
-  },
-
   webpack: (config, { isServer }) => {
     if (isServer) {
       // onnxruntime-web and @huggingface/transformers are browser-only;
@@ -150,9 +110,41 @@ const nextConfig = {
     ];
   },
 
+
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",
+    },
+
+    // ─── Vercel serverless function size fix ──────────────────────────────
+    //
+    // @huggingface/transformers lists onnxruntime-node (~405 MB) and sharp
+    // (~32 MB) as npm deps. Next.js's file tracer includes everything it
+    // finds in the require() graph, pushing /dens/[id] to ~444 MB —
+    // over Vercel's 250 MB hard limit.
+    //
+    // These packages are NEVER used at runtime: all ML inference runs
+    // on-device via onnxruntime-web (WASM). The tracer just picks them up
+    // by following the @huggingface/transformers package.json dep list.
+    //
+    // Globs cover both the pnpm virtual store and direct node_modules paths.
+    outputFileTracingExcludes: {
+      "*": [
+        // onnxruntime-node native addon (~405 MB)
+        "node_modules/.pnpm/onnxruntime-node@*/**",
+        "node_modules/onnxruntime-node/**",
+
+        // sharp native image processing (~32 MB)
+        "node_modules/.pnpm/@img+sharp*/**",
+        "node_modules/.pnpm/sharp@*/**",
+        "node_modules/@img/**",
+        "node_modules/sharp/**",
+
+        // transformers dist (~2.7 MB) — browser-only, excluded from server
+        // bundle via config.externals but still traced by the file crawler.
+        "node_modules/.pnpm/@huggingface+transformers@*/**",
+        "node_modules/@huggingface/transformers/**",
+      ],
     },
   },
 };
