@@ -384,13 +384,11 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
       {sortedMessages.map((msg) => {
         const senderName = getSenderName(msg.sender);
         const isOwn = msg.user_id === currentUserId;
+        const alignClass = isOwn ? "justify-end" : "justify-start";
 
         if (msg.type === "voice") {
           return (
-            <div
-              key={msg.id}
-              className={`flex ${isOwn ? "flex-row-reverse" : ""}`}
-            >
+            <div key={msg.id} className={`flex ${alignClass}`}>
               <VoiceNoteMessage message={msg} isOwn={isOwn} />
             </div>
           );
@@ -398,34 +396,37 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
 
         if (msg.type === "image") {
           return (
-            <ImageMessage
-              key={msg.id}
-              message={msg}
-              senderName={senderName}
-              isOwn={isOwn}
-            />
+            <div key={msg.id} className={`flex ${alignClass}`}>
+              <ImageMessage
+                message={msg}
+                senderName={senderName}
+                isOwn={isOwn}
+              />
+            </div>
           );
         }
 
         if (msg.type === "document") {
           return (
-            <DocumentMessage
-              key={msg.id}
-              message={msg}
-              senderName={senderName}
-              isOwn={isOwn}
-            />
+            <div key={msg.id} className={`flex ${alignClass}`}>
+              <DocumentMessage
+                message={msg}
+                senderName={senderName}
+                isOwn={isOwn}
+              />
+            </div>
           );
         }
 
         return (
-          <TextMessage
-            key={msg.id}
-            content={msg.content ?? ""}
-            senderName={senderName}
-            isOwn={isOwn}
-            createdAt={msg.created_at}
-          />
+          <div key={msg.id} className={`flex ${alignClass}`}>
+            <TextMessage
+              content={msg.content ?? ""}
+              senderName={senderName}
+              isOwn={isOwn}
+              createdAt={msg.created_at}
+            />
+          </div>
         );
       })}
     </div>

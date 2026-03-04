@@ -333,7 +333,11 @@ export function DenPageClient({
           />
 
           {/* Chat area */}
-          <ChatArea den={activeDen} currentUserId={currentUserId} />
+          <ChatArea
+            den={activeDen}
+            currentUserId={currentUserId}
+            isOwner={isOwner}
+          />
         </main>
 
         {/* FAB */}
