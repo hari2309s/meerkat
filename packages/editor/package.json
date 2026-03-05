@@ -15,7 +15,10 @@
     },
     "./editor.css": "./src/editor.css"
   },
-  "files": ["dist", "src/editor.css"],
+  "files": [
+    "dist",
+    "src/editor.css"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",

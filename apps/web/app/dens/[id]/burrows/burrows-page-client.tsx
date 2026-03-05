@@ -72,7 +72,14 @@ export function BurrowsPageClient({
         ) : (
           <div className="flex flex-col gap-2">
             {burrows.map((b) => (
-              <BurrowCard key={b.id} burrow={b} denId={denId} onArchive={isOwner ? () => actions.archiveBurrow(b.id) : undefined} />
+              <BurrowCard
+                key={b.id}
+                burrow={b}
+                denId={denId}
+                onArchive={
+                  isOwner ? () => actions.archiveBurrow(b.id) : undefined
+                }
+              />
             ))}
           </div>
         )}
@@ -103,7 +110,9 @@ function BurrowCard({
         href={`/dens/${denId}/burrows/${burrow.id}`}
         className="flex items-center gap-4 flex-1 min-w-0"
       >
-        <span className="text-2xl select-none flex-none">{burrow.icon ?? "📄"}</span>
+        <span className="text-2xl select-none flex-none">
+          {burrow.icon ?? "📄"}
+        </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">
             {burrow.title || "Untitled"}

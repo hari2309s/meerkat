@@ -81,9 +81,12 @@ import { VoicePlayer } from "@meerkat/voice";
   doc={doc}
   user={user}
   renderVoiceBlock={({ node }) => (
-    <VoicePlayer audioUrl={node.attrs.audioUrl} duration={node.attrs.duration} />
+    <VoicePlayer
+      audioUrl={node.attrs.audioUrl}
+      duration={node.attrs.duration}
+    />
   )}
-/>
+/>;
 ```
 
 ---
@@ -92,18 +95,18 @@ import { VoicePlayer } from "@meerkat/voice";
 
 Type `/` anywhere in the editor to open the command palette:
 
-| Command | Shortcut | Description |
-|---------|----------|-------------|
-| Text | `/text` | Plain paragraph |
-| Heading 1–3 | `/h1` `/h2` `/h3` | Section headings |
-| Bullet list | `/bullet` | Unordered list |
-| Numbered list | `/numbered` | Ordered list |
-| To-do list | `/todo` | Checkbox items |
-| Quote | `/quote` | Blockquote |
-| Code block | `/code` | Monospace code |
-| Divider | `/divider` | Horizontal rule |
-| Image | `/image` | Inline image (prompts for URL) |
-| Voice note | `/voice` | Inserts a voice block |
+| Command       | Shortcut          | Description                    |
+| ------------- | ----------------- | ------------------------------ |
+| Text          | `/text`           | Plain paragraph                |
+| Heading 1–3   | `/h1` `/h2` `/h3` | Section headings               |
+| Bullet list   | `/bullet`         | Unordered list                 |
+| Numbered list | `/numbered`       | Ordered list                   |
+| To-do list    | `/todo`           | Checkbox items                 |
+| Quote         | `/quote`          | Blockquote                     |
+| Code block    | `/code`           | Monospace code                 |
+| Divider       | `/divider`        | Horizontal rule                |
+| Image         | `/image`          | Inline image (prompts for URL) |
+| Voice note    | `/voice`          | Inserts a voice block          |
 
 ---
 
@@ -111,31 +114,31 @@ Type `/` anywhere in the editor to open the command palette:
 
 ### `<BurrowEditor>`
 
-| Prop | Type | Description |
-|------|------|-------------|
-| `doc` | `Y.Doc` | The content document from `useBurrowDoc`. **Required.** |
-| `provider` | `CollaborationProvider?` | Awareness provider for collaboration cursors. |
-| `user` | `{ name: string; color: string }` | Current user for cursor display. **Required.** |
-| `title` | `string?` | Page title shown above the editor. |
-| `icon` | `string?` | Page icon (emoji). |
-| `onTitleChange` | `(title: string) => void` | Called when title is edited. |
-| `onIconChange` | `(icon: string) => void` | Called when icon is changed. |
-| `onUpdate` | `(stats) => void` | Called ~500ms after each edit. |
-| `renderVoiceBlock` | `React.ComponentType<NodeViewProps>?` | Custom voice block renderer. |
-| `readOnly` | `boolean?` | Disables all editing. |
-| `className` | `string?` | Extra class on the wrapper div. |
+| Prop               | Type                                  | Description                                             |
+| ------------------ | ------------------------------------- | ------------------------------------------------------- |
+| `doc`              | `Y.Doc`                               | The content document from `useBurrowDoc`. **Required.** |
+| `provider`         | `CollaborationProvider?`              | Awareness provider for collaboration cursors.           |
+| `user`             | `{ name: string; color: string }`     | Current user for cursor display. **Required.**          |
+| `title`            | `string?`                             | Page title shown above the editor.                      |
+| `icon`             | `string?`                             | Page icon (emoji).                                      |
+| `onTitleChange`    | `(title: string) => void`             | Called when title is edited.                            |
+| `onIconChange`     | `(icon: string) => void`              | Called when icon is changed.                            |
+| `onUpdate`         | `(stats) => void`                     | Called ~500ms after each edit.                          |
+| `renderVoiceBlock` | `React.ComponentType<NodeViewProps>?` | Custom voice block renderer.                            |
+| `readOnly`         | `boolean?`                            | Disables all editing.                                   |
+| `className`        | `string?`                             | Extra class on the wrapper div.                         |
 
 ### Exported extensions (for custom editor setups)
 
-| Export | Description |
-|--------|-------------|
-| `VoiceBlock` | Pre-built Tiptap node with default audio renderer |
-| `createVoiceBlockExtension(renderer?)` | Factory to supply a custom node view |
-| `ImageBlock` | Tiptap node with editable caption |
+| Export                                 | Description                                        |
+| -------------------------------------- | -------------------------------------------------- |
+| `VoiceBlock`                           | Pre-built Tiptap node with default audio renderer  |
+| `createVoiceBlockExtension(renderer?)` | Factory to supply a custom node view               |
+| `ImageBlock`                           | Tiptap node with editable caption                  |
 | `createSlashCommandsExtension(render)` | Factory that wires slash commands + Tippy renderer |
-| `buildSlashItems()` | Returns all built-in slash command items |
-| `filterSlashItems(items, query)` | Filters items by query string |
-| `createSlashMenuRenderer()` | Returns the Tiptap Suggestion `render` function |
+| `buildSlashItems()`                    | Returns all built-in slash command items           |
+| `filterSlashItems(items, query)`       | Filters items by query string                      |
+| `createSlashMenuRenderer()`            | Returns the Tiptap Suggestion `render` function    |
 
 ---
 

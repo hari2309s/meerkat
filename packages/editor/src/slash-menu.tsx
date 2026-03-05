@@ -127,10 +127,17 @@ export function createSlashMenuRenderer() {
     let popup: TippyInstance[];
 
     return {
-      onStart(props: { items: SlashCommandItem[]; clientRect?: (() => DOMRect | null) | null; command: (item: SlashCommandItem) => void; editor: unknown }) {
+      onStart(props: {
+        items: SlashCommandItem[];
+        clientRect?: (() => DOMRect | null) | null;
+        command: (item: SlashCommandItem) => void;
+        editor: unknown;
+      }) {
         component = new ReactRenderer(SlashMenu, {
           props,
-          editor: props.editor as ConstructorParameters<typeof ReactRenderer>[1]["editor"],
+          editor: props.editor as ConstructorParameters<
+            typeof ReactRenderer
+          >[1]["editor"],
         });
 
         if (!props.clientRect) return;
@@ -147,12 +154,18 @@ export function createSlashMenuRenderer() {
           maxWidth: "280px",
           // Light shadow that works with both light and dark themes
           popperOptions: {
-            modifiers: [{ name: "flip", options: { fallbackPlacements: ["top-start"] } }],
+            modifiers: [
+              { name: "flip", options: { fallbackPlacements: ["top-start"] } },
+            ],
           },
         });
       },
 
-      onUpdate(props: { items: SlashCommandItem[]; clientRect?: (() => DOMRect | null) | null; command: (item: SlashCommandItem) => void }) {
+      onUpdate(props: {
+        items: SlashCommandItem[];
+        clientRect?: (() => DOMRect | null) | null;
+        command: (item: SlashCommandItem) => void;
+      }) {
         component.updateProps(props);
 
         if (!props.clientRect) return;

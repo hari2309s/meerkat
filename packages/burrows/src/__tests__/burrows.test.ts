@@ -66,7 +66,11 @@ describe("openBurrowsDoc", () => {
 describe("createBurrow", () => {
   it("creates a burrow with correct defaults", async () => {
     const denId = uniqueDen();
-    const b = await createBurrow({ denId, title: "My Page", createdBy: USER_ID });
+    const b = await createBurrow({
+      denId,
+      title: "My Page",
+      createdBy: USER_ID,
+    });
 
     expect(b.id).toBeTruthy();
     expect(b.title).toBe("My Page");
@@ -84,9 +88,21 @@ describe("createBurrow", () => {
 
   it("creates multiple burrows with increasing order", async () => {
     const denId = uniqueDen();
-    const b1 = await createBurrow({ denId, title: "First", createdBy: USER_ID });
-    const b2 = await createBurrow({ denId, title: "Second", createdBy: USER_ID });
-    const b3 = await createBurrow({ denId, title: "Third", createdBy: USER_ID });
+    const b1 = await createBurrow({
+      denId,
+      title: "First",
+      createdBy: USER_ID,
+    });
+    const b2 = await createBurrow({
+      denId,
+      title: "Second",
+      createdBy: USER_ID,
+    });
+    const b3 = await createBurrow({
+      denId,
+      title: "Third",
+      createdBy: USER_ID,
+    });
 
     expect(b2.order).toBeGreaterThan(b1.order);
     expect(b3.order).toBeGreaterThan(b2.order);
@@ -112,7 +128,11 @@ describe("createBurrow", () => {
 describe("getBurrow", () => {
   it("returns the burrow by id", async () => {
     const denId = uniqueDen();
-    const created = await createBurrow({ denId, title: "Lookup", createdBy: USER_ID });
+    const created = await createBurrow({
+      denId,
+      title: "Lookup",
+      createdBy: USER_ID,
+    });
     const found = await getBurrow(denId, created.id);
 
     expect(found?.id).toBe(created.id);
@@ -160,7 +180,11 @@ describe("getAllBurrows / getBurrowsByDen", () => {
 describe("updateBurrow", () => {
   it("updates the title", async () => {
     const denId = uniqueDen();
-    const b = await createBurrow({ denId, title: "Old Title", createdBy: USER_ID });
+    const b = await createBurrow({
+      denId,
+      title: "Old Title",
+      createdBy: USER_ID,
+    });
     const updated = await updateBurrow(denId, b.id, { title: "New Title" });
 
     expect(updated.title).toBe("New Title");
@@ -171,9 +195,9 @@ describe("updateBurrow", () => {
 
   it("throws when burrow not found", async () => {
     const denId = uniqueDen();
-    await expect(
-      updateBurrow(denId, "ghost", { title: "x" }),
-    ).rejects.toThrow("Burrow not found");
+    await expect(updateBurrow(denId, "ghost", { title: "x" })).rejects.toThrow(
+      "Burrow not found",
+    );
     closeBurrowsDoc(denId);
   });
 });
@@ -197,7 +221,11 @@ describe("archiveBurrow / restoreBurrow", () => {
 
   it("restoreBurrow makes it visible again", async () => {
     const denId = uniqueDen();
-    const b = await createBurrow({ denId, title: "Hidden", createdBy: USER_ID });
+    const b = await createBurrow({
+      denId,
+      title: "Hidden",
+      createdBy: USER_ID,
+    });
     await archiveBurrow(denId, b.id);
     await restoreBurrow(denId, b.id);
 
@@ -224,7 +252,9 @@ describe("deleteBurrow", () => {
 
   it("throws when burrow not found", async () => {
     const denId = uniqueDen();
-    await expect(deleteBurrow(denId, "ghost")).rejects.toThrow("Burrow not found");
+    await expect(deleteBurrow(denId, "ghost")).rejects.toThrow(
+      "Burrow not found",
+    );
     closeBurrowsDoc(denId);
   });
 });

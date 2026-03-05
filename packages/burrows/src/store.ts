@@ -331,10 +331,7 @@ export async function deleteBurrow(
  * Sets the currently-active (focused) burrow for a den.
  * This is in-memory only — it is reset when the page reloads.
  */
-export function setCurrentBurrow(
-  denId: string,
-  burrowId: string | null,
-): void {
+export function setCurrentBurrow(denId: string, burrowId: string | null): void {
   activeBurrowId.set(denId, burrowId);
 }
 

@@ -57,7 +57,9 @@ describe("filterSlashItems", () => {
 
   it("filters by title (case-insensitive)", () => {
     const results = filterSlashItems(all, "head");
-    expect(results.every((i) => i.title.toLowerCase().includes("head"))).toBe(true);
+    expect(results.every((i) => i.title.toLowerCase().includes("head"))).toBe(
+      true,
+    );
     expect(results.length).toBe(3); // Heading 1, 2, 3
   });
 

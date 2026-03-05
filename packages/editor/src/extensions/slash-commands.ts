@@ -15,7 +15,10 @@ export interface SlashCommandItem {
   title: string;
   description: string;
   icon: string;
-  command: (params: { editor: Editor; range: { from: number; to: number } }) => void;
+  command: (params: {
+    editor: Editor;
+    range: { from: number; to: number };
+  }) => void;
 }
 
 // ─── All available slash commands ─────────────────────────────────────────────
@@ -27,12 +30,7 @@ export function buildSlashItems(): SlashCommandItem[] {
       description: "Plain text paragraph",
       icon: "T",
       command: ({ editor, range }) => {
-        editor
-          .chain()
-          .focus()
-          .deleteRange(range)
-          .setParagraph()
-          .run();
+        editor.chain().focus().deleteRange(range).setParagraph().run();
       },
     },
     {
@@ -79,12 +77,7 @@ export function buildSlashItems(): SlashCommandItem[] {
       description: "Unordered list",
       icon: "•",
       command: ({ editor, range }) => {
-        editor
-          .chain()
-          .focus()
-          .deleteRange(range)
-          .toggleBulletList()
-          .run();
+        editor.chain().focus().deleteRange(range).toggleBulletList().run();
       },
     },
     {
@@ -92,12 +85,7 @@ export function buildSlashItems(): SlashCommandItem[] {
       description: "Ordered list",
       icon: "1.",
       command: ({ editor, range }) => {
-        editor
-          .chain()
-          .focus()
-          .deleteRange(range)
-          .toggleOrderedList()
-          .run();
+        editor.chain().focus().deleteRange(range).toggleOrderedList().run();
       },
     },
     {
@@ -105,12 +93,7 @@ export function buildSlashItems(): SlashCommandItem[] {
       description: "Checkbox items",
       icon: "☐",
       command: ({ editor, range }) => {
-        editor
-          .chain()
-          .focus()
-          .deleteRange(range)
-          .toggleTaskList()
-          .run();
+        editor.chain().focus().deleteRange(range).toggleTaskList().run();
       },
     },
     {
@@ -118,12 +101,7 @@ export function buildSlashItems(): SlashCommandItem[] {
       description: "Highlighted blockquote",
       icon: '"',
       command: ({ editor, range }) => {
-        editor
-          .chain()
-          .focus()
-          .deleteRange(range)
-          .toggleBlockquote()
-          .run();
+        editor.chain().focus().deleteRange(range).toggleBlockquote().run();
       },
     },
     {
@@ -131,12 +109,7 @@ export function buildSlashItems(): SlashCommandItem[] {
       description: "Monospace code block",
       icon: "<>",
       command: ({ editor, range }) => {
-        editor
-          .chain()
-          .focus()
-          .deleteRange(range)
-          .toggleCodeBlock()
-          .run();
+        editor.chain().focus().deleteRange(range).toggleCodeBlock().run();
       },
     },
     {
@@ -144,12 +117,7 @@ export function buildSlashItems(): SlashCommandItem[] {
       description: "Horizontal rule",
       icon: "—",
       command: ({ editor, range }) => {
-        editor
-          .chain()
-          .focus()
-          .deleteRange(range)
-          .setHorizontalRule()
-          .run();
+        editor.chain().focus().deleteRange(range).setHorizontalRule().run();
       },
     },
     {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useBurrow, useBurrowDoc, setBurrowMetadata } from "@meerkat/burrows";
 import type { BurrowMetadata } from "@meerkat/burrows";
@@ -9,8 +9,14 @@ import { BurrowEditor } from "@meerkat/editor";
 // Pick a deterministic colour for the user's collaboration cursor
 function userColor(userId: string): string {
   const palette = [
-    "#7c3aed", "#2563eb", "#059669", "#d97706",
-    "#dc2626", "#db2777", "#0891b2", "#65a30d",
+    "#7c3aed",
+    "#2563eb",
+    "#059669",
+    "#d97706",
+    "#dc2626",
+    "#db2777",
+    "#0891b2",
+    "#65a30d",
   ];
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {
@@ -36,9 +42,13 @@ export function BurrowEditorPage({
   userName,
   isOwner,
 }: BurrowEditorPageProps) {
-  const { burrow, metadata, isLoading: burrowLoading, actions } = useBurrow(denId, burrowId);
+  const {
+    burrow,
+    metadata,
+    isLoading: burrowLoading,
+    actions,
+  } = useBurrow(denId, burrowId);
   const { doc, isLoading: docLoading } = useBurrowDoc(burrow?.yjsDocId);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mark this burrow as active when the page mounts
   useEffect(() => {

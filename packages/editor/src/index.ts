@@ -50,7 +50,11 @@ export {
 } from "./block-editor.js";
 
 // ─── Tiptap extensions (for custom editor setups) ─────────────────────────────
-export { VoiceBlock, createVoiceBlockExtension, type VoiceBlockAttrs } from "./extensions/voice-block.js";
+export {
+  VoiceBlock,
+  createVoiceBlockExtension,
+  type VoiceBlockAttrs,
+} from "./extensions/voice-block.js";
 export { ImageBlock } from "./extensions/image-block.js";
 export {
   createSlashCommandsExtension,

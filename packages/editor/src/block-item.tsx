@@ -162,11 +162,7 @@ export function BlockItem({
       return (
         <div className={blockContainerClass("image")} onClick={onSelect}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt={alt}
-            className="max-w-full rounded-md"
-          />
+          <img src={src} alt={alt} className="max-w-full rounded-md" />
         </div>
       );
     }
@@ -178,10 +174,7 @@ export function BlockItem({
   const contentCls = blockContentClass(block.type);
 
   return (
-    <div
-      className={containerCls}
-      onClick={onSelect}
-    >
+    <div className={containerCls} onClick={onSelect}>
       {/* ── Drag handle (visible on hover) ── */}
       {!readOnly && (
         <span
@@ -261,7 +254,9 @@ function BlockPrefix({ block, onChange, readOnly }: BlockPrefixProps) {
           checked={block.checked ?? false}
           disabled={readOnly}
           aria-label="Mark as done"
-          onChange={(e) => onChange(block.content, { checked: e.target.checked })}
+          onChange={(e) =>
+            onChange(block.content, { checked: e.target.checked })
+          }
           className="flex-none mt-1 h-4 w-4 rounded border-border accent-foreground cursor-pointer"
         />
       );
@@ -292,9 +287,8 @@ function BlockPrefix({ block, onChange, readOnly }: BlockPrefixProps) {
           <span
             className="inline-block transition-transform text-xs"
             style={{
-              transform: (block.attrs?.open ?? true)
-                ? "rotate(90deg)"
-                : "rotate(0deg)",
+              transform:
+                (block.attrs?.open ?? true) ? "rotate(90deg)" : "rotate(0deg)",
             }}
           >
             ▸

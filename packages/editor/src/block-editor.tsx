@@ -39,7 +39,10 @@ import TaskItem from "@tiptap/extension-task-item";
 import * as Y from "yjs";
 import { createSlashCommandsExtension } from "./extensions/slash-commands.js";
 import { createSlashMenuRenderer } from "./slash-menu.js";
-import { VoiceBlock, createVoiceBlockExtension } from "./extensions/voice-block.js";
+import {
+  VoiceBlock,
+  createVoiceBlockExtension,
+} from "./extensions/voice-block.js";
 import { ImageBlock } from "./extensions/image-block.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -221,7 +224,10 @@ export function BurrowEditor({
 
   return (
     <div
-      className={["meerkat-editor w-full max-w-3xl mx-auto px-6 py-10", className].join(" ")}
+      className={[
+        "meerkat-editor w-full max-w-3xl mx-auto px-6 py-10",
+        className,
+      ].join(" ")}
     >
       {/* ── Page header ── */}
       <div className="mb-8">
@@ -231,7 +237,10 @@ export function BurrowEditor({
             className="mb-3 text-5xl leading-none cursor-pointer select-none"
             title="Change icon"
             onClick={() => {
-              const next = window.prompt("Enter an emoji for this page:", icon ?? "📄");
+              const next = window.prompt(
+                "Enter an emoji for this page:",
+                icon ?? "📄",
+              );
               if (next !== null) onIconChange?.(next);
             }}
           >
@@ -258,10 +267,7 @@ export function BurrowEditor({
       </div>
 
       {/* ── Tiptap editor ── */}
-      <EditorContent
-        editor={editor}
-        className="min-h-32 text-foreground"
-      />
+      <EditorContent editor={editor} className="min-h-32 text-foreground" />
     </div>
   );
 }
