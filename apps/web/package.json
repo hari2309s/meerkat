@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@meerkat/analyzer": "workspace:*",
+    "@meerkat/burrows": "workspace:*",
+    "@meerkat/editor": "workspace:*",
     "@meerkat/config": "workspace:*",
     "@meerkat/crdt": "workspace:*",
     "@meerkat/crypto": "workspace:*",
