@@ -2,7 +2,7 @@
 
 Block-based page editor for Meerkat — Tiptap + Yjs collaboration, slash commands, voice and image blocks.
 
-> **Powered by Tiptap.** Content is stored in a `Y.XmlFragment` inside a `Y.Doc` from `@meerkat/burrows`. Two users editing the same page see each other's changes in real-time via the existing P2P layer.
+> **Powered by Tiptap.** Content is stored in a `Y.XmlFragment` inside a `Y.Doc` from `@meerkat/burrows`. Two users editing the same page see each other's changes in real-time via the P2P layer (`@meerkat/p2p`).
 
 ---
 

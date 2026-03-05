@@ -6,17 +6,18 @@ A modern, real-time collaborative workspace platform featuring voice messaging w
 ![TurboRepo](https://img.shields.io/badge/TurboRepo-Monorepo-EF4444?logo=turborepo)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)
-![tRPC](https://img.shields.io/badge/tRPC-API-2596BE?logo=trpc)
-![Zod](https://img.shields.io/badge/Zod-Schema-3E67B1)
-![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
+![Tiptap](https://img.shields.io/badge/Tiptap-Editor-6366F1)
 ![Framer Motion](https://img.shields.io/badge/Framer_Motion-Animations-0055FF?logo=framer)
 ![Vercel](https://img.shields.io/badge/Vercel-Hosting-black?logo=vercel)
 ![Tailwind](https://img.shields.io/badge/Tailwind-CSS-06B6D4?logo=tailwindcss)
 ![Yjs](https://img.shields.io/badge/Yjs-CRDT-orange)
+![WebRTC](https://img.shields.io/badge/WebRTC-P2P_Sync-333333?logo=webrtc)
 ![Supabase](https://img.shields.io/badge/Supabase-Auth_&_Storage-3ECF8E?logo=supabase)
 ![TweetNaCl](https://img.shields.io/badge/TweetNaCl-Encryption-5C4EE5)
 ![BIP39](https://img.shields.io/badge/BIP39-Key_Auth-8B5CF6)
+![Zod](https://img.shields.io/badge/Zod-Schema-3E67B1)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
 A note-taking and real-time collaboration app for your crew — voice, text, solo, or together. Your content lives on your device, encrypted by default. Visitors connect directly to you; when you're offline, the door closes.
@@ -26,9 +27,11 @@ A note-taking and real-time collaboration app for your crew — voice, text, sol
 - **Local-first Storage**: Notes and voice memos are written to IndexedDB first. The app works fully offline.
 - **End-to-end Encryption**: All content is encrypted on-device via `@meerkat/crypto` before anything touches a network or storage.
 - **Voice Memos**: Record, store, and play back voice notes — all within your den.
-- **Block-based Editor**: Flexible content blocks — text, headings, lists, voice, and more.
+- **Block-based Editor**: Notion-style pages (burrows) with text, headings, lists, code, quote, divider, image, and voice blocks. Slash command menu (`/`) for quick block insertion.
 - **On-device Mood Analysis**: Voice memo transcription and emotion classification run entirely in the browser. No audio is ever sent to a server.
-- **CRDT Sync**: Conflict-free document synchronisation via Yjs, with a private/shared doc split.
+- **Real-time P2P Sync**: Host and visitors sync Yjs documents directly over WebRTC — no content passes through the server.
+- **Scoped Invite System**: Capability-based access control via DenKey tokens (flower pots) — visitors get exactly the permissions you grant.
+- **CRDT Collaboration**: Conflict-free document synchronisation via Yjs with live cursors and per-page content docs.
 - **Animated UI**: Smooth transitions and real-time feedback powered by Framer Motion.
 - **Type-Safe Pipeline**: End-to-end TypeScript with Zod validation and shared types across the monorepo.
 - **Key-based Auth**: Passwordless authentication via a BIP39 mnemonic phrase — your Key is your identity.
@@ -38,16 +41,21 @@ A note-taking and real-time collaboration app for your crew — voice, text, sol
 ```
 meerkat/
 ├── apps/
-│   └── web/                # Next.js 15 application (App Router)
+│   └── web/                # Next.js 14 application (App Router)
 ├── packages/
+│   ├── analyzer/           # On-device voice transcription (Whisper) + emotion classification (ONNX)
+│   ├── burrows/            # Pages (burrows) system — per-burrow Yjs doc architecture + React hooks
+│   ├── config/             # Environment validation and shared config
 │   ├── crypto/             # All encryption — nothing leaves the device without passing through here
+│   ├── crdt/               # Den orchestration — DenSyncMachine + P2P state management
+│   ├── editor/             # Block-based editor — Tiptap + slash commands + voice/image blocks
+│   ├── keys/               # DenKey capability tokens (flower pots) — scoped invite system
 │   ├── local-store/        # IndexedDB-backed Yjs documents with private/shared doc split
-│   ├── crdt/               # Orchestration layer — wires local-store together, exposes the den API
-│   ├── voice/              # Voice recording, playback, and storage lifecycle
+│   ├── p2p/                # WebRTC P2P sync — HostManager, VisitorConnection, OfflineDropManager
 │   ├── types/              # Shared domain types across the monorepo
 │   ├── ui/                 # Shared component library
 │   ├── utils/              # General utilities (time formatting, UA parsing, etc.)
-│   └── config/             # Environment validation and shared config
+│   └── voice/              # Voice recording, playback, and encrypted storage lifecycle
 ```
 
 ## 🚀 Getting Started

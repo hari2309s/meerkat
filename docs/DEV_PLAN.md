@@ -1,6 +1,6 @@
 # Meerkat — Development Plan
 
-**Last Updated**: 2026-03-01
+**Last Updated**: 2026-03-05
 
 ---
 
@@ -32,9 +32,11 @@ apps/
 
 packages/
     ├── analyzer/               # On-device emotion & transcription ✅
+    ├── burrows/                # Pages (burrows) system — Yjs doc-per-page ✅
     ├── config/                 # Environment validation ✅
     ├── crypto/                 # AES-GCM, PBKDF2, NaCl box ✅
     ├── crdt/                   # Den orchestration + DenSyncMachine ✅
+    ├── editor/                 # Block editor — Tiptap + slash commands + voice/image blocks ✅
     ├── keys/                   # DenKey capability tokens (flower pots) ✅
     ├── local-store/            # Yjs docs + IndexedDB persistence ✅
     ├── p2p/                    # WebRTC P2P sync ✅ COMPLETE
@@ -203,10 +205,16 @@ All of these were diagnosed and fixed on 2026-03-01:
 
 #### New Features
 
-- [ ] Block-based editor (Notion-style)
-  - [ ] Text, heading, list, voice blocks
-  - [ ] Drag-and-drop reordering
-  - [ ] `/` command menu
+- [x] Block-based editor (Notion-style) — `@meerkat/burrows` + `@meerkat/editor`
+  - [x] `@meerkat/burrows` — per-burrow Yjs doc architecture, `useBurrows` / `useBurrow` / `useBurrowDoc` hooks
+  - [x] `@meerkat/editor` — `BurrowEditor` component (Tiptap + Yjs collaboration)
+  - [x] Text, heading (H1–H3), bullet list, numbered list, to-do list, quote, code, divider, image, voice blocks
+  - [x] `/` command menu (slash commands via Tiptap Suggestion + Tippy.js)
+  - [x] Voice block — embeds `@meerkat/voice` player; mood + transcript display
+  - [x] Image block — inline figure with editable caption
+  - [x] Collaboration cursors (live presence via `CollaborationCursor` + P2P awareness)
+  - [x] Web routes: `/dens/[id]/burrows` (page list) + `/dens/[id]/burrows/[burrowId]` (editor)
+  - [ ] Drag-and-drop block reordering
 - [ ] Advanced search (full-text, mood, date, tags)
 - [ ] Settings & preferences (theme, voice format, default note privacy, auto-transcribe)
 - [ ] Backup & restore — export/import den as encrypted JSON, verify via Yjs state vectors
@@ -242,6 +250,13 @@ All of these were diagnosed and fixed on 2026-03-01:
   │     │     │     └─► @meerkat/types
   │     │     └─► @meerkat/local-store
   │     └─► @meerkat/types
+  │
+  ├─► @meerkat/burrows             # Pages (burrows) CRDT layer
+  │     └─► yjs / y-indexeddb
+  │
+  ├─► @meerkat/editor              # Block editor UI
+  │     ├─► @tiptap/react + extensions
+  │     └─► yjs
   │
   ├─► @meerkat/voice
   │     ├─► @meerkat/analyzer
@@ -342,6 +357,8 @@ Examples:
 - [Supabase Realtime](https://supabase.com/docs/guides/realtime)
 - [Metered.ca TURN](https://www.metered.ca/)
 - [Local-First Software](https://www.inkandswitch.com/local-first/)
+- [packages/burrows/README.md](../packages/burrows/README.md)
+- [packages/editor/README.md](../packages/editor/README.md)
 - [packages/p2p/README.md](../packages/p2p/README.md)
 - [packages/crdt/README.md](../packages/crdt/README.md)
 - [packages/keys/README.md](../packages/keys/README.md)

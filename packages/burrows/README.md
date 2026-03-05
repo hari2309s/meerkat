@@ -84,12 +84,20 @@ function EditorPage({ denId, burrowId }: { denId: string; burrowId: string }) {
 
 | Action | Signature | Description |
 |--------|-----------|-------------|
-| `createBurrow` | `(input) => Promise<BurrowData>` | Creates a new page. |
-| `updateBurrow` | `(id, input) => Promise<BurrowData>` | Updates title, icon, or order. |
+| `createBurrow` | `(input: CreateBurrowInput) => Promise<BurrowData>` | Creates a new page. |
+| `updateBurrow` | `(id, input: UpdateBurrowInput) => Promise<BurrowData>` | Updates title, icon, or order. |
 | `archiveBurrow` | `(id) => Promise<void>` | Soft-deletes (hidden from list, preserved in IndexedDB). |
 | `restoreBurrow` | `(id) => Promise<void>` | Un-archives a soft-deleted burrow. |
-| `deleteBurrow` | `(id) => Promise<void>` | Permanently removes the burrow. |
-| `setCurrentBurrow` | `(id \| null) => void` | Tracks the active (focused) burrow. |
+| `deleteBurrow` | `(id) => Promise<void>` | Permanently removes the burrow and its content doc. |
+| `setCurrentBurrow` | `(id \| null) => void` | Tracks the active (focused) burrow ID. |
+
+### `useBurrow` actions
+
+| Action | Signature | Description |
+|--------|-----------|-------------|
+| `updateBurrow` | `(input: UpdateBurrowInput) => Promise<BurrowData>` | Updates this burrow's title, icon, or order. |
+| `archiveBurrow` | `() => Promise<void>` | Soft-deletes this burrow. |
+| `deleteBurrow` | `() => Promise<void>` | Permanently removes this burrow. |
 
 ### Imperative API
 
