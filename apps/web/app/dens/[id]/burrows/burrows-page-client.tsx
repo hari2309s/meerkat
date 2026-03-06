@@ -9,6 +9,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Loader2,
@@ -17,9 +18,12 @@ import {
   Archive,
   Trash2,
   Plus,
+  Mic,
+  ImageIcon,
+  Users,
 } from "lucide-react";
 import { useBurrows } from "@meerkat/burrows";
-import type { BurrowData } from "@meerkat/burrows";
+import type { BurrowData, BurrowMetadata } from "@meerkat/burrows";
 import { ConfirmModal } from "@meerkat/ui";
 import { TopNav } from "@/components/top-nav";
 import { DenNavTabs } from "@/components/den/den-nav-tabs";
@@ -41,7 +45,7 @@ export function BurrowsPageClient({
   user,
 }: BurrowsPageClientProps) {
   const router = useRouter();
-  const { burrows, isLoading, error, actions } = useBurrows(denId);
+  const { burrows, metadataMap, isLoading, error, actions } = useBurrows(denId);
   const [navigatingBack, setNavigatingBack] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
   // Snapshot of IDs that existed before creation started — used to filter out
@@ -76,7 +80,12 @@ export function BurrowsPageClient({
 
       <main className="max-w-4xl mx-auto px-4 pt-8 pb-32">
         {/* ── Back + actions row ── */}
-        <div className="flex items-center justify-between mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex items-center justify-between mb-8"
+        >
           <button
             onClick={handleBack}
             disabled={navigatingBack}
@@ -100,10 +109,15 @@ export function BurrowsPageClient({
               New burrow
             </button>
           )}
-        </div>
+        </motion.div>
 
         {/* ── Section heading + tabs ── */}
-        <div className="mb-2">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.06 }}
+          className="mb-6"
+        >
           <h1
             className="text-3xl font-bold"
             style={{ color: "var(--color-text-primary)" }}
@@ -118,7 +132,7 @@ export function BurrowsPageClient({
           </p>
           {!isLoading && (
             <p
-              className="mt-2 text-xs"
+              className="mt-1.5 text-xs"
               style={{ color: "var(--color-text-muted)" }}
             >
               {burrows.length === 0
@@ -126,12 +140,17 @@ export function BurrowsPageClient({
                 : `${burrows.length} ${burrows.length === 1 ? "burrow" : "burrows"}`}
             </p>
           )}
-        </div>
+        </motion.div>
 
         <DenNavTabs denId={denId} activeTab="burrows" />
 
         {/* ── Content ── */}
-        <div className="mt-2 flex flex-col gap-2">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.12 }}
+          className="flex flex-col gap-3"
+        >
           {/* Inline new-burrow form */}
           {showNewForm && (
             <NewBurrowForm
@@ -158,15 +177,17 @@ export function BurrowsPageClient({
                 <BurrowCard
                   key={b.id}
                   burrow={b}
+                  metadata={metadataMap[b.id] ?? null}
                   denId={denId}
                   isOwner={isOwner}
+                  currentUserId={userId}
                   onRename={(title) => actions.updateBurrow(b.id, { title })}
                   onArchive={() => actions.archiveBurrow(b.id)}
                   onDelete={() => actions.deleteBurrow(b.id)}
                 />
               ))
           )}
-        </div>
+        </motion.div>
       </main>
     </div>
   );
@@ -250,15 +271,19 @@ function NewBurrowForm({
 
 function BurrowCard({
   burrow,
+  metadata,
   denId,
   isOwner,
+  currentUserId,
   onRename,
   onArchive,
   onDelete,
 }: {
   burrow: BurrowData;
+  metadata: BurrowMetadata | null;
   denId: string;
   isOwner: boolean;
+  currentUserId: string;
   onRename: (title: string) => Promise<BurrowData>;
   onArchive: () => Promise<void>;
   onDelete: () => Promise<void>;
@@ -272,10 +297,28 @@ function BurrowCard({
   const menuRef = useRef<HTMLDivElement>(null);
   const renameRef = useRef<HTMLInputElement>(null);
 
-  const lastUpdated = new Date(burrow.updatedAt).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  function formatDate(ms: number) {
+    return new Date(ms).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year:
+        new Date(ms).getFullYear() !== new Date().getFullYear()
+          ? "numeric"
+          : undefined,
+    });
+  }
+
+  function resolveUser(uid: string | null) {
+    if (!uid) return null;
+    return uid === currentUserId ? "You" : "a collaborator";
+  }
+
+  const createdDate = formatDate(burrow.createdAt);
+  const updatedDate = formatDate(burrow.updatedAt);
+  const createdByLabel = resolveUser(burrow.createdBy);
+  const lastEditedBy = resolveUser(metadata?.lastEditedBy ?? null);
+  const wordCount = metadata?.wordCount ?? 0;
+  const collaboratorCount = burrow.collaborators.length;
 
   // Close menu on outside click
   useEffect(() => {
@@ -345,8 +388,11 @@ function BurrowCard({
           }}
         />
       )}
-      <div
-        className="group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all"
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="group flex items-start gap-3 px-4 py-3.5 rounded-xl border transition-all"
         style={{
           background: "var(--color-bg-card)",
           borderColor: "var(--color-border-card)",
@@ -354,7 +400,7 @@ function BurrowCard({
         }}
       >
         {/* Icon */}
-        <span className="text-2xl select-none flex-none">
+        <span className="text-2xl select-none flex-none mt-0.5">
           {burrow.icon ?? "📄"}
         </span>
 
@@ -386,12 +432,54 @@ function BurrowCard({
             >
               {burrow.title || "Untitled"}
             </p>
+
+            {/* Primary meta line: created + updated */}
             <p
-              className="text-xs mt-0.5"
+              className="text-xs mt-0.5 truncate"
               style={{ color: "var(--color-text-muted)" }}
             >
-              Updated {lastUpdated}
+              Created {createdDate}
+              {createdByLabel && ` by ${createdByLabel}`}
+              {" · "}
+              Updated {updatedDate}
+              {lastEditedBy && ` by ${lastEditedBy}`}
             </p>
+
+            {/* Secondary meta line: word count + badges */}
+            {(wordCount > 0 ||
+              collaboratorCount > 1 ||
+              metadata?.hasVoiceNotes ||
+              metadata?.hasImages) && (
+              <div
+                className="flex items-center gap-2 mt-1"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                {wordCount > 0 && (
+                  <span className="text-xs">
+                    {wordCount.toLocaleString()}{" "}
+                    {wordCount === 1 ? "word" : "words"}
+                  </span>
+                )}
+                {collaboratorCount > 1 && (
+                  <span className="inline-flex items-center gap-0.5 text-xs">
+                    <Users className="h-3 w-3" />
+                    {collaboratorCount}
+                  </span>
+                )}
+                {metadata?.hasVoiceNotes && (
+                  <span className="inline-flex items-center gap-0.5 text-xs">
+                    <Mic className="h-3 w-3" />
+                    voice
+                  </span>
+                )}
+                {metadata?.hasImages && (
+                  <span className="inline-flex items-center gap-0.5 text-xs">
+                    <ImageIcon className="h-3 w-3" />
+                    images
+                  </span>
+                )}
+              </div>
+            )}
           </Link>
         )}
 
@@ -400,7 +488,7 @@ function BurrowCard({
           <div ref={menuRef} className="relative flex-none">
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="h-7 w-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              className="h-7 w-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity mt-0.5"
               style={{ color: "var(--color-text-muted)" }}
               aria-label="Burrow options"
             >
@@ -444,7 +532,7 @@ function BurrowCard({
             )}
           </div>
         )}
-      </div>
+      </motion.div>
     </>
   );
 }

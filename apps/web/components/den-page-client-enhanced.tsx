@@ -540,10 +540,13 @@ export function DenPageClientEnhanced({
           async deleteDrop() {},
         });
 
+        const ciphertextBytes = Uint8Array.from(atob(encrypted.data), (c) =>
+          c.charCodeAt(0),
+        );
         await mgr.uploadDrop(
           activeDen.id,
           currentUserId,
-          encrypted.ciphertext,
+          ciphertextBytes,
           encrypted.iv,
         );
 
