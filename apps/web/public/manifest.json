@@ -14,12 +14,6 @@
       "sizes": "any",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/meerkats.png",
-      "sizes": "any",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ],
   "shortcuts": [
