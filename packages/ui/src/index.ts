@@ -6,6 +6,10 @@ export { Label } from "./components/label";
 export { HoverButton } from "./components/hover-button";
 export { MenuRow } from "./components/menu-row";
 export { ModalShell } from "./components/modal-shell";
+export {
+  ConfirmModal,
+  type ConfirmModalProps,
+} from "./components/confirm-modal";
 
 // ─── Meerkat Components ───────────────────────────────────────────────────────
 export {
