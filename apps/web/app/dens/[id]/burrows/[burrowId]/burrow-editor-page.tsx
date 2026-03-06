@@ -127,8 +127,7 @@ export function BurrowEditorPage({
             className="rounded-2xl px-6 py-10 space-y-4"
             style={{
               background: "var(--color-bg-card)",
-              border: "1.5px solid var(--color-border-card)",
-              boxShadow: "var(--color-shadow-card)",
+              border: "1.5px dashed var(--color-border-card)",
             }}
           >
             <div
@@ -200,7 +199,7 @@ export function BurrowEditorPage({
           <div className="flex items-center gap-3">
             {metadata?.wordCount !== undefined && (
               <span
-                className="text-xs hidden sm:block"
+                className="text-xs"
                 style={{ color: "var(--color-text-muted)" }}
               >
                 {metadata.wordCount}{" "}
@@ -285,26 +284,16 @@ export function BurrowEditorPage({
           />
         )}
 
-        {/* Editor card — same treatment as ChatArea */}
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{
-            background: "var(--color-bg-card)",
-            border: "1.5px solid var(--color-border-card)",
-            boxShadow: "var(--color-shadow-card)",
-          }}
-        >
-          <BurrowEditor
-            doc={doc}
-            user={{ name: user.name, color: userColor(userId) }}
-            title={burrow.title}
-            icon={burrow.icon}
-            onTitleChange={(title) => void actions.updateBurrow({ title })}
-            onIconChange={(icon) => void actions.updateBurrow({ icon })}
-            onUpdate={(stats) => void handleUpdate(stats)}
-            readOnly={!isOwner}
-          />
-        </div>
+        <BurrowEditor
+          doc={doc}
+          user={{ name: user.name, color: userColor(userId) }}
+          title={burrow.title}
+          icon={burrow.icon}
+          onTitleChange={(title) => void actions.updateBurrow({ title })}
+          onIconChange={(icon) => void actions.updateBurrow({ icon })}
+          onUpdate={(stats) => void handleUpdate(stats)}
+          readOnly={!isOwner}
+        />
       </main>
     </div>
   );

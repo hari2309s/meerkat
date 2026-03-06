@@ -386,7 +386,7 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
       style={{
         background: "var(--color-bg-card)",
         border: "1.5px dashed var(--color-border-card)",
-        maxHeight: "60vh",
+        maxHeight: "min(60vh, calc(100dvh - 460px))",
       }}
     >
       {sortedMessages.map((msg) => {

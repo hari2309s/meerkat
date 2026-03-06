@@ -13,10 +13,14 @@ import {
   ChevronDown,
   LogOut,
   User,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { startNavigationProgress } from "@/components/navigation-progress";
 import { getInitials, getDisplayName } from "@meerkat/utils/string";
+import { useTheme } from "@/components/theme-provider";
 
 interface NavUser {
   name: string;
@@ -32,9 +36,25 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+const THEME_CYCLE = ["light", "dark", "system"] as const;
+type Theme = (typeof THEME_CYCLE)[number];
+const THEME_ICONS: Record<Theme, React.ElementType> = {
+  light: Sun,
+  dark: Moon,
+  system: Monitor,
+};
+
 export function TopNav({ user }: TopNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
+
+  const cycleTheme = () => {
+    const idx = THEME_CYCLE.indexOf(theme as Theme);
+    setTheme(THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]);
+  };
+
+  const ThemeIcon = THEME_ICONS[(theme as Theme) ?? "light"];
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -142,6 +162,16 @@ export function TopNav({ user }: TopNavProps) {
 
           {/* Right-side actions */}
           <div className="flex items-center gap-1.5 ml-auto">
+            {/* Theme toggle */}
+            <button
+              onClick={cycleTheme}
+              className="icon-btn h-8 w-8 flex items-center justify-center rounded-xl"
+              style={{ color: "var(--color-text-secondary)" }}
+              aria-label={`Switch theme (current: ${theme})`}
+            >
+              <ThemeIcon className="h-4 w-4" />
+            </button>
+
             {/* Search */}
             <button
               className="icon-btn hidden sm:flex h-8 w-8 items-center justify-center rounded-xl"
