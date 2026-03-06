@@ -28,7 +28,7 @@
 
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useEditor, EditorContent, type NodeViewProps } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
@@ -106,6 +106,149 @@ export interface BurrowEditorProps {
   className?: string;
 }
 
+// ─── IconPickerModal ──────────────────────────────────────────────────────────
+
+function IconPickerModal({
+  current,
+  onConfirm,
+  onClose,
+}: {
+  current: string;
+  onConfirm: (icon: string) => void;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(current);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const modal = (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 60,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1rem",
+        background: "rgba(0,0,0,0.52)",
+        backdropFilter: "blur(8px)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: "22rem",
+          borderRadius: "1rem",
+          padding: "1.5rem",
+          background: "var(--color-bg-card)",
+          border: "1.5px solid var(--color-border-card)",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.22)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Preview */}
+        <div
+          style={{
+            fontSize: "3.5rem",
+            lineHeight: 1,
+            textAlign: "center",
+            marginBottom: "1rem",
+            userSelect: "none",
+          }}
+        >
+          {value || current}
+        </div>
+
+        <p
+          style={{
+            fontSize: "0.8125rem",
+            fontWeight: 600,
+            marginBottom: "0.5rem",
+            color: "var(--color-text-secondary)",
+          }}
+        >
+          Page icon
+        </p>
+
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && value.trim()) onConfirm(value.trim());
+          }}
+          placeholder="Paste an emoji…"
+          style={{
+            width: "100%",
+            padding: "0.5rem 0.75rem",
+            borderRadius: "0.625rem",
+            border: "1.5px solid var(--color-border-card)",
+            background: "transparent",
+            color: "var(--color-text-primary)",
+            fontSize: "1.25rem",
+            outline: "none",
+            boxSizing: "border-box",
+          }}
+        />
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "0.5rem",
+            marginTop: "1rem",
+          }}
+        >
+          <button
+            onClick={onClose}
+            style={{
+              padding: "0.375rem 0.875rem",
+              borderRadius: "0.5rem",
+              fontSize: "0.8125rem",
+              color: "var(--color-text-muted)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => value.trim() && onConfirm(value.trim())}
+            style={{
+              padding: "0.375rem 1rem",
+              borderRadius: "0.5rem",
+              fontSize: "0.8125rem",
+              fontWeight: 600,
+              background: "var(--color-text-primary)",
+              color: "var(--color-bg-base)",
+              border: "none",
+              cursor: "pointer",
+              opacity: value.trim() ? 1 : 0.5,
+            }}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return modal;
+}
+
 // ─── BurrowEditor ─────────────────────────────────────────────────────────────
 
 export function BurrowEditor({
@@ -123,6 +266,7 @@ export function BurrowEditor({
 }: BurrowEditorProps) {
   const titleRef = useRef<HTMLDivElement>(null);
   const updateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   // Build the VoiceBlock extension (with optional custom renderer)
   const voiceBlockExtension = renderVoiceBlock
@@ -236,16 +380,20 @@ export function BurrowEditor({
           <div
             className="mb-3 text-5xl leading-none cursor-pointer select-none"
             title="Change icon"
-            onClick={() => {
-              const next = window.prompt(
-                "Enter an emoji for this page:",
-                icon ?? "📄",
-              );
-              if (next !== null) onIconChange?.(next);
-            }}
+            onClick={() => setIconPickerOpen(true)}
           >
             {icon ?? "📄"}
           </div>
+        )}
+        {iconPickerOpen && (
+          <IconPickerModal
+            current={icon ?? "📄"}
+            onConfirm={(next) => {
+              onIconChange?.(next);
+              setIconPickerOpen(false);
+            }}
+            onClose={() => setIconPickerOpen(false)}
+          />
         )}
         {readOnly && icon && (
           <div className="mb-3 text-5xl leading-none select-none">{icon}</div>
