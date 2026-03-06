@@ -369,9 +369,13 @@ export function BurrowEditor({
   return (
     <div
       className={[
-        "meerkat-editor w-full max-w-3xl mx-auto px-6 py-10",
+        "meerkat-editor w-full max-w-3xl mx-auto px-6 py-10 rounded-2xl",
         className,
       ].join(" ")}
+      style={{
+        background: "var(--color-bg-card)",
+        border: "1.5px dashed var(--color-border-card)",
+      }}
     >
       {/* ── Page header ── */}
       <div className="mb-8">
