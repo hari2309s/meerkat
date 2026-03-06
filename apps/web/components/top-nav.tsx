@@ -171,7 +171,6 @@ export function TopNav({ user }: TopNavProps) {
               <ThemeIcon className="h-4 w-4" />
             </button>
 
-
             {/* Profile dropdown trigger */}
             <div className="relative">
               <button
