@@ -94,7 +94,7 @@ export function BurrowsPageClient({
           {isOwner && (
             <button
               onClick={() => setShowNewForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
+              className="btn-secondary flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
             >
               <Plus className="h-4 w-4" />
               New burrow
@@ -116,6 +116,16 @@ export function BurrowsPageClient({
           >
             Pages and notes inside {denName}
           </p>
+          {!isLoading && (
+            <p
+              className="mt-2 text-xs"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              {burrows.length === 0
+                ? "No burrows yet"
+                : `${burrows.length} ${burrows.length === 1 ? "burrow" : "burrows"}`}
+            </p>
+          )}
         </div>
 
         <DenNavTabs denId={denId} activeTab="burrows" />
@@ -486,7 +496,7 @@ function EmptyState({
       {isOwner && (
         <button
           onClick={onCreate}
-          className="mt-2 px-6 py-2.5 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
+          className="btn-secondary mt-2 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
         >
           Dig new burrow
         </button>

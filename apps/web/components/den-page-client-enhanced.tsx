@@ -12,6 +12,7 @@ import { startNavigationProgress } from "@/components/navigation-progress";
 import { createClient } from "@/lib/supabase/client";
 import { useDenContextSafe } from "@meerkat/crdt";
 import { useJoinDen } from "@meerkat/p2p";
+import { useBurrows } from "@meerkat/burrows";
 import { useStoredKeys } from "@meerkat/keys";
 import { openDen } from "@meerkat/local-store";
 import type { P2PManagerOptions } from "@meerkat/p2p";
@@ -90,6 +91,7 @@ export function DenPageClientEnhanced({
   const activeDen = den ?? initialDen;
   const activeMembers = members.length ? members : initialMembers;
   const isOwner = activeDen.user_id === currentUserId;
+  const { burrows } = useBurrows(activeDen.id);
 
   // ── CRDT state ────────────────────────────────────────────────────────────
   const syncStatus = denContext?.syncStatus ?? "offline";
@@ -599,6 +601,7 @@ export function DenPageClientEnhanced({
             onMembersClick={() => openModal("members")}
             syncStatus={isOwner ? syncStatus : visitorStatus}
             visitorCount={isOwner ? visitors.length : 0}
+            burrowCount={burrows.length}
           />
 
           <DenNavTabs denId={activeDen.id} activeTab="chat" />

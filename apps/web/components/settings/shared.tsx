@@ -1,79 +1,15 @@
 "use client";
 
+// Re-exported from @meerkat/ui — import from there directly for new code.
+export { SectionCard } from "@meerkat/ui";
+export { Toggle } from "@meerkat/ui";
+
+// ── ConfirmModal ──────────────────────────────────────────────────────────────
+// Note: this variant uses an `open` prop; differs from the one in @meerkat/ui.
+
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Loader2, X } from "lucide-react";
 import { useEffect } from "react";
-
-// ── SectionCard ───────────────────────────────────────────────────────────────
-
-export function SectionCard({
-  children,
-  title,
-  subtitle,
-}: {
-  children: React.ReactNode;
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <div
-      className="rounded-2xl p-6"
-      style={{
-        background: "var(--color-bg-card)",
-        backdropFilter: "blur(20px) saturate(1.5)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.5)",
-        border: "1.5px solid var(--color-border-card)",
-        boxShadow: "var(--color-shadow-card)",
-      }}
-    >
-      <div className="mb-5">
-        <h3
-          className="text-base font-semibold"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {title}
-        </h3>
-        {subtitle && (
-          <p
-            className="text-sm mt-0.5"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            {subtitle}
-          </p>
-        )}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-// ── Toggle ────────────────────────────────────────────────────────────────────
-
-export function Toggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className="toggle-btn relative inline-flex h-6 w-11 shrink-0 items-center rounded-full focus:outline-none transition-colors duration-200"
-      style={{
-        background: checked ? "var(--color-avatar-bg)" : "rgba(139,111,71,0.2)",
-      }}
-    >
-      <span
-        className="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200"
-        style={{ transform: checked ? "translateX(26px)" : "translateX(2px)" }}
-      />
-    </button>
-  );
-}
-
-// ── ConfirmModal ──────────────────────────────────────────────────────────────
 
 export function ConfirmModal({
   open,

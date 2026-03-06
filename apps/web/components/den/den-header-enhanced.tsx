@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Link from "next/link";
 import { Crown, Users, BellOff, BookOpen } from "lucide-react";
 import { formatFullDate } from "@meerkat/utils/time";
 import { SyncStatusBadge, type SyncStatus } from "@meerkat/ui";
@@ -15,6 +14,7 @@ interface DenHeaderEnhancedProps {
   onMembersClick: () => void;
   syncStatus?: SyncStatus;
   visitorCount?: number;
+  burrowCount?: number;
 }
 
 export function DenHeaderEnhanced({
@@ -25,6 +25,7 @@ export function DenHeaderEnhanced({
   onMembersClick,
   syncStatus = "offline",
   visitorCount = 0,
+  burrowCount = 0,
 }: DenHeaderEnhancedProps) {
   return (
     <motion.div
@@ -67,24 +68,16 @@ export function DenHeaderEnhanced({
           <Users className="h-3 w-3" />
           {memberCount} {memberCount === 1 ? "member" : "members"}
         </button>
-        <SyncStatusBadge
-          status={syncStatus}
-          showLabel={true}
-          showTooltip={true}
-          visitorCount={visitorCount}
-          className="text-xs"
-        />
-        <Link
-          href={`/dens/${den.id}/burrows`}
-          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-70"
+        <span
+          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
           style={{
             background: "rgba(138,96,53,0.08)",
             color: "var(--color-text-muted)",
           }}
         >
           <BookOpen className="h-3 w-3" />
-          Burrows
-        </Link>
+          {burrowCount} {burrowCount === 1 ? "burrow" : "burrows"}
+        </span>
         {muted && (
           <span
             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
@@ -97,6 +90,13 @@ export function DenHeaderEnhanced({
             Muted
           </span>
         )}
+        <SyncStatusBadge
+          status={syncStatus}
+          showLabel={true}
+          showTooltip={true}
+          visitorCount={visitorCount}
+          className="text-xs"
+        />
       </div>
     </motion.div>
   );
