@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Home,
   Settings,
-  Search,
   Menu,
   X,
   ChevronDown,
@@ -172,14 +171,6 @@ export function TopNav({ user }: TopNavProps) {
               <ThemeIcon className="h-4 w-4" />
             </button>
 
-            {/* Search */}
-            <button
-              className="icon-btn hidden sm:flex h-8 w-8 items-center justify-center rounded-xl"
-              style={{ color: "var(--color-text-secondary)" }}
-              aria-label="Search"
-            >
-              <Search className="h-4 w-4" />
-            </button>
 
             {/* Profile dropdown trigger */}
             <div className="relative">
