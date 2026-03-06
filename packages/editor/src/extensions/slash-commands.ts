@@ -125,17 +125,25 @@ export function buildSlashItems(): SlashCommandItem[] {
       description: "Inline image",
       icon: "IMG",
       command: ({ editor, range }) => {
-        const url = window.prompt("Image URL:");
-        if (!url) return;
-        editor
-          .chain()
-          .focus()
-          .deleteRange(range)
-          .insertContent({
-            type: "imageBlock",
-            attrs: { src: url },
-          })
-          .run();
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const src = reader.result as string;
+            editor
+              .chain()
+              .focus()
+              .deleteRange(range)
+              .insertContent({ type: "imageBlock", attrs: { src } })
+              .run();
+          };
+          reader.readAsDataURL(file);
+        };
+        input.click();
       },
     },
     {
