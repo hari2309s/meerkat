@@ -38,6 +38,7 @@ interface DenCardProps {
   currentUserId: string;
   navigatingId: string | null;
   onNavigate: (den: Den) => void;
+  hasUnread?: boolean;
 }
 
 // forwardRef is required because AnimatePresence (mode="popLayout") passes a
@@ -45,7 +46,7 @@ interface DenCardProps {
 // "Function components cannot be given refs" console warning.
 export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
   function DenCard(
-    { den, index, currentUserId, navigatingId, onNavigate },
+    { den, index, currentUserId, navigatingId, onNavigate, hasUnread = false },
     ref,
   ) {
     useDenPresence(den.id, currentUserId, false);
@@ -128,6 +129,17 @@ export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
             </div>
           )}
         </div>
+
+        {/* Unread notification dot */}
+        {hasUnread && (
+          <span
+            className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full"
+            style={{
+              background: "#E67E22",
+              boxShadow: "0 0 0 2px var(--color-bg-base)",
+            }}
+          />
+        )}
 
         {/* Hover shimmer */}
         <div

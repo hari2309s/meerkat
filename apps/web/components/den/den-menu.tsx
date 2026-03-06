@@ -9,13 +9,16 @@ import {
   Users,
   Bell,
   BellOff,
+  BookOpen,
   Trash2,
   LogOut,
 } from "lucide-react";
 import { MenuRow } from "@meerkat/ui";
 import { useDenStore } from "@/stores/use-den-store";
+import { useRouter } from "next/navigation";
 
 interface DenMenuProps {
+  denId: string;
   isOwner: boolean;
   muted: boolean;
   memberCount: number;
@@ -35,8 +38,9 @@ function MutedBadge() {
   );
 }
 
-export function DenMenu({ isOwner, muted, memberCount }: DenMenuProps) {
+export function DenMenu({ denId, isOwner, muted, memberCount }: DenMenuProps) {
   const { menuOpen, toggleMenu, openModal } = useDenStore();
+  const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -136,6 +140,14 @@ export function DenMenu({ isOwner, muted, memberCount }: DenMenuProps) {
                 </span>
               }
               onClick={() => openModal("members")}
+            />
+            <MenuRow
+              icon={BookOpen}
+              label="Open burrows"
+              onClick={() => {
+                useDenStore.getState().setMenuOpen(false);
+                router.push(`/dens/${denId}/burrows`);
+              }}
             />
             <MenuRow
               icon={muted ? Bell : BellOff}

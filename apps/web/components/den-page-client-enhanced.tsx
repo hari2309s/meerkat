@@ -25,6 +25,7 @@ import {
 import { useVoiceMemoUpload } from "@/hooks/use-voice-memo-upload";
 
 import { DenHeaderEnhanced } from "@/components/den/den-header-enhanced";
+import { DenNavTabs } from "@/components/den/den-nav-tabs";
 import { VisitorPanel } from "@/components/den/visitor-panel";
 import { DenMenu } from "@/components/den/den-menu";
 import { ChatArea } from "@/components/den/chat-area";
@@ -583,6 +584,7 @@ export function DenPageClientEnhanced({
             </button>
 
             <DenMenu
+              denId={activeDen.id}
               isOwner={isOwner}
               muted={muted}
               memberCount={activeMembers.length}
@@ -598,6 +600,8 @@ export function DenPageClientEnhanced({
             syncStatus={isOwner ? syncStatus : visitorStatus}
             visitorCount={isOwner ? visitors.length : 0}
           />
+
+          <DenNavTabs denId={activeDen.id} activeTab="chat" />
 
           <VisitorPanel
             denId={activeDen.id}

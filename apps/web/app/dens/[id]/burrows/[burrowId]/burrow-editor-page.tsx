@@ -1,10 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
+import "@meerkat/editor/editor.css";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Loader2,
+  MoreHorizontal,
+  Archive,
+  Trash2,
+} from "lucide-react";
 import { useBurrow, useBurrowDoc, setBurrowMetadata } from "@meerkat/burrows";
 import type { BurrowMetadata } from "@meerkat/burrows";
 import { BurrowEditor } from "@meerkat/editor";
+import { ConfirmModal } from "@meerkat/ui";
+import { TopNav } from "@/components/top-nav";
+import { startNavigationProgress } from "@/components/navigation-progress";
 
 // Pick a deterministic colour for the user's collaboration cursor
 function userColor(userId: string): string {
@@ -30,8 +42,8 @@ interface BurrowEditorPageProps {
   denName: string;
   burrowId: string;
   userId: string;
-  userName: string;
   isOwner: boolean;
+  user: { name: string; preferredName: string | null; email: string };
 }
 
 export function BurrowEditorPage({
@@ -39,9 +51,16 @@ export function BurrowEditorPage({
   denName,
   burrowId,
   userId,
-  userName,
   isOwner,
+  user,
 }: BurrowEditorPageProps) {
+  const router = useRouter();
+  const [navigatingBack, setNavigatingBack] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<
+    "archive" | "delete" | null
+  >(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const {
     burrow,
     metadata,
@@ -58,6 +77,18 @@ export function BurrowEditorPage({
     });
   }, [denId, burrowId]);
 
+  // Close three-dots menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
   const isLoading = burrowLoading || docLoading;
 
   async function handleUpdate(stats: {
@@ -65,52 +96,177 @@ export function BurrowEditorPage({
     hasVoiceNotes: boolean;
     hasImages: boolean;
   }) {
-    const meta: BurrowMetadata = {
-      ...stats,
-      lastEditedBy: userId,
-    };
+    const meta: BurrowMetadata = { ...stats, lastEditedBy: userId };
     await setBurrowMetadata(denId, burrowId, meta);
   }
 
+  function handleBack() {
+    setNavigatingBack(true);
+    startNavigationProgress();
+    router.push(`/dens/${denId}/burrows`);
+  }
+
+  // ── Loading skeleton ──────────────────────────────────────────────────────
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header denId={denId} denName={denName} title="Loading…" />
-        <div className="max-w-3xl mx-auto px-6 py-10 space-y-4">
-          <div className="h-12 bg-muted rounded-lg animate-pulse w-2/3" />
-          <div className="h-4 bg-muted rounded animate-pulse" />
-          <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
-          <div className="h-4 bg-muted rounded animate-pulse w-1/2" />
-        </div>
+      <div className="min-h-screen page-bg">
+        <TopNav user={user} />
+        <main className="max-w-4xl mx-auto px-4 pt-8 pb-32">
+          <div className="flex items-center gap-2 mb-8">
+            <button
+              onClick={handleBack}
+              className="link-subtle inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 -ml-3 rounded-xl"
+              style={{ color: "var(--color-text-secondary)" }}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Burrows
+            </button>
+          </div>
+          <div className="space-y-4 max-w-3xl mx-auto">
+            <div className="h-12 bg-muted rounded-lg animate-pulse w-2/3" />
+            <div className="h-4 bg-muted rounded animate-pulse" />
+            <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
+            <div className="h-4 bg-muted rounded animate-pulse w-1/2" />
+          </div>
+        </main>
       </div>
     );
   }
+
+  // ── Not found ─────────────────────────────────────────────────────────────
 
   if (!burrow || !doc) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Burrow not found.</p>
-        <Link href={`/dens/${denId}/burrows`} className="text-sm underline">
-          Back to burrows
-        </Link>
+      <div className="min-h-screen page-bg">
+        <TopNav user={user} />
+        <main className="max-w-4xl mx-auto px-4 pt-8 pb-32 flex flex-col items-center justify-center gap-4">
+          <p style={{ color: "var(--color-text-muted)" }}>Burrow not found.</p>
+          <Link
+            href={`/dens/${denId}/burrows`}
+            className="text-sm underline"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            Back to burrows
+          </Link>
+        </main>
       </div>
     );
   }
 
+  // ── Editor ────────────────────────────────────────────────────────────────
+
   return (
-    <div className="min-h-screen bg-background">
-      <Header
-        denId={denId}
-        denName={denName}
-        title={burrow.title || "Untitled"}
-        wordCount={metadata?.wordCount}
-        isOwner={isOwner}
-        onArchive={isOwner ? () => actions.archiveBurrow() : undefined}
-      />
+    <div className="min-h-screen page-bg">
+      <TopNav user={user} />
+
+      {/* Breadcrumb / actions bar — sits below the floating TopNav spacer */}
+      <div className="max-w-4xl mx-auto px-4 pt-8 pb-2 flex items-center justify-between">
+        <button
+          onClick={handleBack}
+          disabled={navigatingBack}
+          className="link-subtle inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 -ml-3 rounded-xl disabled:opacity-60"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          {navigatingBack ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ArrowLeft className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">{denName} /&nbsp;</span>
+          Burrows
+        </button>
+
+        <div className="flex items-center gap-3">
+          {metadata?.wordCount !== undefined && (
+            <span
+              className="text-xs hidden sm:block"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              {metadata.wordCount} {metadata.wordCount === 1 ? "word" : "words"}
+            </span>
+          )}
+          {isOwner && (
+            <div ref={menuRef} className="relative">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-accent/40"
+                style={{ color: "var(--color-text-muted)" }}
+                aria-label="Burrow options"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {menuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 w-44 rounded-xl py-1 z-50"
+                  style={{
+                    background: "var(--color-bg-dropdown)",
+                    border: "1.5px solid var(--color-border-card)",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                    backdropFilter: "blur(20px)",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setConfirmAction("archive");
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-accent/40 text-left"
+                    style={{ color: "var(--color-text-secondary)" }}
+                  >
+                    <Archive className="h-3.5 w-3.5 flex-none" />
+                    Archive
+                  </button>
+                  <div
+                    className="my-1 mx-2 h-px"
+                    style={{ background: "var(--color-border-card)" }}
+                  />
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setConfirmAction("delete");
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-accent/40 text-left"
+                    style={{ color: "#e05c4a" }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 flex-none" />
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {confirmAction && (
+        <ConfirmModal
+          title={
+            confirmAction === "delete" ? "Delete burrow" : "Archive burrow"
+          }
+          description={
+            confirmAction === "delete"
+              ? `"${burrow.title || "Untitled"}" will be permanently deleted and cannot be recovered.`
+              : `"${burrow.title || "Untitled"}" will be archived and hidden from the list.`
+          }
+          confirmLabel={confirmAction === "delete" ? "Delete" : "Archive"}
+          onClose={() => setConfirmAction(null)}
+          onConfirm={async () => {
+            if (confirmAction === "delete") {
+              await actions.deleteBurrow();
+              router.push(`/dens/${denId}/burrows`);
+            } else {
+              await actions.archiveBurrow();
+              router.push(`/dens/${denId}/burrows`);
+            }
+            setConfirmAction(null);
+          }}
+        />
+      )}
 
       <BurrowEditor
         doc={doc}
-        user={{ name: userName, color: userColor(userId) }}
+        user={{ name: user.name, color: userColor(userId) }}
         title={burrow.title}
         icon={burrow.icon}
         onTitleChange={(title) => void actions.updateBurrow({ title })}
@@ -119,63 +275,5 @@ export function BurrowEditorPage({
         readOnly={!isOwner}
       />
     </div>
-  );
-}
-
-// ─── Header ───────────────────────────────────────────────────────────────────
-
-function Header({
-  denId,
-  denName,
-  title,
-  wordCount,
-  isOwner,
-  onArchive,
-}: {
-  denId: string;
-  denName: string;
-  title: string;
-  wordCount?: number;
-  isOwner?: boolean;
-  onArchive?: () => void;
-}) {
-  return (
-    <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-sm px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-2 text-sm min-w-0">
-        <Link
-          href={`/dens/${denId}`}
-          className="text-muted-foreground hover:text-foreground transition-colors flex-none"
-        >
-          {denName}
-        </Link>
-        <span className="text-muted-foreground flex-none">/</span>
-        <Link
-          href={`/dens/${denId}/burrows`}
-          className="text-muted-foreground hover:text-foreground transition-colors flex-none"
-        >
-          Burrows
-        </Link>
-        <span className="text-muted-foreground flex-none">/</span>
-        <span className="text-foreground font-medium truncate">{title}</span>
-      </div>
-
-      <div className="flex items-center gap-3 flex-none">
-        {wordCount !== undefined && (
-          <span className="text-xs text-muted-foreground hidden sm:block">
-            {wordCount} {wordCount === 1 ? "word" : "words"}
-          </span>
-        )}
-        {isOwner && onArchive && (
-          <button
-            onClick={() => {
-              if (confirm("Archive this burrow?")) onArchive();
-            }}
-            className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-          >
-            Archive
-          </button>
-        )}
-      </div>
-    </header>
   );
 }

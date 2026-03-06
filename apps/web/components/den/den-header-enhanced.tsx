@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Crown, Users, BellOff } from "lucide-react";
+import Link from "next/link";
+import { Crown, Users, BellOff, BookOpen } from "lucide-react";
 import { formatFullDate } from "@meerkat/utils/time";
 import { SyncStatusBadge, type SyncStatus } from "@meerkat/ui";
 import type { Den } from "@/types/den";
@@ -73,6 +74,17 @@ export function DenHeaderEnhanced({
           visitorCount={visitorCount}
           className="text-xs"
         />
+        <Link
+          href={`/dens/${den.id}/burrows`}
+          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-70"
+          style={{
+            background: "rgba(138,96,53,0.08)",
+            color: "var(--color-text-muted)",
+          }}
+        >
+          <BookOpen className="h-3 w-3" />
+          Burrows
+        </Link>
         {muted && (
           <span
             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"

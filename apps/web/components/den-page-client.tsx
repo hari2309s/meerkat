@@ -317,6 +317,7 @@ export function DenPageClient({
             </button>
 
             <DenMenu
+              denId={activeDen.id}
               isOwner={isOwner}
               muted={muted}
               memberCount={activeMembers.length}

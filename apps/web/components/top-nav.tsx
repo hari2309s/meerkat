@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Home,
   Settings,
-  Bell,
   Search,
   Menu,
   X,
@@ -150,19 +149,6 @@ export function TopNav({ user }: TopNavProps) {
               aria-label="Search"
             >
               <Search className="h-4 w-4" />
-            </button>
-
-            {/* Notifications */}
-            <button
-              className="icon-btn relative hidden sm:flex h-8 w-8 items-center justify-center rounded-xl"
-              style={{ color: "var(--color-text-secondary)" }}
-              aria-label="Notifications"
-            >
-              <Bell className="h-4 w-4" />
-              <span
-                className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full"
-                style={{ background: "#E67E22" }}
-              />
             </button>
 
             {/* Profile dropdown trigger */}

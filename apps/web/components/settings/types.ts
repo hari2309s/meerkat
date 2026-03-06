@@ -27,9 +27,4 @@ export interface SessionInfo {
   isCurrent: boolean;
 }
 
-export type Section =
-  | "profile"
-  | "notifications"
-  | "appearance"
-  | "security"
-  | "dropbox";
+export type Section = "profile" | "appearance" | "security" | "dropbox";

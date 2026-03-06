@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { TopNav } from "@/components/top-nav";
-import { User, Bell, Palette, Shield, Inbox } from "lucide-react";
+import { User, Palette, Shield, Inbox } from "lucide-react";
 import { ProfileSection } from "@/components/settings/profile-section";
-import { NotificationsSection } from "@/components/settings/notifications-section";
 import { AppearanceSection } from "@/components/settings/appearance-section";
 import { SecuritySection } from "@/components/settings/security-section";
 import { DropboxSection } from "@/components/settings/dropbox-section";
@@ -17,7 +16,6 @@ interface SettingsPageClientProps {
 
 const NAV_ITEMS: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: "profile", label: "Profile", icon: User },
-  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "security", label: "Security", icon: Shield },
   { id: "dropbox", label: "Dropbox", icon: Inbox },
@@ -128,9 +126,6 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
             className="flex-1 flex flex-col gap-4"
           >
             {activeSection === "profile" && <ProfileSection user={user} />}
-            {activeSection === "notifications" && (
-              <NotificationsSection user={user} />
-            )}
             {activeSection === "appearance" && <AppearanceSection />}
             {activeSection === "security" && <SecuritySection user={user} />}
             {activeSection === "dropbox" && <DropboxSection userId={user.id} />}

@@ -23,8 +23,14 @@ export default async function BurrowPage({ params }: BurrowPageProps) {
 
   const isOwner = den.user_id === user.id;
 
-  const fullName: string =
-    user.user_metadata?.preferred_name ??
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, preferred_name")
+    .eq("id", user.id)
+    .single();
+
+  const fullName =
+    profile?.full_name ??
     user.user_metadata?.full_name ??
     user.email?.split("@")[0] ??
     "User";
@@ -35,8 +41,12 @@ export default async function BurrowPage({ params }: BurrowPageProps) {
       denName={den.name}
       burrowId={params.burrowId}
       userId={user.id}
-      userName={fullName}
       isOwner={isOwner}
+      user={{
+        name: fullName,
+        preferredName: profile?.preferred_name ?? null,
+        email: user.email ?? "",
+      }}
     />
   );
 }
