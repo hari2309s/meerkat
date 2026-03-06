@@ -20,8 +20,15 @@ export const metadata: Metadata = {
   title: "Meerkat - Communicate better",
   description:
     "Collaborative workspace with voice intelligence. Perfect for solo users, families, friends, and small teams.",
+  manifest: "/manifest.json",
   icons: {
     icon: "/favicon.png",
+    apple: "/meerkats.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Meerkat",
   },
   keywords: [
     "collaboration",
@@ -40,6 +47,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={ysabeauOffice.variable}>
       <head>
+        <meta name="theme-color" content="#2d1f14" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <script
           dangerouslySetInnerHTML={{
             __html: `

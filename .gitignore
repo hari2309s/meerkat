@@ -38,8 +38,11 @@ next-env.d.ts
 # Turbo
 .turbo
 
-# Prisma
-prisma/migrations/**/migration.sql
+# PWA
+public/sw.js
+public/workbox-*.js
+public/swe*.js
+public/serviceworker.js
 
 # Supabase
 supabase/.branches

@@ -1,0 +1,32 @@
+{
+  "name": "Meerkat",
+  "short_name": "Meerkat",
+  "description": "Collaborative workspace with voice intelligence. Local-first and private.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c1510",
+  "theme_color": "#2d1f14",
+  "categories": ["productivity", "communication"],
+  "icons": [
+    {
+      "src": "/meerkats.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/meerkats.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Home",
+      "url": "/",
+      "description": "Go to your dens"
+    }
+  ]
+}
