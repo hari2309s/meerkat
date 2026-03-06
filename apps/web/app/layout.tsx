@@ -47,7 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={ysabeauOffice.variable}>
       <head>
-        <meta name="theme-color" content="#2d1f14" />
+        <meta name="theme-color" content="#f5e6d3" />
         <meta name="mobile-web-app-capable" content="yes" />
         <script
           dangerouslySetInnerHTML={{

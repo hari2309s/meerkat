@@ -33,6 +33,8 @@ function getSystemTheme(): "light" | "dark" {
     : "light";
 }
 
+const THEME_COLORS = { light: "#f5e6d3", dark: "#2d1f14" };
+
 function applyTheme(resolved: "light" | "dark") {
   const root = document.documentElement;
   if (resolved === "dark") {
@@ -42,6 +44,8 @@ function applyTheme(resolved: "light" | "dark") {
     root.classList.remove("dark");
     root.setAttribute("data-theme", "light");
   }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", THEME_COLORS[resolved]);
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
