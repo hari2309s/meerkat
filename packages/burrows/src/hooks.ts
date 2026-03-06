@@ -42,6 +42,9 @@ import type {
  */
 export function useBurrows(denId: string) {
   const [burrows, setBurrows] = useState<BurrowData[]>([]);
+  const [metadataMap, setMetadataMap] = useState<
+    Record<string, BurrowMetadata>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -56,17 +59,30 @@ export function useBurrows(denId: string) {
       .then((doc) => {
         if (cancelled) return;
 
-        const read = () => {
+        const readBurrows = () => {
           const all = Array.from(doc.burrows.values())
             .filter((b) => !b.archived)
             .sort((a, b) => a.order - b.order);
           setBurrows(all);
         };
 
-        read();
+        const readMetadata = () => {
+          const map: Record<string, BurrowMetadata> = {};
+          doc.metadata.forEach((meta, id) => {
+            map[id] = meta;
+          });
+          setMetadataMap(map);
+        };
+
+        readBurrows();
+        readMetadata();
         setIsLoading(false);
-        doc.burrows.observe(read);
-        unobserve = () => doc.burrows.unobserve(read);
+        doc.burrows.observe(readBurrows);
+        doc.metadata.observe(readMetadata);
+        unobserve = () => {
+          doc.burrows.unobserve(readBurrows);
+          doc.metadata.unobserve(readMetadata);
+        };
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -109,7 +125,7 @@ export function useBurrows(denId: string) {
     ),
   };
 
-  return { burrows, isLoading, error, actions };
+  return { burrows, metadataMap, isLoading, error, actions };
 }
 
 // ─── useBurrow ────────────────────────────────────────────────────────────────
