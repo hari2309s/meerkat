@@ -10,6 +10,10 @@ export {
   ConfirmModal,
   type ConfirmModalProps,
 } from "./components/confirm-modal";
+export { SectionCard } from "./components/section-card";
+export { Toggle } from "./components/toggle";
+export { TextComposerModal } from "./components/text-composer-modal";
+export { AttachmentPickerModal } from "./components/attachment-picker-modal";
 
 // ─── Meerkat Components ───────────────────────────────────────────────────────
 export {
