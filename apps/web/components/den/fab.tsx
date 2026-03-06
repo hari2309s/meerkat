@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic,
@@ -10,7 +10,6 @@ import {
   FileText,
   Plus,
 } from "lucide-react";
-import { useState } from "react";
 import { useDenStore } from "@/stores/use-den-store";
 
 const FAB_ACTIONS = [

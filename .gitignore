@@ -39,10 +39,10 @@ next-env.d.ts
 .turbo
 
 # PWA
-public/sw.js
-public/workbox-*.js
-public/swe*.js
-public/serviceworker.js
+apps/web/public/sw.js
+apps/web/public/workbox-*.js
+apps/web/public/swe*.js
+apps/web/public/serviceworker.js
 
 # Supabase
 supabase/.branches

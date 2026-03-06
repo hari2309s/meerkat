@@ -115,7 +115,6 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
 
   // Link state
   const [inviteToken, setInviteToken] = useState<string | null>(null);
-  const [_inviteId, setInviteId] = useState<string | null>(null);
   const [secretKeyB64, setSecretKeyB64] = useState<string | null>(null);
   const [generatingLink, setGeneratingLink] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -144,7 +143,6 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
         if (inviteErr || !inviteData || cancelled) return;
 
         setInviteToken(inviteData.token);
-        setInviteId(inviteData.id);
 
         // 2. Build the flower pot
         const result = await buildFlowerPot(

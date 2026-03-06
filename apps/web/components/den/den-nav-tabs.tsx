@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { startNavigationProgress } from "@/components/navigation-progress";
 
 interface DenNavTabsProps {
   denId: string;
@@ -26,6 +27,7 @@ export function DenNavTabs({ denId, activeTab }: DenNavTabsProps) {
             href={tab.href}
             role="tab"
             aria-selected={active}
+            onClick={active ? undefined : startNavigationProgress}
             className={[
               "px-4 py-2 text-sm font-medium transition-colors relative",
               active

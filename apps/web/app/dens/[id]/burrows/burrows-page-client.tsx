@@ -345,7 +345,14 @@ function BurrowCard({
           }}
         />
       )}
-      <div className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-border hover:border-foreground/20 hover:bg-accent/30 transition-all">
+      <div
+        className="group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all"
+        style={{
+          background: "var(--color-bg-card)",
+          borderColor: "var(--color-border-card)",
+          boxShadow: "var(--color-shadow-card)",
+        }}
+      >
         {/* Icon */}
         <span className="text-2xl select-none flex-none">
           {burrow.icon ?? "📄"}
@@ -513,7 +520,11 @@ function BurrowsSkeleton() {
       {[...Array(4)].map((_, i) => (
         <div
           key={i}
-          className="h-16 rounded-xl border border-border bg-muted animate-pulse"
+          className="h-16 rounded-xl border animate-pulse"
+          style={{
+            background: "var(--color-bg-card)",
+            borderColor: "var(--color-border-card)",
+          }}
         />
       ))}
     </>

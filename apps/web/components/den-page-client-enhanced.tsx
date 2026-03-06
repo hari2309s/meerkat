@@ -8,13 +8,19 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { TopNav } from "@/components/top-nav";
+import { GrainOverlay } from "@/components/grain-overlay";
 import { startNavigationProgress } from "@/components/navigation-progress";
 import { createClient } from "@/lib/supabase/client";
 import { useDenContextSafe } from "@meerkat/crdt";
-import { useJoinDen } from "@meerkat/p2p";
+import { useJoinDen, OfflineDropManager } from "@meerkat/p2p";
 import { useBurrows } from "@meerkat/burrows";
 import { useStoredKeys } from "@meerkat/keys";
-import { openDen } from "@meerkat/local-store";
+import { openDen, addToDropbox } from "@meerkat/local-store";
+import {
+  encryptBlob,
+  deserializeNamespaceKeySet,
+  importNamespaceKey,
+} from "@meerkat/crypto";
 import type { P2PManagerOptions } from "@meerkat/p2p";
 
 import {
@@ -206,6 +212,62 @@ export function DenPageClientEnhanced({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [isOwner, activeDenKey, joinDen]);
 
+  // ── Host: auto-collect offline drops on den open ──────────────────────────
+  useEffect(() => {
+    if (!isOwner) return;
+
+    async function collectDrops() {
+      const supabase = createClient();
+      const mgr = new OfflineDropManager({
+        async uploadDrop() {},
+        async listDrops(prefix) {
+          // prefix = "drops/{denId}/" — list the folder without trailing slash
+          const folder = prefix.replace(/\/$/, "");
+          const { data, error } = await supabase.storage
+            .from("blobs")
+            .list(folder);
+          if (error || !data) return [];
+          return data
+            .filter((f) => f.name.endsWith(".enc"))
+            .map((f) => `${folder}/${f.name}`);
+        },
+        async downloadDrop(path) {
+          const { data, error } = await supabase.storage
+            .from("blobs")
+            .download(path);
+          if (error || !data)
+            throw new Error(error?.message ?? "Download failed");
+          const bytes = new Uint8Array(await data.arrayBuffer());
+          const metaLen = new DataView(bytes.buffer).getUint32(0, false);
+          const meta = JSON.parse(
+            new TextDecoder().decode(bytes.slice(4, 4 + metaLen)),
+          ) as { iv: string; visitorId: string; droppedAt: string };
+          return { data: bytes.slice(4 + metaLen), metadata: meta };
+        },
+        async deleteDrop(path) {
+          await supabase.storage.from("blobs").remove([path]);
+        },
+      });
+
+      const drops = await mgr.collectPendingDrops(activeDen.id);
+      if (drops.length === 0) return;
+
+      for (const drop of drops) {
+        await addToDropbox(activeDen.id, drop.visitorId, drop.encryptedPayload);
+        await mgr.confirmDrop(drop);
+      }
+
+      toast.success(
+        `${drops.length} offline ${drops.length === 1 ? "drop" : "drops"} collected`,
+        { description: "View them in Settings → Dropbox" },
+      );
+    }
+
+    collectDrops().catch((err) => {
+      console.warn("[@meerkat/p2p] Failed to collect offline drops:", err);
+    });
+  }, [isOwner, activeDen.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Realtime subscriptions for den metadata (rename, delete, members) ─────
   const handleDenUpdate = useCallback(
     (payload: { new: Den }) => {
@@ -352,7 +414,7 @@ export function DenPageClientEnhanced({
           });
           return;
         }
-        if (visitorStatus !== "synced") {
+        if (!activeDenKey.scope.offline && visitorStatus !== "synced") {
           toast.error("Cannot send voice message", {
             description:
               "You must be connected to the den to send voice messages",
@@ -422,6 +484,78 @@ export function DenPageClientEnhanced({
       toast.success(
         analysis ? "Voice memo saved with analysis" : "Voice memo saved",
       );
+    } else if (
+      !isOwner &&
+      visitorStatus !== "synced" &&
+      activeDenKey?.scope.offline
+    ) {
+      // Offline letterbox: encrypt the voice memo metadata and upload as a drop.
+      // The blob is already in Supabase Storage (uploaded by uploadVoiceMemo).
+      // The drop contains the URL + metadata so the host can import it later.
+      try {
+        const rawKeys = deserializeNamespaceKeySet(activeDenKey.namespaceKeys);
+        const dropboxRaw = rawKeys.dropbox;
+        if (!dropboxRaw) throw new Error("No dropbox key in this DenKey");
+
+        const cryptoKey = await importNamespaceKey(dropboxRaw);
+        const payload = new TextEncoder().encode(
+          JSON.stringify({
+            type: "voice_memo",
+            blobRef: voiceUrl,
+            durationSeconds: duration,
+            createdAt: Date.now(),
+            sender: senderInfo,
+            ...(analysisPayload && { analysis: analysisPayload }),
+          }),
+        );
+        const encrypted = await encryptBlob(payload, cryptoKey);
+
+        const supabase = createClient();
+        const mgr = new OfflineDropManager({
+          async uploadDrop(path, data, metadata) {
+            // Pack: [4-byte big-endian meta length][meta JSON UTF-8][ciphertext]
+            const metaBytes = new TextEncoder().encode(
+              JSON.stringify(metadata),
+            );
+            const header = new Uint8Array(4);
+            new DataView(header.buffer).setUint32(0, metaBytes.length, false);
+            const combined = new Uint8Array(4 + metaBytes.length + data.length);
+            combined.set(header, 0);
+            combined.set(metaBytes, 4);
+            combined.set(data, 4 + metaBytes.length);
+            const { error } = await supabase.storage
+              .from("blobs")
+              .upload(path, combined, {
+                contentType: "application/octet-stream",
+                upsert: false,
+              });
+            if (error) throw new Error(error.message);
+          },
+          async listDrops() {
+            return [];
+          },
+          async downloadDrop() {
+            throw new Error("not implemented");
+          },
+          async deleteDrop() {},
+        });
+
+        await mgr.uploadDrop(
+          activeDen.id,
+          currentUserId,
+          encrypted.ciphertext,
+          encrypted.iv,
+        );
+
+        toast.success("Voice message queued for delivery", {
+          description: "The host will receive it when they come online",
+        });
+      } catch (err) {
+        toast.error("Failed to queue voice message", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
     } else {
       // Visitor: write to shared.voiceThread so the host receives it
       try {
@@ -559,13 +693,7 @@ export function DenPageClientEnhanced({
   return (
     <>
       <div className="min-h-screen page-bg">
-        <div
-          className="fixed inset-0 opacity-20 pointer-events-none"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E")`,
-            backgroundSize: "150px",
-          }}
-        />
+        <GrainOverlay />
 
         <TopNav user={user} />
 

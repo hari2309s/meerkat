@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { GrainOverlay } from "@/components/grain-overlay";
 import { createClient } from "@/lib/supabase/client";
 import { startNavigationProgress } from "@/components/navigation-progress";
 import { toast } from "sonner";
@@ -18,6 +19,61 @@ import {
 import { useRedeemKey } from "@meerkat/keys";
 import { fromBase64 } from "@meerkat/crypto";
 import { recoverInviteSecret } from "@/components/invite-auth-gate";
+
+// ── Shared card shell for status screens ─────────────────────────────────────
+
+function Card({
+  icon: Icon,
+  iconBg,
+  iconColor,
+  title,
+  body,
+  children,
+}: {
+  icon: React.ElementType;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  body: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen page-bg flex items-center justify-center p-6">
+      <GrainOverlay />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.94, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 380, damping: 28 }}
+        className="relative w-full max-w-sm rounded-2xl p-8 text-center"
+        style={{
+          background: "var(--color-bg-card)",
+          border: "1.5px solid var(--color-border-card)",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.16)",
+        }}
+      >
+        <div
+          className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+          style={{ background: iconBg }}
+        >
+          <Icon className="h-7 w-7" style={{ color: iconColor }} />
+        </div>
+        <h1
+          className="text-xl font-bold mb-2"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          {title}
+        </h1>
+        <p
+          className="text-sm leading-relaxed mb-6"
+          style={{ color: "var(--color-text-secondary)" }}
+        >
+          {body}
+        </p>
+        {children}
+      </motion.div>
+    </div>
+  );
+}
 
 type InviteStatus =
   | "valid"
@@ -140,68 +196,6 @@ export function InvitePageClient({
       router.push(`/dens/${denId}`);
     }
   };
-
-  // ── Shared card shell ────────────────────────────────────────────────────
-
-  function Card({
-    icon,
-    iconBg,
-    iconColor,
-    title,
-    body,
-    children,
-  }: {
-    icon: React.ElementType;
-    iconBg: string;
-    iconColor: string;
-    title: string;
-    body: string;
-    children?: React.ReactNode;
-  }) {
-    const Icon = icon;
-    return (
-      <div className="min-h-screen page-bg flex items-center justify-center p-6">
-        <div
-          className="fixed inset-0 opacity-20 pointer-events-none"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E")`,
-            backgroundSize: "150px",
-          }}
-        />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.94, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 380, damping: 28 }}
-          className="relative w-full max-w-sm rounded-2xl p-8 text-center"
-          style={{
-            background: "var(--color-bg-card)",
-            border: "1.5px solid var(--color-border-card)",
-            boxShadow: "0 24px 64px rgba(0,0,0,0.16)",
-          }}
-        >
-          <div
-            className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-            style={{ background: iconBg }}
-          >
-            <Icon className="h-7 w-7" style={{ color: iconColor }} />
-          </div>
-          <h1
-            className="text-xl font-bold mb-2"
-            style={{ color: "var(--color-text-primary)" }}
-          >
-            {title}
-          </h1>
-          <p
-            className="text-sm leading-relaxed mb-6"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            {body}
-          </p>
-          {children}
-        </motion.div>
-      </div>
-    );
-  }
 
   // ── Status screens ────────────────────────────────────────────────────────
 
