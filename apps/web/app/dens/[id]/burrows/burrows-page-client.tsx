@@ -26,6 +26,7 @@ import { useBurrows } from "@meerkat/burrows";
 import type { BurrowData, BurrowMetadata } from "@meerkat/burrows";
 import { ConfirmModal } from "@meerkat/ui";
 import { TopNav } from "@/components/top-nav";
+import { GrainOverlay } from "@/components/grain-overlay";
 import { DenNavTabs } from "@/components/den/den-nav-tabs";
 import { startNavigationProgress } from "@/components/navigation-progress";
 
@@ -76,6 +77,7 @@ export function BurrowsPageClient({
 
   return (
     <div className="min-h-screen page-bg">
+      <GrainOverlay />
       <TopNav user={user} />
 
       <main className="max-w-4xl mx-auto px-4 pt-8 pb-32">
