@@ -76,16 +76,3 @@ export function getSenderName(
 ): string {
   return getDisplayName(sender);
 }
-
-/**
- * Truncate a string to `maxLength` characters, appending `suffix` when cut.
- *
- * @example
- *   truncate("Hello world", 5)       // "Hello…"
- *   truncate("Hi", 10)               // "Hi"
- *   truncate("Hello world", 5, "…") // "Hello…"
- */
-export function truncate(str: string, maxLength: number, suffix = "…"): string {
-  if (str.length <= maxLength) return str;
-  return str.slice(0, maxLength) + suffix;
-}
