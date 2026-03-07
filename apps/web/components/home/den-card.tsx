@@ -2,7 +2,30 @@
 
 import { forwardRef } from "react";
 import { motion } from "framer-motion";
-import { Heart, Users, Briefcase, Star, Loader2, Circle } from "lucide-react";
+import {
+  Heart,
+  Users,
+  Briefcase,
+  Star,
+  Loader2,
+  Circle,
+  Clock,
+} from "lucide-react";
+
+function formatExpiry(expiresAt: string): string {
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return "Expired";
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  if (hours < 1) return "Expires soon";
+  if (hours < 24) return `${hours}h left`;
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+  if (days < 60) return `${days}d left`;
+  return new Date(expiresAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(days > 300 ? { year: "numeric" } : {}),
+  });
+}
 import { usePresenceStore } from "@/stores/use-presence-store";
 import { useDenPresence } from "@/hooks/use-den-presence";
 import type { Den } from "@/types/den";
@@ -39,6 +62,7 @@ interface DenCardProps {
   navigatingId: string | null;
   onNavigate: (den: Den) => void;
   hasUnread?: boolean;
+  expiresAt?: string | null;
 }
 
 // forwardRef is required because AnimatePresence (mode="popLayout") passes a
@@ -46,7 +70,15 @@ interface DenCardProps {
 // "Function components cannot be given refs" console warning.
 export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
   function DenCard(
-    { den, index, currentUserId, navigatingId, onNavigate, hasUnread = false },
+    {
+      den,
+      index,
+      currentUserId,
+      navigatingId,
+      onNavigate,
+      hasUnread = false,
+      expiresAt,
+    },
     ref,
   ) {
     useDenPresence(den.id, currentUserId, false);
@@ -126,6 +158,14 @@ export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
             >
               <Circle className="h-2 w-2 fill-current opacity-80" />
               <span>{onlineCount}</span>
+            </div>
+          )}
+
+          {/* Key expiry */}
+          {expiresAt && (
+            <div className="flex items-center gap-1 ml-auto">
+              <Clock className="h-3 w-3 opacity-60 flex-shrink-0" />
+              <span className="truncate">{formatExpiry(expiresAt)}</span>
             </div>
           )}
         </div>

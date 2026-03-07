@@ -92,10 +92,12 @@ export function DensGrid({ userId }: DensGridProps) {
   const ownedDens = dens.filter((d) => d.user_id === userId);
   const visitorDens = dens.filter((d) => d.user_id !== userId);
 
-  // Map denId → stored key type for visitor dens
+  // Map denId → stored key metadata for visitor dens
   const keyTypeByDenId: Record<string, string> = {};
+  const expiresAtByDenId: Record<string, string | null> = {};
   for (const { key } of validKeys) {
     keyTypeByDenId[key.denId] = key.keyType;
+    expiresAtByDenId[key.denId] = key.expiresAt;
   }
 
   const visitorBySection: Partial<Record<SectionId, Den[]>> = {};
@@ -164,6 +166,7 @@ export function DensGrid({ userId }: DensGridProps) {
             userId={userId}
             navigatingId={navigatingId}
             onNavigate={handleDenClick}
+            expiresAtByDenId={expiresAtByDenId}
           />
         ))}
       </div>
@@ -191,6 +194,7 @@ interface DenSectionProps {
   onNavigate: (den: Den) => void;
   showCreate?: boolean;
   onCreateClick?: () => void;
+  expiresAtByDenId?: Record<string, string | null>;
 }
 
 function DenSection({
@@ -201,6 +205,7 @@ function DenSection({
   onNavigate,
   showCreate = false,
   onCreateClick,
+  expiresAtByDenId,
 }: DenSectionProps) {
   const { emoji, label, description } = SECTION_META[id];
 
@@ -248,6 +253,7 @@ function DenSection({
               currentUserId={userId}
               navigatingId={navigatingId}
               onNavigate={onNavigate}
+              expiresAt={expiresAtByDenId?.[den.id]}
             />
           ))}
 
