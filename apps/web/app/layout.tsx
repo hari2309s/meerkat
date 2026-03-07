@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { Suspense } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { NavigationProgress } from "@/components/navigation-progress";
+import { SplashScreen } from "@/components/splash-screen";
 import { QueryProvider } from "@/providers/query-provider";
 import { P2PProvider } from "@/providers/p2p-provider";
 import { FeatureFlagsProvider } from "@/lib/feature-flags-context";
@@ -71,6 +72,7 @@ export default function RootLayout({
             <FeatureFlagsProvider>
               <P2PProvider>
                 {/* Needs Suspense because NavigationProgress uses useSearchParams */}
+                <SplashScreen />
                 <Suspense fallback={null}>
                   <NavigationProgress />
                 </Suspense>

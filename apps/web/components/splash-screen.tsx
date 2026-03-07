@@ -1,15 +1,35 @@
-export default function Loading() {
+"use client";
+
+import { useState, useEffect } from "react";
+
+export function SplashScreen() {
+  const [visible, setVisible] = useState(true);
+  const [fading, setFading] = useState(false);
+
+  useEffect(() => {
+    // Start fade-out as soon as the app has hydrated
+    setFading(true);
+    const t = setTimeout(() => setVisible(false), 400);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!visible) return null;
+
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
+        zIndex: 9999,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         gap: "0.75rem",
         background: "var(--color-page-gradient)",
+        transition: "opacity 0.4s ease",
+        opacity: fading ? 0 : 1,
+        pointerEvents: "none",
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
