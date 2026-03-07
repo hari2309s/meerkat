@@ -31,11 +31,6 @@
  *     useStoredKeys()    — read/manage visitor's stored DenKeys
  *     useValidateKey()   — reactive validation with expiry polling
  *
- * Key type presets
- * ───────────────
- *
- *   KEY_PRESETS        — the 4 named presets (come-over, letterbox, house-sit, peek)
- *
  * All server interaction is caller-provided — this package has no Supabase dependency.
  */
 
@@ -48,9 +43,6 @@ export {
   validateKey,
   generateDenNamespaceKeys,
 } from "./lib/keys";
-
-// ─── Presets ──────────────────────────────────────────────────────────────────
-export { KEY_PRESETS, defaultLabel } from "./lib/presets";
 
 // ─── React hooks ─────────────────────────────────────────────────────────────
 export {
