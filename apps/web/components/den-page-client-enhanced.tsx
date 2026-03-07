@@ -289,13 +289,13 @@ export function DenPageClientEnhanced({
               email: string;
             };
             analysis?: {
-              transcript?: string;
-              mood?: string;
-              tone?: string;
-              valence?: number;
-              arousal?: number;
-              confidence?: number;
-              analysedAt?: number;
+              transcript: string;
+              mood: string;
+              tone: string;
+              valence: number;
+              arousal: number;
+              confidence: number;
+              analysedAt: number;
             };
           };
           if (payload.type === "voice_memo") {
