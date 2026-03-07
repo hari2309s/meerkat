@@ -13,6 +13,8 @@ import {
   generateDenNamespaceKeys,
 } from "@meerkat/keys";
 import type { KeyType } from "@meerkat/keys";
+import { getSetting, setSetting } from "@meerkat/local-store";
+import type { SerializedNamespaceKeySet } from "@meerkat/crypto";
 import type { Den } from "@/types/den";
 
 interface InviteModalProps {
@@ -73,7 +75,16 @@ async function buildFlowerPot(
 ): Promise<{ kp: KeyPair; flowerPotToken: string } | null> {
   try {
     const kp = generateKeyPair();
-    const allNamespaceKeys = await generateDenNamespaceKeys();
+    // Reuse existing namespace keys if they exist — the host must always use the
+    // same keys so they can decrypt drops encrypted with any invite's DenKey.
+    const existingKeys = await getSetting<SerializedNamespaceKeySet>(
+      denId,
+      "den-ns-keys",
+    );
+    const allNamespaceKeys = existingKeys ?? (await generateDenNamespaceKeys());
+    if (!existingKeys) {
+      await setSetting(denId, "den-ns-keys", allNamespaceKeys);
+    }
     const denKey = generateKey({
       keyType,
       denId,

@@ -15,9 +15,10 @@ import { useDenContextSafe } from "@meerkat/crdt";
 import { useJoinDen, OfflineDropManager } from "@meerkat/p2p";
 import { useBurrows } from "@meerkat/burrows";
 import { useStoredKeys } from "@meerkat/keys";
-import { openDen, addToDropbox } from "@meerkat/local-store";
+import { openDen, getSetting } from "@meerkat/local-store";
 import {
   encryptBlob,
+  decryptBlob,
   deserializeNamespaceKeySet,
   importNamespaceKey,
 } from "@meerkat/crypto";
@@ -252,15 +253,84 @@ export function DenPageClientEnhanced({
       const drops = await mgr.collectPendingDrops(activeDen.id);
       if (drops.length === 0) return;
 
+      // Load the host's namespace keys (saved when the invite was created)
+      const rawKeys = await getSetting<Record<string, string>>(
+        activeDen.id,
+        "den-ns-keys",
+      );
+      if (!rawKeys) {
+        console.warn(
+          "[@meerkat/p2p] No namespace keys found — cannot decrypt drops",
+        );
+        return;
+      }
+      const nsKeys = deserializeNamespaceKeySet(rawKeys);
+      if (!nsKeys.dropbox) {
+        console.warn("[@meerkat/p2p] No dropbox key in namespace key set");
+        return;
+      }
+      const cryptoKey = await importNamespaceKey(nsKeys.dropbox);
+
+      let imported = 0;
       for (const drop of drops) {
-        await addToDropbox(activeDen.id, drop.visitorId, drop.encryptedPayload);
+        try {
+          const plaintext = await decryptBlob(
+            { data: drop.encryptedPayload, iv: drop.iv, alg: "AES-GCM-256" },
+            cryptoKey,
+          );
+          const payload = JSON.parse(new TextDecoder().decode(plaintext)) as {
+            type: string;
+            blobRef: string;
+            durationSeconds: number;
+            createdAt: number;
+            sender: {
+              full_name: string;
+              preferred_name?: string;
+              email: string;
+            };
+            analysis?: {
+              transcript?: string;
+              mood?: string;
+              tone?: string;
+              valence?: number;
+              arousal?: number;
+              confidence?: number;
+              analysedAt?: number;
+            };
+          };
+          if (payload.type === "voice_memo") {
+            const { sharedDen } = await openDen(activeDen.id);
+            const voiceMemo = {
+              id: crypto.randomUUID(),
+              userId: drop.visitorId,
+              blobRef: payload.blobRef,
+              durationSeconds: payload.durationSeconds,
+              createdAt: payload.createdAt,
+              sender: payload.sender,
+              ...(payload.analysis && { analysis: payload.analysis }),
+            };
+            sharedDen.ydoc.transact(() => {
+              sharedDen.voiceThread.push([voiceMemo]);
+            });
+            imported++;
+          }
+        } catch (err) {
+          console.warn(
+            `[@meerkat/p2p] Failed to decrypt drop ${drop.dropId}:`,
+            err,
+          );
+        }
+        // Always confirm (delete) the drop — even on decrypt failure, to avoid
+        // accumulating undecryptable blobs in storage.
         await mgr.confirmDrop(drop);
       }
 
-      toast.success(
-        `${drops.length} offline ${drops.length === 1 ? "drop" : "drops"} collected`,
-        { description: "View them in Settings → Dropbox" },
-      );
+      if (imported > 0) {
+        toast.success(
+          `${imported} offline ${imported === 1 ? "message" : "messages"} delivered`,
+          { description: "Visitor voice memos added to the thread" },
+        );
+      }
     }
 
     collectDrops().catch((err) => {
