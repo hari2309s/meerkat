@@ -80,7 +80,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
                   <button
                     key={id}
                     onClick={() => setActiveSection(id)}
-                    className={`settings-nav-item ${active ? "settings-nav-active" : ""} w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-left transition-all duration-150`}
+                    className={`settings-nav-item ${active ? "settings-nav-active" : ""} w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-left transition-all duration-150 my-2`}
                     style={{
                       background: active
                         ? "rgba(255,255,255,0.15)"
