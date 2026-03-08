@@ -1,35 +1,32 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { TopNav } from "@/components/top-nav";
 import { DensSection } from "@/components/dens-section";
 import { GrainOverlay } from "@/components/grain-overlay";
+import { getCurrentUser } from "@/lib/get-current-user";
 import { getDisplayName } from "@meerkat/utils/string";
 
 export default async function HomePage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const name =
-    user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
-
-  const preferredName = user.user_metadata?.preferred_name || null;
   const greeting = getDisplayName({
-    preferred_name: preferredName,
-    full_name: name,
+    preferred_name: user.preferredName,
+    full_name: user.name,
   });
 
   return (
     <div className="min-h-screen page-bg">
       <GrainOverlay />
 
-      <TopNav user={{ name, preferredName, email: user.email ?? "" }} />
+      <TopNav
+        user={{
+          name: user.name,
+          preferredName: user.preferredName,
+          email: user.email,
+        }}
+      />
 
       <main className="relative z-10 max-w-4xl mx-auto px-4 pt-8 pb-16">
-        {/* Greeting */}
         <div className="mb-10 text-center">
           <h2
             className="text-4xl font-bold mb-2"
@@ -45,8 +42,11 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {/* Dens */}
-        <DensSection userId={user.id} />
+        {/* Only render dens list for Supabase users — v2 users store dens
+            locally in IndexedDB which DensSection reads client-side */}
+        <DensSection
+          userId={user.authType === "supabase" ? user.id : "local"}
+        />
       </main>
     </div>
   );
