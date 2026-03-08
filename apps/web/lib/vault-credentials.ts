@@ -75,4 +75,6 @@ export function clearVault(): void {
   clearMnemonic();
   clearProfile();
   clearVaultSessionCookie();
+  // Also clear the server-readable profile name cookie
+  document.cookie = `vault_profile_name=; path=/; max-age=0; SameSite=Strict`;
 }
