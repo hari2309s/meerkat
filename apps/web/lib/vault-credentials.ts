@@ -13,6 +13,7 @@
 const MNEMONIC_STORAGE_KEY = "vault_mnemonic";
 const PROFILE_STORAGE_KEY = "vault_profile";
 export const VAULT_SESSION_COOKIE = "vault_session";
+export const VAULT_PROFILE_NAME_COOKIE = "vault_profile_name";
 
 // ---------------------------------------------------------------------------
 // Mnemonic helpers

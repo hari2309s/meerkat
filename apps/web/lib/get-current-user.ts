@@ -14,9 +14,10 @@
 
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { VAULT_SESSION_COOKIE } from "@/lib/vault-credentials";
-
-export const VAULT_PROFILE_NAME_COOKIE = "vault_profile_name";
+import {
+  VAULT_SESSION_COOKIE,
+  VAULT_PROFILE_NAME_COOKIE,
+} from "@/lib/vault-credentials";
 
 export interface CurrentUser {
   /** Supabase UUID for v1 users; deterministic hex for v2 users */
