@@ -18,6 +18,7 @@ import {
 import { SectionCard, ConfirmModal } from "@/components/settings/shared";
 import { relativeTime } from "@meerkat/utils/time";
 import type { SessionInfo, SettingsUser } from "@/components/settings/types";
+import { clearVault } from "@/lib/vault-credentials";
 
 // ── Password card ─────────────────────────────────────────────────────────────
 
@@ -117,6 +118,9 @@ function SessionsCard() {
   const handleSignOutAll = async () => {
     setIsSigningOut(true);
     try {
+      // Clear the on-device vault (v2 flow)
+      clearVault();
+      // Sign out of Supabase globally (v1 flow)
       const supabase = createClient();
       await supabase.auth.signOut({ scope: "global" });
       router.push("/login");

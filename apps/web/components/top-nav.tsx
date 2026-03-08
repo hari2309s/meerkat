@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 import { startNavigationProgress } from "@/components/navigation-progress";
 import { getInitials, getDisplayName } from "@meerkat/utils/string";
 import { useTheme } from "@/components/theme-provider";
+import { clearVault } from "@/lib/vault-credentials";
 
 interface NavUser {
   name: string;
@@ -83,6 +84,9 @@ export function TopNav({ user }: TopNavProps) {
 
   const handleSignOut = async () => {
     startNavigationProgress();
+    // Clear the on-device vault (mnemonic, profile, session cookie)
+    clearVault();
+    // Also sign out of Supabase for v1 users (no-op if no session exists)
     const supabase = createClient();
     await supabase.auth.signOut({ scope: "local" });
     router.push("/login");
