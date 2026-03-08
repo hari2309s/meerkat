@@ -9,8 +9,7 @@ import { Button, Input, Label } from "@meerkat/ui";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { validateMnemonic } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
-import { createClient } from "@/lib/supabase/client";
-import { deriveCredentials, saveMnemonic } from "@/lib/vault-credentials";
+import { saveMnemonic, setVaultSessionCookie } from "@/lib/vault-credentials";
 import { startNavigationProgress } from "@/components/navigation-progress";
 
 // ---------------------------------------------------------------------------
@@ -36,42 +35,19 @@ function LoginV2Form() {
 
     try {
       // 1. Validate the mnemonic against the full BIP39 wordlist + checksum.
+      //    This catches wrong words, wrong word count, and invalid checksum —
+      //    all purely on-device, no network call needed.
       if (!validateMnemonic(trimmed, wordlist)) {
         throw new Error(
           "Invalid Key. Make sure you entered all 12 words correctly, in the right order.",
         );
       }
 
-      // 2. Re-derive the same credentials that were used at signup.
-      const { email, password } = await deriveCredentials(trimmed);
-
-      // 3. Sign in to Supabase.
-      const supabase = createClient();
-      const { data, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-      if (signInError) {
-        // signInWithPassword returns "Invalid login credentials" when the
-        // account doesn't exist — surface a friendlier message.
-        if (
-          signInError.message
-            .toLowerCase()
-            .includes("invalid login credentials")
-        ) {
-          throw new Error(
-            "No vault found for this Key. Double-check your phrase or create a new vault.",
-          );
-        }
-        throw signInError;
-      }
-
-      if (!data.user) throw new Error("Sign in failed. Please try again.");
-
-      // 4. Persist the mnemonic for future sessions on this device.
+      // 2. Persist the mnemonic so the user stays logged in on this device.
       saveMnemonic(trimmed);
+
+      // 3. Set a cookie so middleware knows a vault session is active.
+      setVaultSessionCookie();
 
       startNavigationProgress();
       // Keep isLoading=true — spinner persists until component unmounts.

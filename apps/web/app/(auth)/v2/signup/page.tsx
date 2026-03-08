@@ -6,11 +6,15 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { Button, Input, Label } from "@meerkat/ui";
-import { Loader2, Eye, EyeOff, Copy, Check, ArrowLeft } from "lucide-react";
+import { Loader2, Copy, Check, ArrowLeft } from "lucide-react";
 import { generateMnemonic } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
-import { createClient } from "@/lib/supabase/client";
-import { deriveCredentials, saveMnemonic } from "@/lib/vault-credentials";
+import {
+  saveMnemonic,
+  saveProfile,
+  setVaultSessionCookie,
+} from "@/lib/vault-credentials";
+import { startNavigationProgress } from "@/components/navigation-progress";
 
 // 128 bits of entropy → 12 words from the canonical 2048-word BIP39 list.
 const createMnemonic = () => generateMnemonic(wordlist, 128);
@@ -113,73 +117,50 @@ function KeyStep({
         </p>
       </div>
 
-      {/* Key display */}
+      {/* Mnemonic display */}
       <div
-        className="relative rounded-2xl p-4 font-mono text-sm leading-relaxed"
+        className="rounded-xl p-4 font-mono text-sm text-center leading-relaxed select-none relative overflow-hidden"
         style={{
           background: "var(--color-bg-card)",
           border: "1px solid var(--color-border-card)",
           color: "var(--color-text-primary)",
-          minHeight: "72px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "12px",
+          filter: revealed ? "none" : "blur(6px)",
+          userSelect: revealed ? "text" : "none",
         }}
+        aria-label={revealed ? "Your mnemonic key" : "Key hidden"}
       >
-        <span
-          className="flex-1 break-words"
-          style={{
-            filter: revealed ? "none" : "blur(6px)",
-            transition: "filter 0.3s ease",
-            userSelect: revealed ? "text" : "none",
-          }}
-        >
-          {mnemonic}
-        </span>
-        <button
-          onClick={() => setRevealed((r) => !r)}
-          className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
-          type="button"
-          aria-label={revealed ? "Hide key" : "Show key"}
-        >
-          {revealed ? (
-            <EyeOff className="h-5 w-5" />
-          ) : (
-            <Eye className="h-5 w-5" />
-          )}
-        </button>
+        {mnemonic}
       </div>
 
       <Button
-        className="w-full h-12 text-base font-semibold"
+        variant="outline"
+        className="w-full h-11 font-medium gap-2"
         onClick={handleRevealAndCopy}
         type="button"
       >
         {copied ? (
           <>
-            <Check className="mr-2 h-5 w-5" />
+            <Check className="h-4 w-4 text-green-500" />
             Copied!
           </>
         ) : (
           <>
-            <Copy className="mr-2 h-5 w-5" />
-            Reveal and Copy
+            <Copy className="h-4 w-4" />
+            {revealed ? "Copy again" : "Reveal and Copy"}
           </>
         )}
       </Button>
 
-      <label className="flex items-start gap-3 cursor-pointer group">
-        {/* Hidden native checkbox for accessibility */}
+      {/* Acknowledgement checkbox */}
+      <label className="flex items-start gap-3 cursor-pointer select-none">
         <input
           type="checkbox"
           className="sr-only"
           checked={acknowledged}
           onChange={(e) => setAcknowledged(e.target.checked)}
         />
-        {/* Custom checkbox box */}
         <span
-          className="mt-0.5 h-4 w-4 shrink-0 rounded flex items-center justify-center transition-all duration-150"
+          className="mt-0.5 flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition-all"
           style={{
             border: acknowledged
               ? "2px solid hsl(var(--meerkat-brown))"
@@ -227,7 +208,7 @@ function KeyStep({
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 — Display name → create Supabase account
+// Step 3 — Display name → save locally
 // ---------------------------------------------------------------------------
 function NameStep({
   onComplete,
@@ -335,46 +316,21 @@ function SignUpV2Form() {
   const [error, setError] = useState<string | null>(null);
 
   const handleComplete = useCallback(
-    async (name: string) => {
+    (name: string) => {
       setIsLoading(true);
       setError(null);
 
       try {
-        // 1. Derive deterministic Supabase credentials from the mnemonic.
-        //    The mnemonic itself never leaves the client.
-        const { email, password } = await deriveCredentials(mnemonic);
-
-        // 2. Create the Supabase account.
-        const supabase = createClient();
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: name },
-            // No real email is used — disable email confirmation in your
-            // Supabase dashboard (Auth → Settings → "Enable email confirmations"
-            // toggle off), or the user will be unconfirmed until confirmed.
-          },
-        });
-
-        if (signUpError) {
-          if (
-            signUpError.message.toLowerCase().includes("already registered")
-          ) {
-            throw new Error(
-              "A vault with this Key already exists. Try signing in with your Key instead.",
-            );
-          }
-          throw signUpError;
-        }
-
-        if (!data.user)
-          throw new Error("Account creation failed. Please try again.");
-
-        // 3. Persist the mnemonic in localStorage so the user stays logged in
-        //    across sessions on this device without re-entering their Key.
+        // 1. Persist the mnemonic — this IS the user's identity on this device.
         saveMnemonic(mnemonic);
 
+        // 2. Save display name + creation timestamp locally.
+        saveProfile({ name, createdAt: new Date().toISOString() });
+
+        // 3. Set a cookie so middleware knows a vault session is active.
+        setVaultSessionCookie();
+
+        startNavigationProgress();
         router.push(nextUrl);
         router.refresh();
       } catch (err: unknown) {
@@ -383,7 +339,6 @@ function SignUpV2Form() {
             ? err.message
             : "Something went wrong. Please try again.",
         );
-      } finally {
         setIsLoading(false);
       }
     },
