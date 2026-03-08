@@ -41,8 +41,10 @@ next-env.d.ts
 # PWA
 apps/web/public/sw.js
 apps/web/public/workbox-*.js
+apps/web/public/workbox-*.map
 apps/web/public/swe*.js
 apps/web/public/serviceworker.js
+apps/web/public/sw.js.map
 
 # Supabase
 supabase/.branches
