@@ -14,7 +14,14 @@ import {
   saveProfile,
   setVaultSessionCookie,
 } from "@/lib/vault-credentials";
+import { VAULT_PROFILE_NAME_COOKIE } from "@/lib/get-current-user";
 import { startNavigationProgress } from "@/components/navigation-progress";
+
+/** Mirror the display name into a cookie so server components can read it. */
+function setProfileNameCookie(name: string) {
+  const maxAge = 60 * 60 * 24 * 30;
+  document.cookie = `${VAULT_PROFILE_NAME_COOKIE}=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Strict`;
+}
 
 // 128 bits of entropy → 12 words from the canonical 2048-word BIP39 list.
 const createMnemonic = () => generateMnemonic(wordlist, 128);
@@ -327,7 +334,9 @@ function SignUpV2Form() {
         // 2. Save display name + creation timestamp locally.
         saveProfile({ name, createdAt: new Date().toISOString() });
 
-        // 3. Set a cookie so middleware knows a vault session is active.
+        // 3. Mirror name into a cookie so server components can read it,
+        //    and set the session presence cookie for middleware.
+        setProfileNameCookie(name);
         setVaultSessionCookie();
 
         startNavigationProgress();

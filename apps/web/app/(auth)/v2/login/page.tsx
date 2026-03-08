@@ -9,8 +9,18 @@ import { Button, Input, Label } from "@meerkat/ui";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { validateMnemonic } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
-import { saveMnemonic, setVaultSessionCookie } from "@/lib/vault-credentials";
+import {
+  saveMnemonic,
+  setVaultSessionCookie,
+  loadProfile,
+} from "@/lib/vault-credentials";
+import { VAULT_PROFILE_NAME_COOKIE } from "@/lib/get-current-user";
 import { startNavigationProgress } from "@/components/navigation-progress";
+
+function setProfileNameCookie(name: string) {
+  const maxAge = 60 * 60 * 24 * 30;
+  document.cookie = `${VAULT_PROFILE_NAME_COOKIE}=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Strict`;
+}
 
 // ---------------------------------------------------------------------------
 // Login form
@@ -46,7 +56,12 @@ function LoginV2Form() {
       // 2. Persist the mnemonic so the user stays logged in on this device.
       saveMnemonic(trimmed);
 
-      // 3. Set a cookie so middleware knows a vault session is active.
+      // 3. Re-hydrate the profile name cookie so server components can read
+      //    the display name without needing localStorage.
+      const profile = loadProfile();
+      if (profile?.name) setProfileNameCookie(profile.name);
+
+      // 4. Set a cookie so middleware knows a vault session is active.
       setVaultSessionCookie();
 
       startNavigationProgress();

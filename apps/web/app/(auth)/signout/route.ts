@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { config } from "@meerkat/config";
 import { VAULT_SESSION_COOKIE } from "@/lib/vault-credentials";
+import { VAULT_PROFILE_NAME_COOKIE } from "@/lib/get-current-user";
 
 export async function POST() {
   // Sign out of Supabase (v1 users)
@@ -13,12 +14,10 @@ export async function POST() {
     { status: 302 },
   );
 
-  // Clear the vault session cookie (v2 users)
-  response.cookies.set(VAULT_SESSION_COOKIE, "", {
-    path: "/",
-    maxAge: 0,
-    sameSite: "strict",
-  });
+  // Clear vault session cookies (v2 users)
+  const cookieOpts = { path: "/", maxAge: 0, sameSite: "strict" } as const;
+  response.cookies.set(VAULT_SESSION_COOKIE, "", cookieOpts);
+  response.cookies.set(VAULT_PROFILE_NAME_COOKIE, "", cookieOpts);
 
   return response;
 }
