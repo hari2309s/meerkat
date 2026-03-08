@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { config } from "@meerkat/config";
-import { VAULT_SESSION_COOKIE } from "@/lib/vault-credentials";
-import { VAULT_PROFILE_NAME_COOKIE } from "@/lib/get-current-user";
+import {
+  VAULT_SESSION_COOKIE,
+  VAULT_PROFILE_NAME_COOKIE,
+} from "@/lib/vault-credentials";
 
 export async function POST() {
   // Sign out of Supabase (v1 users)

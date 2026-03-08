@@ -13,8 +13,8 @@ import {
   saveMnemonic,
   setVaultSessionCookie,
   loadProfile,
+  VAULT_PROFILE_NAME_COOKIE,
 } from "@/lib/vault-credentials";
-import { VAULT_PROFILE_NAME_COOKIE } from "@/lib/get-current-user";
 import { startNavigationProgress } from "@/components/navigation-progress";
 
 function setProfileNameCookie(name: string) {
