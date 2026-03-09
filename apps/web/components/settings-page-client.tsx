@@ -4,10 +4,11 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { TopNav } from "@/components/top-nav";
 import { GrainOverlay } from "@/components/grain-overlay";
-import { User, Shield, Inbox } from "lucide-react";
+import { User, Shield, Inbox, KeyRound } from "lucide-react";
 import { ProfileSection } from "@/components/settings/profile-section";
 import { SecuritySection } from "@/components/settings/security-section";
 import { DropboxSection } from "@/components/settings/dropbox-section";
+import { VaultKeySection } from "@/components/settings/vault-key-section";
 import type { Section, SettingsUser } from "@/components/settings/types";
 
 interface SettingsPageClientProps {
@@ -17,6 +18,7 @@ interface SettingsPageClientProps {
 const NAV_ITEMS: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Shield },
+  { id: "vault", label: "Vault Key", icon: KeyRound },
   { id: "dropbox", label: "Dropbox", icon: Inbox },
 ];
 
@@ -119,6 +121,7 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
           >
             {activeSection === "profile" && <ProfileSection user={user} />}
             {activeSection === "security" && <SecuritySection user={user} />}
+            {activeSection === "vault" && <VaultKeySection />}
             {activeSection === "dropbox" && <DropboxSection userId={user.id} />}
           </motion.div>
         </div>
