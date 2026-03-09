@@ -15,12 +15,15 @@ apps/web/
 │   │   ├── signup/page.tsx            ← 3-step onboarding (Welcome → Key → Name)
 │   │   └── login/page.tsx             ← Key entry → vault access
 ├── components/
+│   ├── den/
+│   │   └── voice-note-message.tsx     ← consumes useVoiceUrl { url, isDecrypting, error }
 │   └── settings/
 │       └── vault-key-section.tsx      ← "Show my Key" settings card (v2 users only)
 ├── hooks/
+│   ├── use-vault-den-context.ts       ← vault-aware DenState wrapper (preferred over useDenContext)
+│   ├── use-vault-notes.ts             ← note CRUD with transparent encrypt/decrypt
 │   ├── use-voice-memo-upload.ts       ← voice upload with client-side encryption
-│   ├── use-voice-url.ts               ← voice playback with transparent decryption
-│   └── use-vault-notes.ts             ← note CRUD with transparent encrypt/decrypt
+│   └── use-voice-url.ts               ← voice playback with transparent decryption
 └── lib/
     └── vault-credentials.ts           ← derivation + localStorage helpers + HKDF key
 ```
@@ -149,28 +152,63 @@ audio is uploaded unencrypted as `.webm` — full backward compatibility.
 | `.webm`        | Signs the storage URL and returns it directly — no decryption needed                                    |
 | `.enc`         | Signs URL → `fetch()` bytes → `JSON.parse` → `decryptBlob(vaultKey)` → `URL.createObjectURL(plaintext)` |
 
-The return type is `{ url, isDecrypting, error }` (previously `string | null`)
-so the UI can show a loading indicator during the decrypt step.
+The return type is `{ url, isDecrypting, error }` (not a plain `string | null`)
+so consumers can show a loading state during the decrypt step.
 
 The object URL created for `.enc` blobs is revoked automatically on unmount or
 when `voicePath` changes, preventing memory leaks.
 
 ```ts
 const { url, isDecrypting, error } = useVoiceUrl(memo.blobRef);
+// url:          string | null  — ready for <audio src={url} /> once non-null
+// isDecrypting: boolean        — true while fetching + decrypting an .enc blob
+// error:        string | null  — set if signing, fetching, or decryption fails
+```
 
-if (isDecrypting) return <Spinner />;
-if (error) return <ErrorBadge message={error} />;
-// url is a safe object URL ready for <audio src={url} />
+### Consumer pattern (`components/den/voice-note-message.tsx`)
+
+Destructure all three fields and disable the play button while decrypting:
+
+```tsx
+const { url: signedUrl, isDecrypting } = useVoiceUrl(message.voice_url);
+
+<button
+  onClick={togglePlay}
+  disabled={isDecrypting || !signedUrl}
+>
+  {isDecrypting ? (
+    <Loader2 className="h-5 w-5 text-white animate-spin" />
+  ) : playing ? (
+    <Pause className="h-5 w-5 text-white fill-current" />
+  ) : (
+    <Play className="h-5 w-5 text-white fill-current ml-0.5" />
+  )}
+</button>
+
+{signedUrl && (
+  <audio ref={audioRef} src={signedUrl} ... />
+)}
+```
+
+**TypeScript note** — `decryptBlob` returns `Uint8Array<ArrayBufferLike>`.
+`Blob` only accepts `ArrayBuffer`, not the wider `ArrayBufferLike` union.
+The fix is to copy through the typed-array constructor before passing to `Blob`:
+
+```ts
+const safeBytes = new Uint8Array(plaintextBytes); // copy constructor → fresh plain ArrayBuffer
+const audioBlob = new Blob([safeBytes], { type: "audio/webm" });
 ```
 
 ---
 
-## Note content encryption (`hooks/use-vault-notes.ts`)
+## Note content encryption
 
-Notes are stored in the Yjs `Y.Map<NoteData>` inside IndexedDB. The `content`
-field is a plain string. `use-vault-notes.ts` wraps the `@meerkat/local-store`
-CRUD functions and adds transparent encryption without modifying the package
-itself (keeping `@meerkat/local-store` dependency-free from vault logic).
+### Architecture
+
+Notes are stored as plain strings in `Y.Map<NoteData>` inside IndexedDB.
+`@meerkat/local-store` and `@meerkat/crdt` have no knowledge of vault logic —
+they are workspace packages that must stay dependency-free from `apps/web`.
+The encryption layer lives entirely in two web-app hooks.
 
 ### Storage format
 
@@ -215,20 +253,68 @@ Yjs Y.Map fires observer → useAllNotes(denId) returns raw NoteData[]
 | Vault session cleared after notes exist | Placeholder `"[Encrypted — sign in with your Key to view]"` — no crash |
 | Corrupted ciphertext                    | Placeholder `"[Could not decrypt note]"` — no crash                    |
 
-### API
+### `useVaultDenContextForDen` — the preferred integration point
+
+`@meerkat/crdt`'s `DenProvider` wires CRUD directly to `@meerkat/local-store`
+and cannot import vault logic. The solution is a thin shim at the web-app
+boundary: `hooks/use-vault-den-context.ts`.
+
+`useVaultDenContextForDen(denId)` calls `useDenContext()` internally and
+patches exactly two things:
+
+- `den.notes` → replaced by `useDecryptedAllNotes(denId)` (Yjs-reactive,
+  decrypts each batch before setting state)
+- `den.actions.createNote` / `.updateNote` → replaced by vault-encrypting
+  versions from `useVaultNotes(denId)`
+
+The return type is identical to `DenState`. No other component changes beyond
+the import swap.
 
 ```ts
-// Reactive — re-renders on Yjs changes, decrypts before returning:
+// Before — raw ciphertext may reach the component
+import { useDenContext } from "@meerkat/crdt";
+const { notes, actions } = useDenContext();
+
+// After — notes always plaintext; writes always encrypted
+import { useVaultDenContextForDen } from "@/hooks/use-vault-den-context";
+const { notes, actions } = useVaultDenContextForDen(denId);
+```
+
+For components outside a `DenProvider`, or that call CRUD imperatively:
+
+```ts
+// Reactive subscription (drop-in for useAllNotes):
 const notes = useDecryptedAllNotes(denId);
 
-// Imperative CRUD — for event handlers:
+// Imperative CRUD:
 const { createNote, updateNote, deleteNote, getAllNotes } =
   useVaultNotes(denId);
 ```
 
-**Migration for existing components:** replace `useAllNotes(denId)` with
-`useDecryptedAllNotes(denId)` and route note writes through `useVaultNotes`
-actions instead of calling `@meerkat/local-store` directly.
+### Search limitation
+
+`actions.searchNotes` operates on raw stored content. For vault users that
+content is ciphertext, so plaintext queries will not match. Replace with a
+client-side filter over the already-decrypted notes array:
+
+```ts
+const { notes } = useVaultDenContextForDen(denId);
+const results = notes.filter((n) =>
+  n.content.toLowerCase().includes(query.toLowerCase()),
+);
+```
+
+### Call-site migration summary
+
+| Old call                       | New call                                     |
+| ------------------------------ | -------------------------------------------- |
+| `useDenContext()`              | `useVaultDenContextForDen(denId)`            |
+| `useAllNotes(denId)`           | `useDecryptedAllNotes(denId)`                |
+| `createNote(denId, input)`     | `useVaultNotes(denId).createNote(input)`     |
+| `updateNote(denId, id, input)` | `useVaultNotes(denId).updateNote(id, input)` |
+| `deleteNote` / `searchNotes`   | unchanged — no content to encrypt            |
+
+See `docs/VAULT_NOTES_MIGRATION.md` for the full per-pattern guide.
 
 ---
 
