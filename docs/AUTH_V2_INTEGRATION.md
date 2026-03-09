@@ -16,9 +16,11 @@ apps/web/
 │   │   └── login/page.tsx             ← Key entry → vault access
 ├── components/
 │   └── settings/
-│       └── vault-key-section.tsx      ← "Show my Key" settings card
+│       └── vault-key-section.tsx      ← "Show my Key" settings card (v2 users only)
 ├── hooks/
-│   └── use-voice-memo-upload.ts       ← voice upload with client-side encryption
+│   ├── use-voice-memo-upload.ts       ← voice upload with client-side encryption
+│   ├── use-voice-url.ts               ← voice playback with transparent decryption
+│   └── use-vault-notes.ts             ← note CRUD with transparent encrypt/decrypt
 └── lib/
     └── vault-credentials.ts           ← derivation + localStorage helpers + HKDF key
 ```
@@ -27,9 +29,7 @@ The existing `/signup` and `/login` routes are **untouched**.
 
 ---
 
-## How it works
-
-### Identity derivation
+## How identity derivation works
 
 ```
 mnemonic (UTF-8, trimmed + lowercased)
@@ -61,70 +61,60 @@ to the user. The mnemonic is the only thing that can reproduce it.
 - "I've lost my Key" surfaces an inline error (no recovery is possible by
   design — the mnemonic is the only key)
 
-### Persistence
-
-The mnemonic is stored in `localStorage` under `vault_mnemonic` after a
-successful sign-in or sign-up. This keeps the user logged in across sessions
-on the same device without re-entering their phrase.
-
 ---
 
 ## Sign-out
 
 `clearVault()` in `lib/vault-credentials.ts` is the single sign-out function
-for vault users. It removes all on-device state:
+for vault users. It removes all on-device state atomically:
 
 ```
-clearMnemonic()          → removes "vault_mnemonic" from localStorage
-clearProfile()           → removes "vault_profile" from localStorage
+clearMnemonic()           → removes "vault_mnemonic" from localStorage
+clearProfile()            → removes "vault_profile" from localStorage
 clearVaultSessionCookie() → expires the "vault_session" cookie
                           → expires the "vault_profile_name" cookie
 ```
 
-**Where it is called**:
+**Where it is called:**
 
 | Location                                                          | Trigger                                    |
 | ----------------------------------------------------------------- | ------------------------------------------ |
 | `components/top-nav.tsx` — `handleSignOut()`                      | User clicks "Sign out" in the nav dropdown |
 | `components/settings/security-section.tsx` — `handleSignOutAll()` | User clicks "Sign out everywhere"          |
 
-Both call `clearVault()` before calling `supabase.auth.signOut()` so the
-vault is cleared even if the Supabase call fails (e.g. no network).
+Both call `clearVault()` before `supabase.auth.signOut()` so the vault is
+cleared even if the Supabase call fails (e.g. no network).
 
 ---
 
-## Encryption key derivation (HKDF)
+## HKDF encryption key derivation
 
-The mnemonic also drives a symmetric encryption key used to protect den/note
-data (voice blobs, attachments) before anything is written to Supabase Storage.
-The server stores only ciphertext — it can never decrypt user content.
+The mnemonic also drives a deterministic symmetric key used to encrypt all
+user content before it is written to IndexedDB or uploaded to Supabase Storage.
+The server only ever stores ciphertext.
 
 ### Derivation
 
 ```
 mnemonic (UTF-8, trimmed + lowercased)
   → HKDF-SHA-256
-      salt  = empty (mnemonic entropy is sufficient — RFC 5869 §2.2)
+      salt  = empty  (mnemonic entropy is sufficient — RFC 5869 §2.2)
       info  = "meerkat-vault-v1"  (domain separator)
   → 256-bit AES-GCM CryptoKey (non-extractable)
 ```
 
 The fixed `info` string acts as a domain separator. Future key versions
 (`meerkat-vault-v2`, etc.) will derive completely different keys and can
-coexist without collision.
-
-No random salt is used because:
+coexist without collision. No random salt is used because:
 
 1. The mnemonic already carries 128 bits of BIP39 entropy.
-2. A random salt would have to be stored somewhere, breaking cross-device key
+2. A random salt would have to be stored server-side, breaking cross-device key
    recovery — the whole point of the mnemonic flow.
 
-### API
+### API (in `lib/vault-credentials.ts`)
 
 ```ts
-// lib/vault-credentials.ts
-
-// Derive from an explicit mnemonic string:
+// Derive from an explicit mnemonic string (used during sign-in/up):
 const vaultKey = await deriveVaultKey(mnemonic);
 
 // Convenience: read mnemonic from localStorage and derive in one call.
@@ -132,65 +122,147 @@ const vaultKey = await deriveVaultKey(mnemonic);
 const vaultKey = await loadVaultKey();
 ```
 
-### Voice memo encryption
+---
 
-`hooks/use-voice-memo-upload.ts` uses `loadVaultKey()` to encrypt audio
-before upload:
+## Voice memo encryption + decryption
+
+### Upload (`hooks/use-voice-memo-upload.ts`)
 
 ```
 audioBlob (Blob)
-  → arrayBuffer() → Uint8Array
-  → encryptBlob(bytes, vaultKey)   ← AES-GCM-256, fresh IV per upload
-  → JSON.stringify(EncryptedBlob)  ← { alg, iv, data } — all base64
-  → upload to Supabase Storage as  "denId/userId/timestamp.enc"
+  → arrayBuffer() → Uint8Array          (raw audio bytes in memory only)
+  → encryptBlob(bytes, vaultKey)        (AES-GCM-256, fresh 12-byte IV per upload)
+  → JSON.stringify(EncryptedBlob)       ({ alg, iv, data } — all base64)
+  → upload to Supabase Storage          as "denId/userId/timestamp-rand.enc"
 ```
 
 The `.enc` file extension signals to the playback hook that decryption is
-needed. Legacy unencrypted recordings keep the `.webm` extension — no
-migration needed for existing data.
+required. If no vault session exists (legacy v1 Supabase user), the raw
+audio is uploaded unencrypted as `.webm` — full backward compatibility.
 
-**Fallback for v1 users**: if `loadVaultKey()` returns `null` (no vault
-session — the user signed up via the Supabase email/password flow), the raw
-audio is uploaded unencrypted as `.webm` exactly as before.
+### Playback (`hooks/use-voice-url.ts`)
+
+`useVoiceUrl(voicePath)` handles both formats transparently:
+
+| Path ends with | Behaviour                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| `.webm`        | Signs the storage URL and returns it directly — no decryption needed                                    |
+| `.enc`         | Signs URL → `fetch()` bytes → `JSON.parse` → `decryptBlob(vaultKey)` → `URL.createObjectURL(plaintext)` |
+
+The return type is `{ url, isDecrypting, error }` (previously `string | null`)
+so the UI can show a loading indicator during the decrypt step.
+
+The object URL created for `.enc` blobs is revoked automatically on unmount or
+when `voicePath` changes, preventing memory leaks.
+
+```ts
+const { url, isDecrypting, error } = useVoiceUrl(memo.blobRef);
+
+if (isDecrypting) return <Spinner />;
+if (error) return <ErrorBadge message={error} />;
+// url is a safe object URL ready for <audio src={url} />
+```
+
+---
+
+## Note content encryption (`hooks/use-vault-notes.ts`)
+
+Notes are stored in the Yjs `Y.Map<NoteData>` inside IndexedDB. The `content`
+field is a plain string. `use-vault-notes.ts` wraps the `@meerkat/local-store`
+CRUD functions and adds transparent encryption without modifying the package
+itself (keeping `@meerkat/local-store` dependency-free from vault logic).
+
+### Storage format
+
+Encrypted notes use a sentinel prefix so the hook can distinguish them from
+legacy plaintext notes:
+
+```
+plain note:   "Good morning"
+encrypted:    "__enc:{\"alg\":\"AES-GCM-256\",\"iv\":\"...\",\"data\":\"...\"}"
+```
+
+The `__enc:` prefix cannot appear naturally in normal note content.
+Legacy plaintext notes (written before encryption was enabled) are read back
+as-is — no migration needed.
+
+### Write path
+
+```
+createNote({ content: "Secret thought" })
+  → encryptString(content, vaultKey)
+  → "__enc:" + JSON.stringify(EncryptedBlob)
+  → local-store createNote(denId, { ...input, content: encrypted })
+  → returns NoteData with original plaintext content (caller sees plaintext)
+```
+
+### Read path
+
+```
+Yjs Y.Map fires observer → useAllNotes(denId) returns raw NoteData[]
+  → each note.content checked for "__enc:" prefix
+      encrypted → JSON.parse → decryptString(blob, vaultKey) → plaintext
+      plaintext → returned as-is  (backward compat)
+  → setDecryptedNotes(result)   (atomic swap, no flicker)
+```
+
+### Graceful degradation
+
+| State                                   | Behaviour                                                              |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| Vault session active                    | Notes encrypted on write, decrypted transparently on read              |
+| No vault session (v1 user)              | Notes written and read as plain text                                   |
+| Vault session cleared after notes exist | Placeholder `"[Encrypted — sign in with your Key to view]"` — no crash |
+| Corrupted ciphertext                    | Placeholder `"[Could not decrypt note]"` — no crash                    |
+
+### API
+
+```ts
+// Reactive — re-renders on Yjs changes, decrypts before returning:
+const notes = useDecryptedAllNotes(denId);
+
+// Imperative CRUD — for event handlers:
+const { createNote, updateNote, deleteNote, getAllNotes } =
+  useVaultNotes(denId);
+```
+
+**Migration for existing components:** replace `useAllNotes(denId)` with
+`useDecryptedAllNotes(denId)` and route note writes through `useVaultNotes`
+actions instead of calling `@meerkat/local-store` directly.
 
 ---
 
 ## Settings — "Vault Key" section
 
 `components/settings/vault-key-section.tsx` renders a card in the Settings
-page under **Vault Key** (nav item added to `settings-page-client.tsx`).
+page under **Vault Key** (visible to vault/v2 users only).
 
 The card:
 
-- Reads the mnemonic from `localStorage` via `loadMnemonic()`.
-- Shows nothing if no vault session is active (v1 users never see this section).
-- Renders the 12 words as numbered pills in a 4-column grid.
+- Reads the mnemonic from `localStorage` via `loadMnemonic()` on mount.
+- Renders nothing if no vault session exists (v1 Supabase users never see it).
+- Displays the 12 words as numbered pills in a 4-column grid.
 - Words are **blurred by default** — prevents shoulder-surfing.
-- **Reveal** button toggles blur off/on.
-- **Copy phrase** button is disabled until the phrase is revealed (deliberate
-  friction — copy without reveal isn't useful and could leak the phrase).
-- A "Stored on this device only" badge reinforces that the phrase never leaves
-  the browser.
-- A yellow warning banner explains the phrase must not be shared and there is
-  no server-side recovery.
+- **Reveal** / **Hide** button toggles blur (animated via Framer Motion).
+- **Copy phrase** button is disabled until revealed (intentional friction).
+- A "Stored on this device only" badge reinforces local-only storage.
+- A yellow warning banner explains no server-side recovery is possible.
 
-### Wiring into Settings
+---
 
-`settings-page-client.tsx` was updated:
+## Security properties
 
-```tsx
-// New nav item added between Security and Dropbox:
-{ id: "vault", label: "Vault Key", icon: KeyRound },
-
-// New section rendered in the content area:
-{activeSection === "vault" && <VaultKeySection />}
-```
-
-`settings/types.ts` was updated:
-
-```ts
-export type Section = "profile" | "security" | "vault" | "dropbox";
-```
+| Property                | Detail                                                                                          |
+| ----------------------- | ----------------------------------------------------------------------------------------------- |
+| Server blindness        | Supabase stores only `<hex>@meerkat.vault` / `<hex>` — no link to the real user                 |
+| Voice blob encryption   | AES-GCM-256 before upload; `.enc` extension signals ciphertext                                  |
+| Note content encryption | AES-GCM-256 before write to IndexedDB; `__enc:` sentinel detects encrypted entries              |
+| Key non-extractability  | HKDF-derived `CryptoKey` is `extractable: false` — raw bytes cannot be read from JS             |
+| Fresh IV per operation  | `encryptBlob` / `encryptString` generate a new 12-byte random IV on every call                  |
+| No recovery path        | Mnemonic lost = account inaccessible — by design                                                |
+| Sign-out completeness   | `clearVault()` removes mnemonic, profile, and both cookies atomically                           |
+| Cross-device recovery   | Same mnemonic → same HKDF key → can decrypt all existing blobs and notes on any device          |
+| Backward compatibility  | Legacy `.webm` blobs and plaintext notes are detected and handled without attempting decryption |
 
 ---
 
@@ -200,11 +272,11 @@ export type Section = "profile" | "security" | "vault" | "dropbox";
 pnpm add @scure/bip39 --filter @meerkat/web
 ```
 
-No other new dependencies. Identity derivation uses the built-in Web Crypto
-API (SHA-256). Encryption key derivation uses Web Crypto HKDF. Blob
-encryption uses `encryptBlob` from `@meerkat/crypto` (already a dep).
+No other new dependencies. HKDF uses the built-in Web Crypto API. Encryption
+and decryption use `encryptBlob` / `encryptString` / `decryptBlob` /
+`decryptString` from `@meerkat/crypto` (already a workspace dep).
 
-**Import note** — use the `.js` extension or Next.js will throw at build time:
+**Import note** — use the `.js` extension or Next.js throws at build time:
 
 ```ts
 import { wordlist } from "@scure/bip39/wordlists/english.js"; // ✅
@@ -215,31 +287,8 @@ import { wordlist } from "@scure/bip39/wordlists/english"; // ❌ module not fou
 
 ## Supabase setup
 
-1. **Disable email confirmations** — Auth → Settings → turn off
-   "Enable email confirmations". The derived email is fake so confirmation
-   links would go nowhere.
-2. **No other changes needed** — the flow uses standard
-   `signUp` / `signInWithPassword`, so existing RLS policies, triggers, and
-   the `profiles` table all work as before.
-
----
-
-## Security properties
-
-| Property               | Detail                                                                                    |
-| ---------------------- | ----------------------------------------------------------------------------------------- |
-| Server blindness       | Supabase only stores `<hex>@meerkat.vault` / `<hex>` — no link to the real user           |
-| Content encryption     | Voice blobs and attachments are AES-GCM-256 encrypted before upload                       |
-| Key non-extractability | HKDF-derived `CryptoKey` is `extractable: false` — raw bytes cannot be exfiltrated via JS |
-| No recovery path       | If the mnemonic is lost, there is no account recovery — by design                         |
-| Sign-out completeness  | `clearVault()` removes mnemonic, profile, and both cookies atomically                     |
-| Cross-device recovery  | Same mnemonic → same HKDF key → can decrypt existing blobs on a new device                |
-
----
-
-## Remaining work
-
-- Decrypt `.enc` voice blobs on playback (`use-voice-url.ts` needs to call
-  `decryptBlob` after fetching the signed URL).
-- Encrypt note/text content (currently stored in Yjs/IndexedDB without an
-  additional encryption layer on top of the vault key).
+1. **Disable email confirmations** — Auth → Settings → turn off "Enable email
+   confirmations". The derived email is fake so confirmation links go nowhere.
+2. **No other changes needed** — the flow uses standard `signUp` /
+   `signInWithPassword`, so existing RLS policies, triggers, and the `profiles`
+   table all work as before.
