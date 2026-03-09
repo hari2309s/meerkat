@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Loader2 } from "lucide-react";
 import { formatDuration, formatMessageTime } from "@meerkat/utils/time";
 import { getInitials, getSenderName } from "@meerkat/utils/string";
 import type { Message, MoodLabel, ToneLabel } from "@/types/den";
@@ -174,7 +174,7 @@ export function VoiceNoteMessage({
   const { analysis } = message;
   const moodColor = analysis ? MOOD_COLOR[analysis.mood] : null;
   const moodEmoji = analysis ? MOOD_EMOJI[analysis.mood] : null;
-  const signedUrl = useVoiceUrl(message.voice_url);
+  const { url: signedUrl, isDecrypting } = useVoiceUrl(message.voice_url);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -242,10 +242,13 @@ export function VoiceNoteMessage({
           {/* Play Button */}
           <button
             onClick={togglePlay}
+            disabled={isDecrypting || !signedUrl}
             className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-90 bg-[#d4673a] shadow-lg hover:brightness-110"
             aria-label={playing ? "Pause" : "Play"}
           >
-            {playing ? (
+            {isDecrypting ? (
+              <Loader2 className="h-5 w-5 text-white animate-spin" />
+            ) : playing ? (
               <Pause className="h-5 w-5 text-white fill-current" />
             ) : (
               <Play className="h-5 w-5 text-white fill-current ml-0.5" />
