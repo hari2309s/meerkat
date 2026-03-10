@@ -91,6 +91,8 @@ export interface BurrowEditorProps {
     wordCount: number;
     hasVoiceNotes: boolean;
     hasImages: boolean;
+    voiceNoteCount: number;
+    imageCount: number;
   }) => void;
 
   /**
@@ -323,11 +325,19 @@ export function BurrowEditor({
         const words = text.trim() === "" ? 0 : text.trim().split(/\s+/).length;
         const json = ed.getJSON();
         const content = (json.content ?? []) as Array<{ type?: string }>;
-        const hasVoiceNotes = content.some((n) => n.type === "voiceBlock");
-        const hasImages = content.some(
+        const voiceNoteCount = content.filter(
+          (n) => n.type === "voiceBlock",
+        ).length;
+        const imageCount = content.filter(
           (n) => n.type === "imageBlock" || n.type === "image",
-        );
-        onUpdate?.({ wordCount: words, hasVoiceNotes, hasImages });
+        ).length;
+        onUpdate?.({
+          wordCount: words,
+          hasVoiceNotes: voiceNoteCount > 0,
+          hasImages: imageCount > 0,
+          voiceNoteCount,
+          imageCount,
+        });
       }, 500);
     },
   });
