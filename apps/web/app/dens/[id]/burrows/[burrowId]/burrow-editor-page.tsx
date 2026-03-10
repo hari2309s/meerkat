@@ -366,9 +366,9 @@ export function BurrowEditorPage({
       setCurrentBurrow(denId, burrowId);
       return () => setCurrentBurrow(denId, null);
     });
-    // Record this user as a viewer (idempotent)
-    void addBurrowViewer(denId, burrowId, userId);
-  }, [denId, burrowId, userId]);
+    // Record this user as a visitor viewer — owners are excluded
+    if (!isOwner) void addBurrowViewer(denId, burrowId, userId);
+  }, [denId, burrowId, userId, isOwner]);
 
   // Close three-dots menu on outside click
   useEffect(() => {
