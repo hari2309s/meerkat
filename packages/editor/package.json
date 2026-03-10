@@ -27,6 +27,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@meerkat/burrows": "workspace:*",
     "@tiptap/core": "^2.1.0",
     "@tiptap/extension-collaboration": "^2.1.0",
     "@tiptap/extension-collaboration-cursor": "^2.1.0",

@@ -308,6 +308,9 @@ importers:
 
   packages/editor:
     dependencies:
+      '@meerkat/burrows':
+        specifier: workspace:*
+        version: link:../burrows
       '@tiptap/core':
         specifier: ^2.1.0
         version: 2.27.2(@tiptap/pm@2.27.2)
