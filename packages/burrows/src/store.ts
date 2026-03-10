@@ -342,6 +342,30 @@ export function getCurrentBurrowId(denId: string): string | null {
   return activeBurrowId.get(denId) ?? null;
 }
 
+// ─── Burrow viewer tracking ───────────────────────────────────────────────────
+
+/**
+ * Records that `userId` has viewed this burrow. Idempotent — calling it again
+ * for the same user is a no-op. Safe to call on every page open.
+ */
+export async function addBurrowViewer(
+  denId: string,
+  burrowId: string,
+  userId: string,
+): Promise<void> {
+  const { burrows, ydoc } = await openBurrowsDoc(denId);
+  const existing = burrows.get(burrowId);
+  if (!existing) return;
+  if (existing.viewedBy?.includes(userId)) return;
+
+  ydoc.transact(() => {
+    burrows.set(burrowId, {
+      ...existing,
+      viewedBy: [...(existing.viewedBy ?? []), userId],
+    });
+  });
+}
+
 // ─── Burrow metadata (word counts, etc.) ─────────────────────────────────────
 
 /**

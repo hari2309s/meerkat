@@ -41,6 +41,11 @@ export interface BurrowData {
   archived: boolean;
   /** User IDs of all members who have contributed content. */
   collaborators: string[];
+  /**
+   * User IDs of all members who have opened this burrow (read or edit).
+   * Optional — not present on burrows created before this field was added.
+   */
+  viewedBy?: string[];
   /** Fractional sort key for ordering burrows in the sidebar. */
   order: number;
   createdAt: number; // Unix ms

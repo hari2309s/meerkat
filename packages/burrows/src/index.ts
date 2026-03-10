@@ -78,6 +78,9 @@ export {
   getCurrentBurrowId,
 } from "./store.js";
 
+// ─── Viewer tracking (imperative) ─────────────────────────────────────────────
+export { addBurrowViewer } from "./store.js";
+
 // ─── Metadata (imperative) ────────────────────────────────────────────────────
 export { getBurrowMetadata, setBurrowMetadata } from "./store.js";
 
