@@ -268,6 +268,12 @@ export function BurrowEditor({
 }: BurrowEditorProps) {
   const titleRef = useRef<HTMLDivElement>(null);
   const updateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep a ref to the latest onUpdate so Tiptap's useEditor (which captures
+  // callbacks once at creation) always calls the current version.
+  const onUpdateRef = useRef(onUpdate);
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   // Build the VoiceBlock extension (with optional custom renderer)
@@ -331,7 +337,7 @@ export function BurrowEditor({
         const imageCount = content.filter(
           (n) => n.type === "imageBlock" || n.type === "image",
         ).length;
-        onUpdate?.({
+        onUpdateRef.current?.({
           wordCount: words,
           hasVoiceNotes: voiceNoteCount > 0,
           hasImages: imageCount > 0,
