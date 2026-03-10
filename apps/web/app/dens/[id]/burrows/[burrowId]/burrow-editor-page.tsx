@@ -264,14 +264,24 @@ function BurrowStats({
   wordCount,
   collaboratorCount,
   viewCount,
+  voiceNoteCount,
+  imageCount,
 }: {
   wordCount: number | undefined;
   collaboratorCount: number;
   viewCount: number;
+  voiceNoteCount: number;
+  imageCount: number;
 }) {
   const parts: string[] = [];
   if (wordCount !== undefined) {
     parts.push(`${wordCount} ${wordCount === 1 ? "word" : "words"}`);
+  }
+  if (voiceNoteCount > 0) {
+    parts.push(`🎙 ${voiceNoteCount}`);
+  }
+  if (imageCount > 0) {
+    parts.push(`🖼 ${imageCount}`);
   }
   if (collaboratorCount > 0) {
     parts.push(
@@ -378,6 +388,8 @@ export function BurrowEditorPage({
     wordCount: number;
     hasVoiceNotes: boolean;
     hasImages: boolean;
+    voiceNoteCount: number;
+    imageCount: number;
   }) {
     const meta: BurrowMetadata = { ...stats, lastEditedBy: userId };
     await setBurrowMetadata(denId, burrowId, meta);
@@ -494,6 +506,8 @@ export function BurrowEditorPage({
               wordCount={metadata?.wordCount}
               collaboratorCount={burrow?.collaborators.length ?? 0}
               viewCount={burrow?.viewedBy?.length ?? 0}
+              voiceNoteCount={metadata?.voiceNoteCount ?? 0}
+              imageCount={metadata?.imageCount ?? 0}
             />
             {isOwner && (
               <div ref={menuRef} className="relative">
