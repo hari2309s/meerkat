@@ -11,7 +11,12 @@ import {
   Archive,
   Trash2,
 } from "lucide-react";
-import { useBurrow, useBurrowDoc, setBurrowMetadata } from "@meerkat/burrows";
+import {
+  useBurrow,
+  useBurrowDoc,
+  setBurrowMetadata,
+  addBurrowViewer,
+} from "@meerkat/burrows";
 import type { BurrowMetadata } from "@meerkat/burrows";
 import {
   BurrowEditor,
@@ -253,6 +258,39 @@ function createVoiceBlockRenderer(denId: string, userId: string) {
   };
 }
 
+// ─── Burrow stats badge ───────────────────────────────────────────────────────
+
+function BurrowStats({
+  wordCount,
+  collaboratorCount,
+  viewCount,
+}: {
+  wordCount: number | undefined;
+  collaboratorCount: number;
+  viewCount: number;
+}) {
+  const parts: string[] = [];
+  if (wordCount !== undefined) {
+    parts.push(`${wordCount} ${wordCount === 1 ? "word" : "words"}`);
+  }
+  if (collaboratorCount > 0) {
+    parts.push(
+      `${collaboratorCount} ${collaboratorCount === 1 ? "editor" : "editors"}`,
+    );
+  }
+  if (viewCount > 0) {
+    parts.push(`${viewCount} ${viewCount === 1 ? "view" : "views"}`);
+  }
+
+  if (parts.length === 0) return null;
+
+  return (
+    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+      {parts.join(" · ")}
+    </span>
+  );
+}
+
 // Pick a deterministic colour for the user's collaboration cursor
 function userColor(userId: string): string {
   const palette = [
@@ -296,6 +334,8 @@ export function BurrowEditorPage({
     "archive" | "delete" | null
   >(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Prevent adding the current user to collaborators more than once per session
+  const collaboratorTrackedRef = useRef(false);
   const {
     burrow,
     metadata,
@@ -310,13 +350,15 @@ export function BurrowEditorPage({
     [denId, userId],
   );
 
-  // Mark this burrow as active when the page mounts
+  // Mark this burrow as active and record the view when the page mounts
   useEffect(() => {
     import("@meerkat/burrows").then(({ setCurrentBurrow }) => {
       setCurrentBurrow(denId, burrowId);
       return () => setCurrentBurrow(denId, null);
     });
-  }, [denId, burrowId]);
+    // Record this user as a viewer (idempotent)
+    void addBurrowViewer(denId, burrowId, userId);
+  }, [denId, burrowId, userId]);
 
   // Close three-dots menu on outside click
   useEffect(() => {
@@ -339,6 +381,16 @@ export function BurrowEditorPage({
   }) {
     const meta: BurrowMetadata = { ...stats, lastEditedBy: userId };
     await setBurrowMetadata(denId, burrowId, meta);
+
+    // Auto-add the current user to collaborators on their first edit this session
+    if (!collaboratorTrackedRef.current) {
+      collaboratorTrackedRef.current = true;
+      if (burrow && !burrow.collaborators.includes(userId)) {
+        void actions.updateBurrow({
+          collaborators: [...burrow.collaborators, userId],
+        });
+      }
+    }
   }
 
   function handleBack() {
@@ -438,15 +490,11 @@ export function BurrowEditorPage({
           </button>
 
           <div className="flex items-center gap-3">
-            {metadata?.wordCount !== undefined && (
-              <span
-                className="text-xs"
-                style={{ color: "var(--color-text-muted)" }}
-              >
-                {metadata.wordCount}{" "}
-                {metadata.wordCount === 1 ? "word" : "words"}
-              </span>
-            )}
+            <BurrowStats
+              wordCount={metadata?.wordCount}
+              collaboratorCount={burrow?.collaborators.length ?? 0}
+              viewCount={burrow?.viewedBy?.length ?? 0}
+            />
             {isOwner && (
               <div ref={menuRef} className="relative">
                 <button
