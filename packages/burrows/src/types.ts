@@ -66,6 +66,10 @@ export interface BurrowMetadata {
   hasVoiceNotes: boolean;
   /** True if the content doc contains at least one image block node. */
   hasImages: boolean;
+  /** Number of voice block nodes in the content doc. */
+  voiceNoteCount?: number;
+  /** Number of image block nodes in the content doc. */
+  imageCount?: number;
 }
 
 // ─── Input types ─────────────────────────────────────────────────────────────
