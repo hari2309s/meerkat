@@ -53,16 +53,17 @@
 
 /* Blockquote */
 .meerkat-editor .ProseMirror blockquote {
-  border-left: 3px solid #d1d5db;
+  border-left: 3px solid var(--color-border-card-hover, #b8906a);
   padding-left: 1rem;
   margin: 0.5rem 0;
-  color: #6b7280;
+  color: var(--color-text-secondary, #7a5535);
   font-style: italic;
 }
 
 /* Code */
 .meerkat-editor .ProseMirror pre {
-  background: #f3f4f6;
+  background: rgba(58, 39, 24, 0.07);
+  color: var(--color-text-primary);
   border-radius: 0.5rem;
   padding: 0.75rem 1rem;
   font-family: ui-monospace, monospace;
@@ -70,12 +71,19 @@
   overflow-x: auto;
   margin: 0.5rem 0;
 }
+.dark .meerkat-editor .ProseMirror pre {
+  background: rgba(232, 212, 184, 0.09);
+}
 .meerkat-editor .ProseMirror code {
-  background: #f3f4f6;
+  background: rgba(58, 39, 24, 0.07);
+  color: var(--color-text-primary);
   border-radius: 0.25rem;
   padding: 0.1em 0.3em;
   font-family: ui-monospace, monospace;
   font-size: 0.875em;
+}
+.dark .meerkat-editor .ProseMirror code {
+  background: rgba(232, 212, 184, 0.09);
 }
 
 /* Lists */
@@ -101,12 +109,11 @@
 }
 .meerkat-editor .ProseMirror ul[data-type="taskList"] li {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
 }
 .meerkat-editor .ProseMirror ul[data-type="taskList"] li > label {
   flex-shrink: 0;
-  margin-top: 0.2rem;
 }
 .meerkat-editor .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
   appearance: none;
@@ -132,7 +139,7 @@
   left: 4px;
   width: 4px;
   height: 8px;
-  border: 2px solid var(--color-bg-base, #1c1510);
+  border: 2px solid hsl(var(--primary-foreground));
   border-top: none;
   border-left: none;
   transform: rotate(45deg);
