@@ -75,3 +75,37 @@ export type CreateBurrowInput = {
 export type UpdateBurrowInput = Partial<
   Pick<BurrowData, "title" | "icon" | "collaborators" | "order">
 >;
+
+// ─── Block types (for the block-based editor) ─────────────────────────────────
+
+/**
+ * Block type for the block-based editor (BlockItem).
+ * Maps to @meerkat/editor's BLOCK_TYPE_META entries.
+ */
+export type BurrowBlockType =
+  | "paragraph"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "bullet"
+  | "numbered"
+  | "todo"
+  | "quote"
+  | "code"
+  | "callout"
+  | "toggle"
+  | "divider"
+  | "image";
+
+/**
+ * A single block in a block-based burrow editor.
+ */
+export interface BurrowBlock {
+  id: string;
+  type: BurrowBlockType;
+  content: string;
+  /** Only used when type === "todo". */
+  checked?: boolean;
+  /** Type-specific extra attributes (image src/alt, callout emoji, toggle open). */
+  attrs?: Record<string, unknown>;
+}

@@ -90,4 +90,6 @@ export type {
   BurrowMetadata,
   CreateBurrowInput,
   UpdateBurrowInput,
+  BurrowBlock,
+  BurrowBlockType,
 } from "./types.js";
