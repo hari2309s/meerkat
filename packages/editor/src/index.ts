@@ -70,3 +70,7 @@ export {
   type SlashMenuProps,
   type SlashMenuHandle,
 } from "./slash-menu.js";
+
+// ─── Tiptap node view utilities (for custom renderVoiceBlock implementations) ──
+export { NodeViewWrapper } from "@tiptap/react";
+export type { NodeViewProps } from "@tiptap/react";

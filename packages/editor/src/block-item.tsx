@@ -19,11 +19,13 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { BurrowBlock, BurrowBlockType } from "@meerkat/burrows";
-import { SlashMenu } from "./slash-menu.js";
+import { SlashMenu, type SlashMenuHandle } from "./slash-menu.js";
+import type { SlashCommandItem } from "./extensions/slash-commands.js";
 import {
   blockContainerClass,
   blockContentClass,
   blockPlaceholder,
+  filterBlockTypes,
 } from "./utils.js";
 
 export interface BlockItemProps {
@@ -55,9 +57,8 @@ export function BlockItem({
   readOnly = false,
 }: BlockItemProps) {
   const editRef = useRef<HTMLDivElement>(null);
+  const slashMenuRef = useRef<SlashMenuHandle>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
-  // Track selection position inside the contenteditable
-  const caretAtStart = useRef(false);
 
   // ── Sync content into DOM (controlled-like) ──────────────────────────────
   useEffect(() => {
@@ -93,8 +94,27 @@ export function BlockItem({
   // ── Keyboard handler ──────────────────────────────────────────────────────
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
-      // Slash menu navigation is handled inside SlashMenu via window keydown
-      // so we only handle block-level shortcuts here.
+      // Forward navigation keys to the slash menu when it is open.
+      if (slashQuery !== null) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") {
+          const handled = slashMenuRef.current?.onKeyDown({
+            event: e.nativeEvent,
+          });
+          if (handled) {
+            e.preventDefault();
+            return;
+          }
+        }
+
+        // Escape: close the menu and remove the "/" text the user typed.
+        if (e.key === "Escape") {
+          e.preventDefault();
+          if (editRef.current) editRef.current.textContent = "";
+          onChange("");
+          setSlashQuery(null);
+          return;
+        }
+      }
 
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -112,12 +132,8 @@ export function BlockItem({
           return;
         }
       }
-
-      if (e.key === "Escape") {
-        setSlashQuery(null);
-      }
     },
-    [onEnter, onBackspaceEmpty],
+    [onEnter, onBackspaceEmpty, onChange, slashQuery],
   );
 
   // ── Slash menu selection ──────────────────────────────────────────────────
@@ -212,13 +228,27 @@ export function BlockItem({
         />
 
         {/* ── Slash command menu ── */}
-        {slashQuery !== null && (
-          <SlashMenu
-            query={slashQuery}
-            onSelect={handleSlashSelect}
-            onClose={() => setSlashQuery(null)}
-          />
-        )}
+        {slashQuery !== null &&
+          (() => {
+            const filteredMeta = filterBlockTypes(slashQuery);
+            const slashItems: SlashCommandItem[] = filteredMeta.map((meta) => ({
+              title: meta.label,
+              description: meta.description,
+              icon: meta.icon,
+              // not called directly — the command prop below handles selection
+              command: () => {},
+            }));
+            return (
+              <SlashMenu
+                ref={slashMenuRef}
+                items={slashItems}
+                command={(item) => {
+                  const meta = filteredMeta.find((m) => m.label === item.title);
+                  if (meta) handleSlashSelect(meta.type);
+                }}
+              />
+            );
+          })()}
       </div>
     </div>
   );

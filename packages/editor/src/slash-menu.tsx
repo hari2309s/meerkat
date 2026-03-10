@@ -84,17 +84,13 @@ export const SlashMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
             key={item.title}
             role="option"
             aria-selected={i === activeIdx}
+            data-active={i === activeIdx ? "true" : undefined}
             onMouseEnter={() => setActiveIdx(i)}
             onMouseDown={(e) => {
               e.preventDefault();
               command(item);
             }}
-            className={[
-              "flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors",
-              i === activeIdx
-                ? "bg-accent text-accent-foreground"
-                : "hover:bg-accent/50 text-foreground",
-            ].join(" ")}
+            className="slash-menu-item flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors text-foreground"
           >
             <span className="flex-none w-8 h-8 flex items-center justify-center rounded-md bg-muted text-xs font-mono font-bold text-muted-foreground">
               {item.icon}

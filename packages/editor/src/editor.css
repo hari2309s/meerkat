@@ -201,6 +201,19 @@
   display: none;
 }
 
+/* Slash menu item hover + keyboard-active highlight.
+   Uses an explicit warm-brown tint instead of --accent (too low contrast
+   against the #fffbf6 dropdown background). Applies to both the Tippy
+   popup version and the inline block-editor slash menu. */
+.slash-menu-item:hover,
+.slash-menu-item[data-active="true"] {
+  background: rgba(184, 130, 80, 0.13);
+  color: var(--color-text-primary, inherit);
+}
+.slash-menu-item[data-active="true"] {
+  background: rgba(184, 130, 80, 0.2);
+}
+
 /* Image block */
 .meerkat-editor .ProseMirror .image-block {
   margin: 0.5rem 0;
