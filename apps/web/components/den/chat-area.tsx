@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { MessageSquare } from "lucide-react";
 import { useDenContextSafe } from "@meerkat/crdt";
@@ -10,6 +10,7 @@ import { getSenderName } from "@meerkat/utils/string";
 import type { Den, Message } from "@/types/den";
 import type { VoiceMemoData, ChatMessageData } from "@meerkat/local-store";
 import { useChatStore } from "@/stores/use-chat-store";
+import { ImageThumbnail, ImageLightbox, type LightboxImage } from "@meerkat/ui";
 
 interface ChatAreaProps {
   den: Den;
@@ -85,13 +86,14 @@ function ImageMessage({
   message,
   senderName,
   isOwn,
+  onImageClick,
 }: {
   message: Message;
   senderName: string;
   isOwn: boolean;
+  onImageClick: () => void;
 }) {
   const createdAt = message.created_at;
-  // Use base64 data if available, otherwise fall back to URL
   const url = message.attachment_data || message.attachment_url || "";
   const alt = message.attachment_name ?? "image attachment";
   const caption = message.content ?? "";
@@ -121,16 +123,14 @@ function ImageMessage({
         )}
         <div
           className="rounded-2xl overflow-hidden border"
-          style={{
-            borderColor: "var(--color-border-card)",
-            maxWidth: "260px",
-          }}
+          style={{ borderColor: "var(--color-border-card)" }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ImageThumbnail
             src={url}
             alt={alt}
-            className="block max-h-64 w-full object-cover bg-black/5"
+            onClick={onImageClick}
+            maxWidth={260}
+            maxHeight={192}
           />
         </div>
         {caption && (
@@ -224,6 +224,9 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
   const denContext = useDenContextSafe();
   const containerRef = useRef<HTMLDivElement>(null);
   const { messages: legacyMessages } = useChatStore();
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const openLightbox = useCallback((idx: number) => setLightboxIndex(idx), []);
+  const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
   // In the voiceMemoMessages useMemo, also include dropbox items for the owner:
   const voiceMemoMessages = useMemo((): Message[] => {
@@ -336,6 +339,29 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
     return null;
   }, [sortedMessages]);
 
+  // Build ordered list of lightbox images from image messages (in chronological order)
+  const lightboxImages = useMemo((): LightboxImage[] => {
+    return sortedMessages
+      .filter((msg) => msg.type === "image")
+      .map((msg) => ({
+        src: msg.attachment_data || msg.attachment_url || "",
+        alt: msg.attachment_name ?? "image attachment",
+        caption: msg.content ?? undefined,
+      }));
+  }, [sortedMessages]);
+
+  // Map message id → lightbox index for quick lookup
+  const imageIndexById = useMemo(() => {
+    const map = new Map<string, number>();
+    let imgIdx = 0;
+    for (const msg of sortedMessages) {
+      if (msg.type === "image") {
+        map.set(msg.id, imgIdx++);
+      }
+    }
+    return map;
+  }, [sortedMessages]);
+
   // Auto-scroll to bottom of chat container on new messages
   useEffect(() => {
     if (containerRef.current) {
@@ -380,67 +406,79 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="flex flex-col gap-4 p-4 sm:p-6 rounded-2xl mb-4 overflow-y-auto"
-      style={{
-        background: "var(--color-bg-card)",
-        border: "1.5px dashed var(--color-border-card)",
-        maxHeight: "min(60vh, calc(100dvh - 460px))",
-      }}
-    >
-      {sortedMessages.map((msg) => {
-        const senderName = getSenderName(msg.sender);
-        const isOwn = msg.user_id === currentUserId;
-        const alignClass = isOwn ? "justify-end" : "justify-start";
+    <>
+      <div
+        ref={containerRef}
+        className="flex flex-col gap-4 p-4 sm:p-6 rounded-2xl mb-4 overflow-y-auto"
+        style={{
+          background: "var(--color-bg-card)",
+          border: "1.5px dashed var(--color-border-card)",
+          maxHeight: "min(60vh, calc(100dvh - 460px))",
+        }}
+      >
+        {sortedMessages.map((msg) => {
+          const senderName = getSenderName(msg.sender);
+          const isOwn = msg.user_id === currentUserId;
+          const alignClass = isOwn ? "justify-end" : "justify-start";
 
-        if (msg.type === "voice") {
+          if (msg.type === "voice") {
+            return (
+              <div key={msg.id} className={`flex ${alignClass}`}>
+                <VoiceNoteMessage
+                  message={msg}
+                  isOwn={isOwn}
+                  isLatest={msg.id === latestVoiceId}
+                />
+              </div>
+            );
+          }
+
+          if (msg.type === "image") {
+            const imgIdx = imageIndexById.get(msg.id) ?? 0;
+            return (
+              <div key={msg.id} className={`flex ${alignClass}`}>
+                <ImageMessage
+                  message={msg}
+                  senderName={senderName}
+                  isOwn={isOwn}
+                  onImageClick={() => openLightbox(imgIdx)}
+                />
+              </div>
+            );
+          }
+
+          if (msg.type === "document") {
+            return (
+              <div key={msg.id} className={`flex ${alignClass}`}>
+                <DocumentMessage
+                  message={msg}
+                  senderName={senderName}
+                  isOwn={isOwn}
+                />
+              </div>
+            );
+          }
+
           return (
             <div key={msg.id} className={`flex ${alignClass}`}>
-              <VoiceNoteMessage
-                message={msg}
-                isOwn={isOwn}
-                isLatest={msg.id === latestVoiceId}
-              />
-            </div>
-          );
-        }
-
-        if (msg.type === "image") {
-          return (
-            <div key={msg.id} className={`flex ${alignClass}`}>
-              <ImageMessage
-                message={msg}
+              <TextMessage
+                content={msg.content ?? ""}
                 senderName={senderName}
                 isOwn={isOwn}
+                createdAt={msg.created_at}
               />
             </div>
           );
-        }
+        })}
+      </div>
 
-        if (msg.type === "document") {
-          return (
-            <div key={msg.id} className={`flex ${alignClass}`}>
-              <DocumentMessage
-                message={msg}
-                senderName={senderName}
-                isOwn={isOwn}
-              />
-            </div>
-          );
-        }
-
-        return (
-          <div key={msg.id} className={`flex ${alignClass}`}>
-            <TextMessage
-              content={msg.content ?? ""}
-              senderName={senderName}
-              isOwn={isOwn}
-              createdAt={msg.created_at}
-            />
-          </div>
-        );
-      })}
-    </div>
+      {lightboxIndex !== null && (
+        <ImageLightbox
+          images={lightboxImages}
+          initialIndex={lightboxIndex}
+          onClose={closeLightbox}
+        />
+      )}
+    </>
   );
 }

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause, Loader2 } from "lucide-react";
-import { formatDuration, formatMessageTime } from "@meerkat/utils/time";
 import { getInitials, getSenderName } from "@meerkat/utils/string";
 import type { Message, MoodLabel, ToneLabel } from "@/types/den";
 import { useVoiceUrl } from "@/hooks/use-voice-url";
+import { VoicePlayerCard } from "@/components/voice-player-card";
 
 // ─── Mood colour map ──────────────────────────────────────────────────────────
 
@@ -162,10 +161,7 @@ export function VoiceNoteMessage({
   isOwn,
   isLatest = false,
 }: VoiceNoteMessageProps) {
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [moodExpanded, setMoodExpanded] = useState(isLatest);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const displayName = getSenderName(message.sender);
   const initialsSource =
@@ -175,28 +171,6 @@ export function VoiceNoteMessage({
   const moodColor = analysis ? MOOD_COLOR[analysis.mood] : null;
   const moodEmoji = analysis ? MOOD_EMOJI[analysis.mood] : null;
   const { url: signedUrl, isDecrypting } = useVoiceUrl(message.voice_url);
-
-  const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (playing) {
-      audio.pause();
-    } else {
-      void audio.play();
-    }
-    setPlaying(!playing);
-  };
-
-  const handleTimeUpdate = () => {
-    const audio = audioRef.current;
-    if (!audio || !audio.duration) return;
-    setProgress((audio.currentTime / audio.duration) * 100);
-  };
-
-  const handleEnded = () => {
-    setPlaying(false);
-    setProgress(0);
-  };
 
   const duration = message.voice_duration ?? 0;
 
@@ -228,77 +202,13 @@ export function VoiceNoteMessage({
           {displayName}
         </span>
 
-        <div
-          className="px-4 py-3 flex items-center gap-3"
-          style={{
-            minWidth: 200,
-            maxWidth: 260,
-            background: "var(--color-bg-card)",
-            border: `1px solid ${isOwn ? "#d4673a40" : "var(--color-border-card)"}`,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            borderRadius: isOwn ? "22px 22px 4px 22px" : "22px 22px 22px 4px",
-          }}
-        >
-          {/* Play Button */}
-          <button
-            onClick={togglePlay}
-            disabled={isDecrypting || !signedUrl}
-            className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-90 bg-[#d4673a] shadow-lg hover:brightness-110"
-            aria-label={playing ? "Pause" : "Play"}
-          >
-            {isDecrypting ? (
-              <Loader2 className="h-5 w-5 text-white animate-spin" />
-            ) : playing ? (
-              <Pause className="h-5 w-5 text-white fill-current" />
-            ) : (
-              <Play className="h-5 w-5 text-white fill-current ml-0.5" />
-            )}
-          </button>
-
-          {/* Waveform */}
-          <div className="flex-1 flex items-center gap-0.5 h-8">
-            {Array.from({ length: 24 }).map((_, i) => {
-              const barProgress = (i / 24) * 100;
-              const isActive = progress > barProgress;
-              return (
-                <div
-                  key={i}
-                  className="w-0.5 rounded-full transition-all duration-300"
-                  style={{
-                    height: `${30 + Math.sin(i * 0.5) * 40 + Math.random() * 30}%`,
-                    background: isActive ? "#d4673a" : "rgba(212,103,58,0.15)",
-                  }}
-                />
-              );
-            })}
-          </div>
-
-          {/* Duration / Time */}
-          <div className="flex flex-col items-end shrink-0 pl-1">
-            <span
-              className="text-[10px] font-black tabular-nums"
-              style={{ color: "#d4673a" }}
-            >
-              {formatDuration(duration)}
-            </span>
-            <span
-              className="text-[9px] mt-0.5 opacity-50 tabular-nums"
-              style={{ color: "var(--color-text-primary)" }}
-            >
-              {formatMessageTime(message.created_at)}
-            </span>
-          </div>
-        </div>
-
-        {signedUrl && (
-          <audio
-            ref={audioRef}
-            src={signedUrl}
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={handleEnded}
-            onPause={() => setPlaying(false)}
-          />
-        )}
+        <VoicePlayerCard
+          src={signedUrl}
+          isLoading={isDecrypting}
+          duration={duration}
+          createdAt={message.created_at}
+          isOwn={isOwn}
+        />
       </div>
 
       {/* Mood toggle + collapsible detail panel */}
