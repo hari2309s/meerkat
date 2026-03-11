@@ -14,6 +14,15 @@ export { SectionCard } from "./components/section-card";
 export { Toggle } from "./components/toggle";
 export { TextComposerModal } from "./components/text-composer-modal";
 export { AttachmentPickerModal } from "./components/attachment-picker-modal";
+export {
+  ImageLightbox,
+  type ImageLightboxProps,
+  type LightboxImage,
+} from "./components/image-lightbox";
+export {
+  ImageThumbnail,
+  type ImageThumbnailProps,
+} from "./components/image-thumbnail";
 
 // ─── Meerkat Components ───────────────────────────────────────────────────────
 export {
