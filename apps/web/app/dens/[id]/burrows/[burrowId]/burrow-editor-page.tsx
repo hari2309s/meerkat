@@ -2,6 +2,7 @@
 
 import "@meerkat/editor/editor.css";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -33,6 +34,7 @@ import type { EncryptedBlob } from "@meerkat/crypto";
 import { useVoiceMemoUpload } from "@/hooks/use-voice-memo-upload";
 import { createClient } from "@/lib/supabase/client";
 import { loadVaultKey } from "@/lib/vault-credentials";
+import { VoicePlayerCard } from "@/components/voice-player-card";
 
 // ─── Voice block node view ────────────────────────────────────────────────────
 
@@ -124,48 +126,167 @@ function createVoiceBlockRenderer(denId: string, userId: string) {
       updateAttributes,
     ]);
 
-    const cls = [
-      "voice-block not-prose my-2 rounded-xl border border-border p-3",
-      selected ? "ring-2 ring-offset-1 ring-primary" : "",
-    ].join(" ");
+    const outerCls = "not-prose my-2";
+    const selectedScale: React.CSSProperties = {
+      transform: selected ? "scale(1.04)" : "scale(1)",
+      transition: "transform 150ms ease",
+      transformOrigin: "top left",
+    };
+
+    // Shared card style — matches VoicePlayerCard aesthetic.
+    const cardStyle: React.CSSProperties = {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "0.75rem",
+      padding: "0.75rem 1rem",
+      minWidth: 200,
+      maxWidth: 260,
+      background: "var(--color-bg-card)",
+      border: "1px solid var(--color-border-card)",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      borderRadius: "22px 22px 22px 4px",
+    };
+
+    // Mood constants (kept local to this renderer).
+    const MOOD_COLOR: Record<string, string> = {
+      happy: "#FBBF24",
+      sad: "#60A5FA",
+      angry: "#F87171",
+      fearful: "#A78BFA",
+      disgusted: "#34D399",
+      surprised: "#FB923C",
+      neutral: "#94A3B8",
+    };
+    const MOOD_EMOJI: Record<string, string> = {
+      happy: "😊",
+      sad: "😔",
+      angry: "😤",
+      fearful: "😨",
+      disgusted: "😒",
+      surprised: "😲",
+      neutral: "😐",
+    };
+    const MOOD_LABEL: Record<string, string> = {
+      happy: "Happy",
+      sad: "Sad",
+      angry: "Angry",
+      fearful: "Anxious",
+      disgusted: "Displeased",
+      surprised: "Surprised",
+      neutral: "Neutral",
+    };
 
     // ── Playback mode ────────────────────────────────────────────────────────
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [moodExpanded, setMoodExpanded] = useState(false);
+
     if (attrs.audioUrl) {
+      const moodKey = typeof attrs.mood === "string" ? attrs.mood : null;
+      const moodColor = moodKey ? (MOOD_COLOR[moodKey] ?? "#94A3B8") : null;
+      const moodEmoji = moodKey ? (MOOD_EMOJI[moodKey] ?? null) : null;
+      const moodLabel = moodKey ? (MOOD_LABEL[moodKey] ?? moodKey) : null;
+      // moodScore is valence in -1..1, convert to 0..100%
+      const valencePct =
+        typeof attrs.moodScore === "number"
+          ? Math.round(((attrs.moodScore + 1) / 2) * 100)
+          : null;
+
       return (
-        <NodeViewWrapper className={cls} contentEditable={false}>
-          <div className="flex items-start gap-3">
-            <span className="text-2xl select-none mt-0.5">🎙</span>
-            <div className="flex-1 min-w-0">
+        <NodeViewWrapper className={outerCls} contentEditable={false}>
+          <div className="inline-flex gap-2 items-end">
+            {/* Mood detail panel (left of player, mirrors chat layout) */}
+            {moodEmoji && moodColor && moodLabel && (
+              <AnimatePresence>
+                {moodExpanded && (
+                  <motion.div
+                    key="mood-panel"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 112, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    style={{ overflow: "hidden" }}
+                  >
+                    <div
+                      className="flex flex-col gap-2 shrink-0"
+                      style={{ width: 112 }}
+                    >
+                      <div
+                        className="text-[10px] font-semibold leading-none px-0.5 truncate w-full"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        {moodLabel}
+                      </div>
+                      {valencePct !== null && (
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="text-[9px] w-8 shrink-0 leading-none"
+                            style={{ color: "var(--color-text-muted)" }}
+                          >
+                            Mood
+                          </span>
+                          <div
+                            className="flex-1 h-1 rounded-full overflow-hidden"
+                            style={{
+                              background: "var(--color-btn-secondary-bg)",
+                            }}
+                          >
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${valencePct}%`,
+                                background: moodColor,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {typeof attrs.transcript === "string" &&
+                        attrs.transcript && (
+                          <p
+                            className="text-[10px] italic leading-relaxed line-clamp-3"
+                            style={{
+                              color: "var(--color-text-primary)",
+                              opacity: 0.75,
+                            }}
+                          >
+                            &ldquo;{attrs.transcript}&rdquo;
+                          </p>
+                        )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
+
+            <div className="flex flex-col gap-1.5" style={selectedScale}>
               {playError ? (
-                <span className="text-sm text-destructive">{playError}</span>
-              ) : playUrl ? (
-                // eslint-disable-next-line jsx-a11y/media-has-caption
-                <audio
-                  controls
-                  src={playUrl}
-                  className="w-full h-9"
-                  preload="metadata"
-                />
+                <div
+                  style={{ ...cardStyle, color: "#F87171", fontSize: "0.8rem" }}
+                >
+                  ⚠ {playError}
+                </div>
               ) : (
-                <span className="text-sm text-muted-foreground animate-pulse">
-                  Loading audio…
-                </span>
-              )}
-              {attrs.duration > 0 && (
-                <span className="ml-1 text-xs text-muted-foreground">
-                  {Math.round(attrs.duration)}s
-                </span>
-              )}
-              {attrs.transcript && (
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                  {attrs.transcript}
-                </p>
+                <VoicePlayerCard
+                  src={playUrl}
+                  isLoading={!playUrl && !playError}
+                  duration={attrs.duration ?? 0}
+                />
               )}
             </div>
-            {attrs.mood && (
-              <span className="flex-none text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                {attrs.mood}
-              </span>
+
+            {/* Mood emoji toggle button */}
+            {moodEmoji && moodColor && (
+              <button
+                onClick={() => setMoodExpanded((v) => !v)}
+                className="shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-sm self-center transition-all hover:scale-110 active:scale-95"
+                style={{
+                  background: `${moodColor}18`,
+                  border: `1px solid ${moodColor}40`,
+                }}
+                aria-label={moodExpanded ? "Collapse mood" : "Expand mood"}
+              >
+                {moodEmoji}
+              </button>
             )}
           </div>
         </NodeViewWrapper>
@@ -173,83 +294,120 @@ function createVoiceBlockRenderer(denId: string, userId: string) {
     }
 
     // ── Recording mode ───────────────────────────────────────────────────────
+
+    // Preview: use VoicePlayerCard + Save/Discard below.
+    if (recorder.phase === "preview") {
+      return (
+        <NodeViewWrapper className={outerCls} contentEditable={false}>
+          <div className="inline-flex flex-col gap-2" style={selectedScale}>
+            <VoicePlayerCard
+              src={recorder.audioUrl}
+              duration={recorder.seconds}
+            />
+            <div className="flex gap-2 px-1">
+              <button
+                onClick={() => void handleSave()}
+                className="text-xs px-3 py-1 rounded-full font-medium transition-opacity hover:opacity-90"
+                style={{ background: "#d4673a", color: "white" }}
+              >
+                Save
+              </button>
+              <button
+                onClick={recorder.discard}
+                className="text-xs px-3 py-1 rounded-full font-medium transition-opacity hover:opacity-80"
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  color: "var(--color-text-muted)",
+                }}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </NodeViewWrapper>
+      );
+    }
+
+    // All other recording phases share a compact card layout.
     return (
-      <NodeViewWrapper className={cls} contentEditable={false}>
-        <div className="flex items-center gap-3">
-          <span className="text-2xl select-none">🎙</span>
+      <NodeViewWrapper className={outerCls} contentEditable={false}>
+        <div style={{ ...cardStyle, ...selectedScale }}>
+          {/* Mic icon button */}
+          <button
+            onClick={
+              recorder.phase === "idle"
+                ? () => void recorder.start()
+                : recorder.phase === "recording"
+                  ? recorder.stop
+                  : recorder.phase === "error"
+                    ? () => void recorder.start()
+                    : undefined
+            }
+            disabled={
+              recorder.phase === "requesting" ||
+              recorder.phase === "stopping" ||
+              recorder.phase === "saving"
+            }
+            className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-90 bg-[#d4673a] shadow-lg hover:brightness-110 disabled:opacity-60"
+            aria-label="Record"
+          >
+            {recorder.phase === "requesting" ||
+            recorder.phase === "stopping" ||
+            recorder.phase === "saving" ? (
+              <Loader2 className="h-5 w-5 text-white animate-spin" />
+            ) : recorder.phase === "recording" ? (
+              <span className="h-3.5 w-3.5 rounded-sm bg-white" />
+            ) : (
+              <span className="text-base select-none">🎙</span>
+            )}
+          </button>
+
+          {/* Status text */}
           <div className="flex-1 min-w-0">
             {recorder.phase === "idle" && (
-              <button
-                onClick={() => void recorder.start()}
-                className="text-sm px-3 py-1 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+              <span
+                className="text-sm font-medium"
+                style={{ color: "var(--color-text-secondary)" }}
               >
-                Record voice note
-              </button>
+                Tap to record
+              </span>
             )}
             {recorder.phase === "requesting" && (
-              <span className="text-sm text-muted-foreground animate-pulse">
-                Requesting microphone…
+              <span
+                className="text-sm animate-pulse"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Requesting mic…
               </span>
             )}
             {recorder.phase === "recording" && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-destructive animate-pulse">
-                  ● {recorder.seconds}s
-                </span>
-                <button
-                  onClick={recorder.stop}
-                  className="text-sm px-3 py-1 rounded-lg bg-muted hover:bg-accent transition-colors"
-                >
-                  Stop
-                </button>
-              </div>
+              <span
+                className="text-sm font-mono animate-pulse"
+                style={{ color: "#d4673a" }}
+              >
+                ● {recorder.seconds}s — tap to stop
+              </span>
             )}
             {recorder.phase === "stopping" && (
-              <span className="text-sm text-muted-foreground animate-pulse">
+              <span
+                className="text-sm animate-pulse"
+                style={{ color: "var(--color-text-muted)" }}
+              >
                 Processing…
               </span>
             )}
-            {recorder.phase === "preview" && (
-              <div className="flex flex-col gap-2">
-                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <audio
-                  controls
-                  src={recorder.audioUrl ?? ""}
-                  className="w-full h-9"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => void handleSave()}
-                    className="text-sm px-3 py-1 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={recorder.discard}
-                    className="text-sm px-3 py-1 rounded-lg bg-muted hover:bg-accent transition-colors"
-                  >
-                    Discard
-                  </button>
-                </div>
-              </div>
-            )}
             {recorder.phase === "saving" && (
-              <span className="text-sm text-muted-foreground animate-pulse">
+              <span
+                className="text-sm animate-pulse"
+                style={{ color: "var(--color-text-muted)" }}
+              >
                 Saving & analysing…
               </span>
             )}
             {recorder.phase === "error" && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-destructive">
-                  {recorder.errorMessage}
-                </span>
-                <button
-                  onClick={() => void recorder.start()}
-                  className="text-sm px-2 py-0.5 rounded-lg bg-muted hover:bg-accent transition-colors"
-                >
-                  Retry
-                </button>
-              </div>
+              <span className="text-xs" style={{ color: "#F87171" }}>
+                {recorder.errorMessage ?? "Error"} — tap to retry
+              </span>
             )}
           </div>
         </div>
