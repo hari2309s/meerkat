@@ -59,6 +59,17 @@ export function BlockItem({
   const editRef = useRef<HTMLDivElement>(null);
   const slashMenuRef = useRef<SlashMenuHandle>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  // ── Close lightbox on Escape ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const handler = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [lightboxOpen]);
 
   // ── Sync content into DOM (controlled-like) ──────────────────────────────
   useEffect(() => {
@@ -176,10 +187,108 @@ export function BlockItem({
     const alt = (block.attrs?.alt as string | undefined) ?? "";
     if (src) {
       return (
-        <div className={blockContainerClass("image")} onClick={onSelect}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={alt} className="max-w-full rounded-md" />
-        </div>
+        <>
+          <div className={blockContainerClass("image")} onClick={onSelect}>
+            <div
+              style={{
+                position: "relative",
+                display: "inline-block",
+                cursor: "zoom-in",
+              }}
+              className="group"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightboxOpen(true);
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt={alt}
+                className="max-w-full rounded-md"
+                style={{ maxHeight: "320px", display: "block" }}
+                draggable={false}
+              />
+              <div
+                className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 rounded-md"
+                style={{ background: "rgba(0,0,0,0.28)" }}
+              >
+                <span
+                  style={{
+                    color: "white",
+                    fontSize: "1.5rem",
+                    filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.5))",
+                  }}
+                >
+                  ⊕
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {lightboxOpen && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(0,0,0,0.9)",
+                backdropFilter: "blur(12px)",
+              }}
+              onClick={() => setLightboxOpen(false)}
+            >
+              <button
+                onClick={() => setLightboxOpen(false)}
+                aria-label="Close"
+                style={{
+                  position: "absolute",
+                  top: "1rem",
+                  right: "1rem",
+                  background: "rgba(255,255,255,0.1)",
+                  border: "none",
+                  borderRadius: "9999px",
+                  width: "2rem",
+                  height: "2rem",
+                  cursor: "pointer",
+                  color: "rgba(255,255,255,0.8)",
+                  fontSize: "1.1rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ✕
+              </button>
+              <div
+                style={{
+                  padding: "2rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={alt}
+                  draggable={false}
+                  style={{
+                    maxHeight: "calc(100vh - 8rem)",
+                    maxWidth: "min(90vw, 900px)",
+                    borderRadius: "0.75rem",
+                    objectFit: "contain",
+                    boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </>
       );
     }
     // Fallback: editable URL input
