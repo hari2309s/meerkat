@@ -18,6 +18,11 @@ A modern, real-time collaborative workspace platform featuring voice messaging w
 ![TweetNaCl](https://img.shields.io/badge/TweetNaCl-Encryption-5C4EE5)
 ![BIP39](https://img.shields.io/badge/BIP39-Key_Auth-8B5CF6)
 ![Zod](https://img.shields.io/badge/Zod-Schema-3E67B1)
+![Whisper](https://img.shields.io/badge/Whisper-WASM-412991?logo=openai)
+![ONNX](https://img.shields.io/badge/ONNX-Runtime-005CED)
+![Transformers.js](https://img.shields.io/badge/🤗_Transformers.js-On--device_AI-FFD21E)
+![PWA](https://img.shields.io/badge/PWA-Offline--first-5A0FC8)
+![IndexedDB](https://img.shields.io/badge/IndexedDB_%2F_OPFS-Local--first-F97316)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
 A note-taking and real-time collaboration app for your crew — voice, text, solo, or together. Your content lives on your device, encrypted by default. Visitors connect directly to you; when you're offline, the door closes.
@@ -28,7 +33,7 @@ A note-taking and real-time collaboration app for your crew — voice, text, sol
 - **End-to-end Encryption**: All content is encrypted on-device via `@meerkat/crypto` before anything touches a network or storage.
 - **Voice Memos**: Record, store, and play back voice notes — all within your den.
 - **Block-based Editor**: Notion-style pages (burrows) with text, headings, lists, code, quote, divider, image, and voice blocks. Slash command menu (`/`) for quick block insertion.
-- **On-device Mood Analysis**: Voice memo transcription and emotion classification run entirely in the browser. No audio is ever sent to a server.
+- **On-device Multi-modal Voice Analysis**: A three-stream pipeline analyses every voice memo entirely in the browser — acoustic features (pitch, energy, jitter, shimmer), Whisper WASM transcription, and DistilBERT text sentiment — fused with dynamic weighting and contradiction detection (sarcasm, masking, stress) into a mood label, tone, confidence score, and natural-language description. No audio, transcript, or analysis result ever leaves the device.
 - **Real-time P2P Sync**: Host and visitors sync Yjs documents directly over WebRTC — no content passes through the server.
 - **Scoped Invite System**: Capability-based access control via DenKey tokens (flower pots) — visitors get exactly the permissions you grant.
 - **CRDT Collaboration**: Conflict-free document synchronisation via Yjs with live cursors and per-page content docs.
@@ -43,7 +48,7 @@ meerkat/
 ├── apps/
 │   └── web/                # Next.js 14 application (App Router)
 ├── packages/
-│   ├── analyzer/           # On-device voice transcription (Whisper) + emotion classification (ONNX)
+│   ├── analyzer/           # On-device voice analysis — Whisper (transcription) + DistilBERT SST-2 (sentiment) + acoustic features (jitter, shimmer, pitch) fused into mood/tone/description
 │   ├── burrows/            # Pages (burrows) system — per-burrow Yjs doc architecture + React hooks
 │   ├── config/             # Environment validation and shared config
 │   ├── crypto/             # All encryption — nothing leaves the device without passing through here
