@@ -10,45 +10,35 @@ import { VoicePlayerCard } from "@/components/voice-player-card";
 // ─── Mood colour map ──────────────────────────────────────────────────────────
 
 const MOOD_COLOR: Record<MoodLabel, string> = {
-  happy: "#FBBF24",
-  sad: "#60A5FA",
-  angry: "#F87171",
-  fearful: "#A78BFA",
-  disgusted: "#34D399",
-  surprised: "#FB923C",
+  positive: "#FBBF24",
+  negative: "#60A5FA",
   neutral: "#94A3B8",
 };
 
 const MOOD_EMOJI: Record<MoodLabel, string> = {
-  happy: "😊",
-  sad: "😔",
-  angry: "😤",
-  fearful: "😨",
-  disgusted: "😒",
-  surprised: "😲",
+  positive: "😊",
+  negative: "😔",
   neutral: "😐",
 };
 
-// Classifier mood → human-readable label.
+// Mood → human-readable label.
 const MOOD_TEXT_LABEL: Record<MoodLabel, string> = {
-  happy: "Happy",
-  sad: "Sad",
-  angry: "Angry",
-  fearful: "Anxious",
-  disgusted: "Displeased",
-  surprised: "Surprised",
+  positive: "Positive",
+  negative: "Negative",
   neutral: "Neutral",
 };
 
-// Tone (derived from valence/arousal) → human-readable label.
-// Used as a fallback when the classifier output is "neutral".
+// Tone → human-readable label.
 const TONE_DISPLAY_LABEL: Record<ToneLabel, string> = {
-  positive: "Positive",
   energetic: "Energetic",
-  calm: "Calm",
   tense: "Tense",
-  negative: "Low",
-  neutral: "Neutral",
+  animated: "Animated",
+  calm: "Calm",
+  subdued: "Subdued",
+  monotone: "Monotone",
+  pleasant: "Pleasant",
+  serious: "Serious",
+  conversational: "Conversational",
 };
 
 // ─── Compact mood side panel (detail content only) ───────────────────────────
@@ -79,7 +69,7 @@ function MoodSidePanel({
   const displayLabel =
     mood !== "neutral"
       ? MOOD_TEXT_LABEL[mood]
-      : TONE_DISPLAY_LABEL[tone ?? "neutral"];
+      : TONE_DISPLAY_LABEL[tone ?? "conversational"];
   const valencePct = Math.round(((valence + 1) / 2) * 100);
   const arousalPct = Math.round(arousal * 100);
 
