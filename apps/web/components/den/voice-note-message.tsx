@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getInitials, getSenderName } from "@meerkat/utils/string";
 import type { Message, MoodLabel, ToneLabel } from "@/types/den";
@@ -64,75 +64,81 @@ function MoodSidePanel({
 }: MoodSidePanelProps) {
   const color = MOOD_COLOR[mood];
   const pct = Math.round(confidence * 100);
-  // Prefer the classifier's label when it's confident about a non-neutral mood.
-  // Fall back to the tone label (calm/tense/energetic…) for audio-only results.
+  // Show "Mood · Tone · confidence%" — tone is shown alongside mood so the
+  // user sees both the valence (positive/negative/neutral) and the qualitative
+  // delivery (subdued/energetic/tense…). Fall back to mood-only for neutral.
+  const toneLabel = tone ? TONE_DISPLAY_LABEL[tone] : null;
   const displayLabel =
-    mood !== "neutral"
-      ? MOOD_TEXT_LABEL[mood]
-      : TONE_DISPLAY_LABEL[tone ?? "conversational"];
+    mood !== "neutral" && toneLabel
+      ? `${MOOD_TEXT_LABEL[mood]} · ${toneLabel}`
+      : (toneLabel ?? MOOD_TEXT_LABEL[mood]);
   const valencePct = Math.round(((valence + 1) / 2) * 100);
   const arousalPct = Math.round(arousal * 100);
 
   return (
     <div
       className={`flex flex-col gap-2 shrink-0 ${isOwn ? "items-end" : "items-start"}`}
-      style={{ width: 112 }}
     >
       {/* Tone · confidence label */}
       <div
-        className="text-[10px] font-semibold leading-none px-0.5 truncate w-full"
+        className="text-[10px] font-semibold leading-none px-0.5"
         style={{ color: "var(--color-text-muted)" }}
       >
         {displayLabel} · {pct}%
       </div>
 
-      {/* Compact valence / arousal bars */}
-      <div className="flex flex-col gap-1 w-full">
-        <div className="flex items-center gap-1">
-          <span
-            className="text-[9px] w-8 shrink-0 leading-none"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Mood
-          </span>
-          <div
-            className="flex-1 h-1 rounded-full overflow-hidden"
-            style={{ background: "var(--color-btn-secondary-bg)" }}
-          >
+      {/* Bars + transcript side by side — transcript leads on own messages */}
+      <div
+        className={`flex gap-2 items-start ${isOwn ? "flex-row-reverse" : "flex-row"}`}
+      >
+        {/* Compact valence / arousal bars */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1">
+            <span
+              className="text-[9px] w-8 shrink-0 leading-none"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Mood
+            </span>
             <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${valencePct}%`, background: color }}
-            />
+              className="w-10 h-1 rounded-full overflow-hidden"
+              style={{ background: "var(--color-btn-secondary-bg)" }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${valencePct}%`, background: color }}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <span
+              className="text-[9px] w-8 shrink-0 leading-none"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Energy
+            </span>
+            <div
+              className="w-10 h-1 rounded-full overflow-hidden"
+              style={{ background: "var(--color-btn-secondary-bg)" }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${arousalPct}%`, background: color }}
+              />
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <span
-            className="text-[9px] w-8 shrink-0 leading-none"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Energy
-          </span>
-          <div
-            className="flex-1 h-1 rounded-full overflow-hidden"
-            style={{ background: "var(--color-btn-secondary-bg)" }}
-          >
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${arousalPct}%`, background: color }}
-            />
-          </div>
-        </div>
-      </div>
 
-      {/* Transcript */}
-      {transcript && (
-        <p
-          className="text-[10px] italic leading-relaxed line-clamp-3"
-          style={{ color: "var(--color-text-primary)", opacity: 0.75 }}
-        >
-          &ldquo;{transcript}&rdquo;
-        </p>
-      )}
+        {/* Transcript — sits beside the bars */}
+        {transcript && (
+          <p
+            className="text-[10px] italic leading-relaxed line-clamp-3"
+            style={{ color: "var(--color-text-primary)", opacity: 0.75 }}
+          >
+            &ldquo;{transcript}&rdquo;
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -152,6 +158,17 @@ export function VoiceNoteMessage({
   isLatest = false,
 }: VoiceNoteMessageProps) {
   const [moodExpanded, setMoodExpanded] = useState(isLatest);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-dismiss the panel after 10 s when it opens.
+  // Clicking the emoji button toggles it manually and resets the timer.
+  useEffect(() => {
+    if (!moodExpanded) return;
+    dismissTimer.current = setTimeout(() => setMoodExpanded(false), 10000);
+    return () => {
+      if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    };
+  }, [moodExpanded]);
 
   const displayName = getSenderName(message.sender);
   const initialsSource =
@@ -225,11 +242,13 @@ export function VoiceNoteMessage({
             {moodExpanded && (
               <motion.div
                 key="mood-panel"
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 112, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                style={{ overflow: "hidden" }}
+                initial={{ opacity: 0, scale: 0.88 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.88 }}
+                transition={{ duration: 0.14, ease: "easeOut" }}
+                style={{
+                  transformOrigin: isOwn ? "right center" : "left center",
+                }}
               >
                 <MoodSidePanel
                   mood={analysis.mood}
