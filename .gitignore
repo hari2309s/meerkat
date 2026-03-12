@@ -38,6 +38,9 @@ next-env.d.ts
 # Turbo
 .turbo
 
+# ORT WASM runtime files — copied from node_modules by next.config.js at startup
+apps/web/public/ort/
+
 # PWA
 apps/web/public/sw.js
 apps/web/public/workbox-*.js
