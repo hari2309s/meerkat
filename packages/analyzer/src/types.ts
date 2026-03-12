@@ -6,32 +6,48 @@
  * directly.
  */
 
-// ─── Mood & emotion labels ────────────────────────────────────────────────────
+// ─── Mood & tone labels ───────────────────────────────────────────────────────
 
 /**
- * Discrete mood labels emitted by the emotion classifier.
- * Mapped from the underlying model's output labels.
+ * Discrete mood labels — positive, negative, or neutral valence.
+ * Derived by fusing DistilBERT text sentiment and acoustic valence.
+ *
+ * Replacing the previous 7-class emotion labels (happy/sad/angry/…) with
+ * this 3-class system per the multi-modal analysis plan. The 3-class system
+ * is more accurate (88%+ vs 70-85%) and more useful for understanding context.
  */
-export type MoodLabel =
-  | "happy"
-  | "sad"
-  | "angry"
-  | "fearful"
-  | "disgusted"
-  | "surprised"
-  | "neutral";
+export type MoodLabel = "positive" | "negative" | "neutral";
 
 /**
  * Tone labels capturing the qualitative feel of the voice note.
- * Derived from valence + arousal dimensions.
+ * Derived from the fused valence + arousal dimensions using the
+ * arousal-valence quadrant mapping (Russell circumplex model, 1980).
+ *
+ * High arousal (>0.6):
+ *   positive valence → energetic | negative valence → tense | neutral → animated
+ *
+ * Low arousal (<0.4):
+ *   positive valence → calm | negative valence → subdued | neutral → monotone
+ *
+ * Mid arousal (0.4–0.6):
+ *   positive valence → pleasant | negative valence → serious | neutral → conversational
  */
 export type ToneLabel =
-  | "positive"
-  | "negative"
-  | "neutral"
   | "energetic"
+  | "tense"
+  | "animated"
   | "calm"
-  | "tense";
+  | "subdued"
+  | "monotone"
+  | "pleasant"
+  | "serious"
+  | "conversational";
+
+/**
+ * Contradiction type detected during fusion.
+ * Indicates a discrepancy between text sentiment and acoustic prosody.
+ */
+export type ContradictionType = "sarcasm" | "masking" | "stress" | null;
 
 // ─── Audio features ───────────────────────────────────────────────────────────
 
@@ -62,6 +78,26 @@ export interface AudioFeatures {
   spectralRolloffHz: number;
   /** Fraction of frames classified as voiced (0–1). */
   voicedFraction: number;
+  /**
+   * Relative pitch period variation (jitter).
+   * pitchStdDev / pitchMedianHz — proxy for voice tremor.
+   * > 0.02 indicates elevated jitter (stress, tension, tremor).
+   * 0 when no pitched frames are detected.
+   */
+  jitter: number;
+  /**
+   * Relative amplitude variation between frames (shimmer).
+   * energyStdDev / energyMean — proxy for voice shakiness.
+   * > 0.05 indicates elevated shimmer (emotional distress, trembling).
+   * 0 for silent audio.
+   */
+  shimmer: number;
+  /**
+   * Fraction of total duration occupied by unvoiced/silent frames.
+   * High → many long pauses (tired, hesitant, stressed).
+   * Range: 0–1.
+   */
+  pauseDuration: number;
 }
 
 // ─── Analysis result ──────────────────────────────────────────────────────────
@@ -69,10 +105,11 @@ export interface AudioFeatures {
 /**
  * The complete on-device analysis result for a voice note.
  *
- * Produced by the dual-signal pipeline in analyzeVoice():
- *   – Acoustic features (always computed, no model needed)
- *   – Text-based emotion classification (Whisper + ONNX)
- *   – Fusion of both signals into final mood/tone/valence/arousal
+ * Produced by the three-stream pipeline in analyzeVoice():
+ *   Stream 1: Acoustic features (pitch, energy, jitter, shimmer…)
+ *   Stream 2: Acoustic mood signal (rule-based valence from features)
+ *   Stream 3: Text sentiment (DistilBERT binary sentiment on Whisper transcript)
+ *   Fusion: weighted combination with contradiction detection
  *
  * All fields are populated by analyzeVoice(). Individual fields can also
  * be obtained via the lower-level transcribe(), classifyEmotion(), and
@@ -81,32 +118,45 @@ export interface AudioFeatures {
 export interface AnalysisResult {
   /** Whisper-WASM transcript of the audio. Empty string if audio was silent. */
   transcript: string;
-  /** Discrete mood label — fused from text classification and audio signal. */
+  /** Discrete mood label — fused from text sentiment and acoustic signal. */
   mood: MoodLabel;
-  /** Qualitative tone derived from fused valence + arousal. */
+  /** Qualitative tone derived from fused valence + arousal quadrant. */
   tone: ToneLabel;
   /**
-   * Valence — how positive (1.0) or negative (-1.0) the emotion is.
-   * Fused from text classifier output and acoustic feature analysis.
+   * Valence — how positive (1.0) or negative (-1.0) the mood is.
+   * Fused from DistilBERT text sentiment output and acoustic feature analysis.
    * Range: -1.0 to 1.0
    */
   valence: number;
   /**
-   * Arousal — how high-energy (1.0) or low-energy (0.0) the emotion is.
-   * Fused from text classifier output and acoustic feature analysis.
+   * Arousal — how high-energy (1.0) or low-energy (0.0) the mood is.
+   * Primarily derived from acoustic features (energy, pitch, speaking rate).
    * Range: 0.0 to 1.0
    */
   arousal: number;
   /**
    * Confidence in the final mood classification (0–1).
-   * Reflects agreement between audio and text signals.
+   * Starts at 50%, increases when signals agree, decreases for contradictions.
    * Higher when both signals agree; lower when they diverge.
    */
   confidence: number;
   /**
+   * Natural language description of the mood analysis.
+   * E.g. "Positive mood, energetic tone, high pitched, speaking quickly"
+   * E.g. "Neutral mood, tense tone, with long pauses (voice shows tension)"
+   */
+  description: string;
+  /**
+   * Contradiction detected between text sentiment and acoustic prosody.
+   * - sarcasm: positive words + negative prosody
+   * - masking: negative words + positive/neutral prosody
+   * - stress: neutral words + high jitter/shimmer
+   * - null: no contradiction detected
+   */
+  contradiction: ContradictionType;
+  /**
    * Raw acoustic features extracted from the audio waveform.
    * Always present unless audio could not be decoded.
-   * Useful for display (e.g. pitch visualisation) or custom fusion logic.
    */
   audioFeatures?: AudioFeatures;
   /** Unix ms timestamp of when the analysis completed. */
@@ -114,7 +164,8 @@ export interface AnalysisResult {
 }
 
 /**
- * The result of text-based emotion classification alone (without transcription).
+ * The result of text-based sentiment classification alone (without transcription).
+ * Uses DistilBERT SST-2 for binary positive/negative sentiment.
  */
 export interface EmotionResult {
   mood: MoodLabel;

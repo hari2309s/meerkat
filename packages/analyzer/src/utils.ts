@@ -5,9 +5,15 @@
  * These are pure functions with no side effects — easy to test in isolation.
  */
 
-import type { MoodLabel, ToneLabel } from "./types.js";
+import type {
+  MoodLabel,
+  ToneLabel,
+  ContradictionType,
+  AudioFeatures,
+} from "./types.js";
 import {
   MOOD_DIMENSIONS,
+  MOOD_VALENCE_THRESHOLDS,
   TONE_THRESHOLDS,
   WHISPER_SAMPLE_RATE,
   MAX_AUDIO_SECONDS,
@@ -18,41 +24,19 @@ import {
 /**
  * Normalises a raw model label string into a MoodLabel.
  *
- * Different emotion model checkpoints use slightly different label strings
- * (e.g. "joy" vs "happy", "sadness" vs "sad"). This function maps all known
- * variants to the canonical MoodLabel set.
+ * Handles DistilBERT SST-2 output labels (POSITIVE/NEGATIVE) and
+ * normalises them to the canonical 3-class MoodLabel set.
  */
 export function normaliseMoodLabel(raw: string): MoodLabel {
   if (typeof raw !== "string") return "neutral";
   const lower = raw.toLowerCase().trim();
 
   const map: Record<string, MoodLabel> = {
-    happy: "happy",
-    joy: "happy",
-    joyful: "happy",
-    excitement: "happy",
-    excited: "happy",
-    sad: "sad",
-    sadness: "sad",
-    grief: "sad",
-    depressed: "sad",
-    remorse: "sad",
-    anger: "angry",
-    angry: "angry",
-    annoyance: "angry",
-    disapproval: "angry",
-    fear: "fearful",
-    fearful: "fearful",
-    nervousness: "fearful",
-    anxiety: "fearful",
-    disgust: "disgusted",
-    disgusted: "disgusted",
-    surprise: "surprised",
-    surprised: "surprised",
-    amusement: "surprised",
+    positive: "positive",
+    label_1: "positive", // some HF models use LABEL_0/LABEL_1
+    negative: "negative",
+    label_0: "negative",
     neutral: "neutral",
-    calm: "neutral",
-    realization: "neutral",
   };
 
   return map[lower] ?? "neutral";
@@ -72,32 +56,103 @@ export function moodToDimensions(mood: MoodLabel): {
 }
 
 /**
- * Derives a ToneLabel from valence + arousal using Russell's circumplex model.
+ * Classifies a fused valence score into a 3-class MoodLabel.
+ * Per the multi-modal analysis plan:
+ *   positive: valence > 0.3
+ *   negative: valence < -0.3
+ *   neutral:  -0.3 ≤ valence ≤ 0.3
+ */
+export function classifyMoodFromValence(valence: number): MoodLabel {
+  if (valence > MOOD_VALENCE_THRESHOLDS.positiveMin) return "positive";
+  if (valence < MOOD_VALENCE_THRESHOLDS.negativeMax) return "negative";
+  return "neutral";
+}
+
+/**
+ * Derives a ToneLabel from valence + arousal using the 9-tone quadrant
+ * mapping per the multi-modal analysis plan (Russell circumplex, 1980).
  *
- * Quadrant mapping:
- *   +valence +arousal → energetic (happy, excited)
- *   +valence -arousal → calm (content, relaxed)
- *   -valence +arousal → tense (angry, fearful)
- *   -valence -arousal → negative (sad, depressed)
- *   near origin       → neutral
+ * High arousal (> 0.6):
+ *   positive valence → energetic  |  negative → tense  |  neutral → animated
+ *
+ * Low arousal (< 0.4):
+ *   positive valence → calm  |  negative → subdued  |  neutral → monotone
+ *
+ * Mid arousal (0.4–0.6):
+ *   positive valence → pleasant  |  negative → serious  |  neutral → conversational
  */
 export function deriveTone(valence: number, arousal: number): ToneLabel {
-  const absValence = Math.abs(valence);
   const { neutralValence, lowArousal, highArousal } = TONE_THRESHOLDS;
 
-  // Near-zero valence AND low-to-moderate arousal → neutral.
-  // Both conditions required: high arousal with near-zero valence (e.g. surprised
-  // or tense speech with flat words) should not collapse to neutral.
-  // Thresholds widened (0.25 / 0.4) so typical conversational speech
-  // (valence ≈ −0.195, arousal ≈ 0.35) correctly lands here rather than "calm".
-  if (absValence < neutralValence && arousal < lowArousal) return "neutral";
+  const isPositive = valence > neutralValence;
+  const isNegative = valence < -neutralValence;
 
-  if (valence > 0) {
-    return arousal >= highArousal ? "energetic" : "positive";
-  } else {
-    if (arousal >= highArousal) return "tense";
-    if (arousal < lowArousal) return "negative";
-    return "calm";
+  if (arousal > highArousal) {
+    if (isPositive) return "energetic";
+    if (isNegative) return "tense";
+    return "animated";
+  }
+
+  if (arousal < lowArousal) {
+    if (isPositive) return "calm";
+    if (isNegative) return "subdued";
+    return "monotone";
+  }
+
+  // Mid arousal (0.4–0.6)
+  if (isPositive) return "pleasant";
+  if (isNegative) return "serious";
+  return "conversational";
+}
+
+/**
+ * Generates a natural language description of the analysis result.
+ * E.g. "Positive mood, energetic tone, high pitched, speaking quickly"
+ * E.g. "Neutral mood, tense tone, with long pauses (voice shows tension)"
+ */
+export function generateDescription(
+  mood: MoodLabel,
+  tone: ToneLabel,
+  features: AudioFeatures,
+  contradiction: ContradictionType,
+): string {
+  const moodStr = mood.charAt(0).toUpperCase() + mood.slice(1);
+  const toneStr = tone.charAt(0).toUpperCase() + tone.slice(1);
+  const parts: string[] = [`${moodStr} mood, ${toneStr.toLowerCase()} tone`];
+
+  // Pitch descriptor
+  if (features.pitchMedianHz !== null) {
+    if (features.pitchMedianHz > 200) {
+      parts.push("high pitched");
+    } else if (features.pitchMedianHz < 110) {
+      parts.push("low pitched");
+    }
+  }
+
+  // Speaking rate descriptor
+  if (features.speakingRateFPS > 5) {
+    parts.push("speaking quickly");
+  } else if (features.speakingRateFPS < 2 && features.voicedFraction > 0.05) {
+    parts.push("speaking slowly");
+  }
+
+  // Pause descriptor
+  if (features.pauseDuration > 0.4) {
+    parts.push("with long pauses");
+  }
+
+  const base = parts.join(", ");
+
+  // Append contradiction note
+  switch (contradiction) {
+    case "sarcasm":
+      return base + " (possible sarcasm detected)";
+    case "stress":
+      return base + " (voice shows tension)";
+    case "masking":
+      return base + " (possible emotional masking)";
+    default:
+      return base;
   }
 }
 

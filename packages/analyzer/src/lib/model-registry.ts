@@ -125,6 +125,31 @@ export async function getTranscriptionPipeline(
       env.useBrowserCache = true;
       env.allowLocalModels = false;
 
+      // Override ORT WASM paths to use local copies instead of the CDN.
+      //
+      // onnxruntime-web ships a dev pre-release (1.22.0-dev.*) that is NOT on
+      // any public CDN. transformers.js sets wasmPaths to its own jsdelivr URL,
+      // but "ort-wasm-simd-threaded.mjs" lives in the onnxruntime-web package,
+      // not the transformers package → 404 → "no available backend found".
+      //
+      // next.config.js copies both ORT files to public/ort/ at startup.
+      // Setting wasmPaths = '/ort/' tells ORT to load them locally.
+      // numThreads = 1 avoids spawning Web Workers (simplest path; inference
+      // speed is fine for short voice recordings).
+      const onnxEnv = env.backends?.onnx as
+        | {
+            wasm?: {
+              numThreads?: number;
+              wasmPaths?: string | Record<string, string>;
+            };
+          }
+        | undefined;
+      if (onnxEnv) {
+        onnxEnv.wasm ??= {};
+        onnxEnv.wasm.wasmPaths = "/ort/";
+        onnxEnv.wasm.numThreads = 1;
+      }
+
       const progressCallback = onProgress
         ? (event: { status: string; progress?: number; file?: string }) => {
             onProgress({
@@ -184,6 +209,21 @@ export async function getEmotionPipeline(
 
       env.useBrowserCache = true;
       env.allowLocalModels = false;
+
+      // Same wasmPaths + numThreads override as the transcription pipeline above.
+      const onnxEnv2 = env.backends?.onnx as
+        | {
+            wasm?: {
+              numThreads?: number;
+              wasmPaths?: string | Record<string, string>;
+            };
+          }
+        | undefined;
+      if (onnxEnv2) {
+        onnxEnv2.wasm ??= {};
+        onnxEnv2.wasm.wasmPaths = "/ort/";
+        onnxEnv2.wasm.numThreads = 1;
+      }
 
       const progressCallback = onProgress
         ? (event: { status: string; progress?: number; file?: string }) => {

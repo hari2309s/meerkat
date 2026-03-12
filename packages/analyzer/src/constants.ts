@@ -15,62 +15,63 @@
 export const TRANSCRIPTION_MODEL_ID = "onnx-community/whisper-tiny.en" as const;
 
 /**
- * Distilled emotion classifier — ~83MB ONNX (q8 quantised).
- * Fine-tuned for 7-class emotion output: anger/disgust/fear/joy/neutral/sadness/surprise.
+ * DistilBERT fine-tuned on SST-2 sentiment classification.
+ * Binary positive/negative sentiment — maps directly to valence.
+ * Size: ~67MB ONNX (q8 quantised).
  *
- * MicahB/emotion_text_classifier is a Transformers.js-compatible fork of the
- * original michellejieli model with proper ONNX exports (onnx/model_quantized.onnx).
- * The original michellejieli repo only has PyTorch weights — no ONNX files.
+ * Output: POSITIVE or NEGATIVE label + score (0–1 probability).
+ * Valence mapping: POSITIVE → +score, NEGATIVE → -score.
+ *
+ * Replaces the previous 7-class emotion model with a more accurate
+ * binary sentiment model per the multi-modal analysis plan.
  */
-export const EMOTION_MODEL_ID = "MicahB/emotion_text_classifier" as const;
+export const EMOTION_MODEL_ID =
+  "Xenova/distilbert-base-uncased-finetuned-sst-2-english" as const;
 
-/** Minimum transcript length (chars) before running emotion classification. */
+/** Minimum transcript length (chars) before running text sentiment. */
 export const MIN_TRANSCRIPT_LENGTH = 3;
 
 /**
- * Valence/arousal table for each mood label.
- * Sourced from the Russell circumplex model of affect (1980).
+ * Valence/arousal defaults for the 3-class mood system.
+ * Used when mapping fused valence to a mood label's dimensional representation.
  *
- * Used to compute the dimensional emotion values from the discrete label,
- * since the classifier outputs a label+confidence, not raw dimensions.
+ * Sourced from the Russell circumplex model of affect (1980).
  */
 export const MOOD_DIMENSIONS: Record<
   string,
   { valence: number; arousal: number }
 > = {
-  happy: { valence: 0.8, arousal: 0.6 },
-  sad: { valence: -0.7, arousal: -0.4 },
-  angry: { valence: -0.6, arousal: 0.8 },
-  fearful: { valence: -0.6, arousal: 0.6 },
-  disgusted: { valence: -0.5, arousal: 0.2 },
-  surprised: { valence: 0.2, arousal: 0.8 },
+  positive: { valence: 0.75, arousal: 0.5 },
+  negative: { valence: -0.65, arousal: 0.3 },
   neutral: { valence: 0.0, arousal: 0.0 },
-  // Aliases from some model variants
-  joy: { valence: 0.8, arousal: 0.6 },
-  fear: { valence: -0.6, arousal: 0.6 },
-  disgust: { valence: -0.5, arousal: 0.2 },
-  surprise: { valence: 0.2, arousal: 0.8 },
-  sadness: { valence: -0.7, arousal: -0.4 },
-  anger: { valence: -0.6, arousal: 0.8 },
 };
 
 /**
- * Derive a ToneLabel from the valence+arousal dimensions.
+ * Valence thresholds for 3-class mood categorisation.
+ * Per the multi-modal analysis plan:
+ *   Positive: valence > 0.3
+ *   Negative: valence < -0.3
+ *   Neutral:  -0.3 ≤ valence ≤ 0.3
+ */
+export const MOOD_VALENCE_THRESHOLDS = {
+  positiveMin: 0.3,
+  negativeMax: -0.3,
+} as const;
+
+/**
+ * Arousal thresholds for 9-tone quadrant mapping (Russell circumplex).
  *
- * Russell quadrant mapping:
- *   High valence + high arousal → energetic
- *   High valence + low arousal  → calm / positive
- *   Low valence + high arousal  → tense
- *   Low valence + low arousal   → negative
- *   Near origin                 → neutral
+ * High arousal (>0.6):  energetic | tense | animated
+ * Low arousal (<0.4):   calm | subdued | monotone
+ * Mid arousal (0.4–0.6): pleasant | serious | conversational
  */
 export const TONE_THRESHOLDS = {
-  /** Below this absolute valence, considered neutral */
-  neutralValence: 0.25,
-  /** Below this arousal, considered low-energy */
+  /** Below this absolute valence → considered valence-neutral for tone */
+  neutralValence: 0.3,
+  /** Below this arousal → low-energy tone category */
   lowArousal: 0.4,
-  /** Above this arousal, considered high-energy */
-  highArousal: 0.55,
+  /** Above this arousal → high-energy tone category */
+  highArousal: 0.6,
 } as const;
 
 /** Whisper max audio clip length to process in one pass (seconds). */

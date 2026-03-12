@@ -56,12 +56,17 @@ export async function transcribe(
   const pipe = await getTranscriptionPipeline(onProgress);
 
   // Run Whisper inference.
+  // return_timestamps must be true in transformers.js v3 for chunk_length_s
+  // to trigger chunked long-form transcription. With false, v3 skips chunking
+  // and runs single-pass, which can silently produce empty output on WASM.
+  // output.text always contains the assembled transcript regardless of the
+  // timestamp setting — extractTranscriptText reads that field first.
   const output = await pipe(samples, {
     // whisper-tiny.en is English-only — omit `language` and `task` to avoid
     // "Cannot specify task or language for an English-only model" error.
     chunk_length_s: 30,
     stride_length_s: 5,
-    return_timestamps: false,
+    return_timestamps: true,
     sampling_rate: WHISPER_SAMPLE_RATE,
   });
 
@@ -71,17 +76,23 @@ export async function transcribe(
 /**
  * Extracts transcript text from Whisper pipeline output.
  * Handles varying output shapes across pipeline versions.
+ *
+ * With return_timestamps: true (v3 chunked path), output is:
+ *   { text: " full transcript", chunks: [{timestamp, text}, ...] }
+ * We prefer output.text (the assembled result) and fall back to
+ * concatenating all chunks — never just chunks[0] which truncates.
  */
 function extractTranscriptText(output: unknown): string {
   if (typeof output === "string") return output.trim();
   const out = output as { text?: string; chunks?: { text?: string }[] };
-  const text =
-    typeof out?.text === "string"
-      ? out.text
-      : Array.isArray(out?.chunks) && typeof out.chunks[0]?.text === "string"
-        ? out.chunks[0].text
-        : "";
-  return text.trim();
+  if (typeof out?.text === "string") return out.text.trim();
+  if (Array.isArray(out?.chunks) && out.chunks.length > 0) {
+    return out.chunks
+      .map((c) => c.text ?? "")
+      .join("")
+      .trim();
+  }
+  return "";
 }
 
 /**
@@ -99,22 +110,17 @@ export async function transcribeSamples(
 ): Promise<string> {
   if (isSilent(samples)) return "";
 
-  try {
-    const pipe = await getTranscriptionPipeline(onProgress);
+  const pipe = await getTranscriptionPipeline(onProgress);
 
-    const output = await pipe(samples, {
-      // Omit language/task — English-only model rejects those options.
-      chunk_length_s: 30,
-      stride_length_s: 5,
-      return_timestamps: false,
-      sampling_rate: WHISPER_SAMPLE_RATE,
-    });
+  const output = await pipe(samples, {
+    // Omit language/task — English-only model rejects those options.
+    // return_timestamps: true required in transformers.js v3 for chunked
+    // long-form transcription (see transcribe() above for details).
+    chunk_length_s: 30,
+    stride_length_s: 5,
+    return_timestamps: true,
+    sampling_rate: WHISPER_SAMPLE_RATE,
+  });
 
-    return extractTranscriptText(output);
-  } catch {
-    // Swallow transformer/URL runtime issues (e.g. RelativeURL/url.replace)
-    // and fall back to an empty transcript so callers can continue with
-    // audio-only analysis instead of failing the entire pipeline.
-    return "";
-  }
+  return extractTranscriptText(output);
 }

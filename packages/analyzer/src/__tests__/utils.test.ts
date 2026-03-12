@@ -17,26 +17,23 @@ import {
 // ─── normaliseMoodLabel ────────────────────────────────────────────────────────
 
 describe("normaliseMoodLabel", () => {
-  it("maps canonical labels unchanged", () => {
-    expect(normaliseMoodLabel("happy")).toBe("happy");
-    expect(normaliseMoodLabel("sad")).toBe("sad");
-    expect(normaliseMoodLabel("angry")).toBe("angry");
+  it("maps canonical 3-class labels unchanged", () => {
+    expect(normaliseMoodLabel("positive")).toBe("positive");
+    expect(normaliseMoodLabel("negative")).toBe("negative");
     expect(normaliseMoodLabel("neutral")).toBe("neutral");
   });
 
-  it("maps model alias labels to canonical labels", () => {
-    expect(normaliseMoodLabel("joy")).toBe("happy");
-    expect(normaliseMoodLabel("sadness")).toBe("sad");
-    expect(normaliseMoodLabel("anger")).toBe("angry");
-    expect(normaliseMoodLabel("fear")).toBe("fearful");
-    expect(normaliseMoodLabel("disgust")).toBe("disgusted");
-    expect(normaliseMoodLabel("surprise")).toBe("surprised");
+  it("maps DistilBERT SST-2 output labels to canonical labels", () => {
+    expect(normaliseMoodLabel("POSITIVE")).toBe("positive");
+    expect(normaliseMoodLabel("NEGATIVE")).toBe("negative");
+    expect(normaliseMoodLabel("LABEL_1")).toBe("positive");
+    expect(normaliseMoodLabel("LABEL_0")).toBe("negative");
   });
 
   it("is case-insensitive", () => {
-    expect(normaliseMoodLabel("HAPPY")).toBe("happy");
-    expect(normaliseMoodLabel("Joy")).toBe("happy");
-    expect(normaliseMoodLabel("  angry  ")).toBe("angry");
+    expect(normaliseMoodLabel("Positive")).toBe("positive");
+    expect(normaliseMoodLabel("NEGATIVE")).toBe("negative");
+    expect(normaliseMoodLabel("  neutral  ")).toBe("neutral");
   });
 
   it("falls back to neutral for unknown labels", () => {
@@ -49,21 +46,15 @@ describe("normaliseMoodLabel", () => {
 // ─── moodToDimensions ────────────────────────────────────────────────────────
 
 describe("moodToDimensions", () => {
-  it("returns positive valence for happy", () => {
-    const { valence, arousal } = moodToDimensions("happy");
+  it("returns positive valence for positive", () => {
+    const { valence, arousal } = moodToDimensions("positive");
     expect(valence).toBeGreaterThan(0);
     expect(arousal).toBeGreaterThan(0);
   });
 
-  it("returns negative valence for sad", () => {
-    const { valence } = moodToDimensions("sad");
+  it("returns negative valence for negative", () => {
+    const { valence } = moodToDimensions("negative");
     expect(valence).toBeLessThan(0);
-  });
-
-  it("returns negative valence and high arousal for angry", () => {
-    const { valence, arousal } = moodToDimensions("angry");
-    expect(valence).toBeLessThan(0);
-    expect(arousal).toBeGreaterThan(0.5);
   });
 
   it("returns near-zero for neutral", () => {
@@ -80,37 +71,48 @@ describe("deriveTone", () => {
     expect(deriveTone(0.8, 0.8)).toBe("energetic");
   });
 
-  it("returns positive for high valence + low arousal", () => {
-    expect(deriveTone(0.7, 0.1)).toBe("positive");
+  it("returns calm for high valence + low arousal", () => {
+    expect(deriveTone(0.7, 0.1)).toBe("calm");
   });
 
-  it("returns tense for low valence + high arousal", () => {
+  it("returns tense for negative valence + high arousal", () => {
     expect(deriveTone(-0.6, 0.8)).toBe("tense");
   });
 
-  it("returns negative for low valence + low arousal", () => {
-    expect(deriveTone(-0.7, 0.1)).toBe("negative");
+  it("returns subdued for negative valence + low arousal", () => {
+    expect(deriveTone(-0.7, 0.1)).toBe("subdued");
   });
 
-  it("returns neutral for near-zero values", () => {
-    expect(deriveTone(0.05, 0.1)).toBe("neutral");
+  it("returns monotone for near-zero valence + low arousal", () => {
+    expect(deriveTone(0.05, 0.1)).toBe("monotone");
+  });
+
+  it("returns conversational for near-zero valence + mid arousal", () => {
+    expect(deriveTone(0.05, 0.5)).toBe("conversational");
+  });
+
+  it("returns pleasant for positive valence + mid arousal", () => {
+    expect(deriveTone(0.5, 0.5)).toBe("pleasant");
+  });
+
+  it("returns serious for negative valence + mid arousal", () => {
+    expect(deriveTone(-0.5, 0.5)).toBe("serious");
+  });
+
+  it("returns animated for near-zero valence + high arousal", () => {
+    expect(deriveTone(0.05, 0.8)).toBe("animated");
   });
 
   it("derives correct tones from each mood via dimensions", () => {
-    // happy → energetic or positive (depends on exact arousal)
-    const happyDims = moodToDimensions("happy");
-    const happyTone = deriveTone(happyDims.valence, happyDims.arousal);
-    expect(["positive", "energetic"]).toContain(happyTone);
+    // positive → calm or pleasant (depends on exact arousal)
+    const posDims = moodToDimensions("positive");
+    const posTone = deriveTone(posDims.valence, posDims.arousal);
+    expect(["calm", "pleasant", "energetic"]).toContain(posTone);
 
-    // sad → negative or calm
-    const sadDims = moodToDimensions("sad");
-    const sadTone = deriveTone(sadDims.valence, sadDims.arousal);
-    expect(["negative", "calm"]).toContain(sadTone);
-
-    // angry → tense
-    const angryDims = moodToDimensions("angry");
-    const angryTone = deriveTone(angryDims.valence, angryDims.arousal);
-    expect(angryTone).toBe("tense");
+    // negative → subdued, serious, or tense
+    const negDims = moodToDimensions("negative");
+    const negTone = deriveTone(negDims.valence, negDims.arousal);
+    expect(["subdued", "serious", "tense"]).toContain(negTone);
   });
 });
 

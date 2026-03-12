@@ -1,7 +1,8 @@
 /**
- * @meerkat/analyzer — emotion classification
+ * @meerkat/analyzer — text sentiment classification
  *
- * On-device text → emotion/mood classification using a distilled ONNX model.
+ * On-device text → sentiment/mood classification using DistilBERT SST-2.
+ * Binary positive/negative sentiment maps directly to valence score.
  *
  * Input:  transcript string
  * Output: EmotionResult — mood label, valence, arousal, tone, confidence
@@ -11,15 +12,18 @@
  * ──────────────────────────────────────────────────────────────────────────────
  * Text is never sent to a server. The ONNX model runs locally via WASM.
  * No network request is made during classification.
+ *
+ * ──────────────────────────────────────────────────────────────────────────────
+ * Model: Xenova/distilbert-base-uncased-finetuned-sst-2-english
+ * ──────────────────────────────────────────────────────────────────────────────
+ * Binary SST-2 sentiment classifier.
+ * Output labels: POSITIVE or NEGATIVE with a 0–1 probability score.
+ * Valence mapping: POSITIVE → +score, NEGATIVE → -score
+ * Arousal: not available from text alone (set to 0; dominated by audio signal)
  */
 
 import { getEmotionPipeline } from "./model-registry";
-import {
-  normaliseMoodLabel,
-  moodToDimensions,
-  deriveTone,
-  scaleConfidence,
-} from "../utils";
+import { deriveTone, classifyMoodFromValence } from "../utils";
 import { MIN_TRANSCRIPT_LENGTH } from "../constants";
 import type { EmotionResult, ModelProgressCallback } from "../types";
 
@@ -73,11 +77,14 @@ function normaliseClassificationOutput(raw: unknown): RawClassification[] {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Classifies the emotional content of a text string.
+ * Classifies the sentiment of a text string using DistilBERT SST-2.
  *
  * Returns `null` if the transcript is too short to classify meaningfully.
  *
- * The first call will load the model (~40MB, cached in OPFS afterwards).
+ * The first call will load the model (~67MB, cached in OPFS afterwards).
+ * Output valence: POSITIVE → +score, NEGATIVE → -score
+ * Arousal is set to 0 — DistilBERT gives no arousal information.
+ * The fusion layer uses audio features to fill in arousal.
  *
  * @param text       — Transcript or any text to classify.
  * @param onProgress — Optional model download progress callback.
@@ -85,7 +92,7 @@ function normaliseClassificationOutput(raw: unknown): RawClassification[] {
  * @example
  * ```ts
  * const result = await classifyEmotion("I'm really excited about this!");
- * // { mood: "happy", tone: "energetic", valence: 0.8, arousal: 0.6, confidence: 0.91 }
+ * // { mood: "positive", tone: "pleasant", valence: 0.96, arousal: 0, confidence: 0.96 }
  * ```
  */
 export async function classifyEmotion(
@@ -130,10 +137,23 @@ export async function classifyEmotion(
 
   // Results are sorted descending by score — take the top prediction.
   const top = results[0]!;
-  const mood = normaliseMoodLabel(top.label);
-  const { valence, arousal } = moodToDimensions(mood);
+  const labelUpper = top.label.toUpperCase();
+
+  // DistilBERT SST-2 outputs POSITIVE or NEGATIVE.
+  // Map to valence: POSITIVE → +score, NEGATIVE → -score
+  let valence: number;
+  if (labelUpper === "POSITIVE" || labelUpper === "LABEL_1") {
+    valence = top.score;
+  } else {
+    // NEGATIVE or LABEL_0
+    valence = -top.score;
+  }
+
+  const mood = classifyMoodFromValence(valence);
+  // DistilBERT gives no arousal signal — audio features dominate arousal.
+  const arousal = 0;
   const tone = deriveTone(valence, arousal);
-  const confidence = scaleConfidence(top.score);
+  const confidence = top.score;
 
   return { mood, tone, valence, arousal, confidence };
 }
@@ -145,7 +165,7 @@ export async function classifyEmotion(
 export function buildNeutralResult(): EmotionResult {
   return {
     mood: "neutral",
-    tone: "neutral",
+    tone: "conversational",
     valence: 0,
     arousal: 0,
     confidence: 0,
