@@ -26,6 +26,8 @@ export interface Message {
     valence: number;
     arousal: number;
     confidence: number;
+    description?: string;
+    contradiction?: string | null;
     analysedAt: number; // Unix ms
   };
 }
@@ -33,31 +35,31 @@ export interface Message {
 /**
  * Discrete mood labels from @meerkat/analyzer.
  * Must be kept in sync with MoodLabel in packages/analyzer/src/types.ts.
+ *
+ * 3-class system replaces previous 7-class (happy/sad/angry/…) per the
+ * multi-modal analysis plan. Higher accuracy and more useful for users.
  */
-export type MoodLabel =
-  | "happy"
-  | "sad"
-  | "angry"
-  | "fearful"
-  | "disgusted"
-  | "surprised"
-  | "neutral";
+export type MoodLabel = "positive" | "negative" | "neutral";
 
 /**
  * Tone labels derived from valence + arousal dimensions (Russell circumplex).
  * Must be kept in sync with ToneLabel in packages/analyzer/src/types.ts.
  *
- * Note: the previous ToneLabel values ("formal", "casual", "assertive", etc.)
- * were server-side labels from the old mood-analyzer package and did not
- * correspond to what the on-device model produces. These are the correct values.
+ * 9-tone system per the multi-modal analysis plan:
+ *   High arousal: energetic (pos) | tense (neg) | animated (neutral)
+ *   Low arousal:  calm (pos) | subdued (neg) | monotone (neutral)
+ *   Mid arousal:  pleasant (pos) | serious (neg) | conversational (neutral)
  */
 export type ToneLabel =
-  | "positive"
-  | "negative"
-  | "neutral"
   | "energetic"
+  | "tense"
+  | "animated"
   | "calm"
-  | "tense";
+  | "subdued"
+  | "monotone"
+  | "pleasant"
+  | "serious"
+  | "conversational";
 
 /**
  * @deprecated Use AnalysisResult from @meerkat/analyzer instead.
