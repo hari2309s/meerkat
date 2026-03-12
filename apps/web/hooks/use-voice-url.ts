@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { decryptBlob } from "@meerkat/crypto";
 import { loadVaultKey } from "@/lib/vault-credentials";
 import type { EncryptedBlob } from "@meerkat/crypto";
@@ -9,25 +8,27 @@ import type { EncryptedBlob } from "@meerkat/crypto";
 /**
  * Hook to resolve a voice note storage path to a playable object URL.
  *
+ * All fetching goes through the /api/audio proxy, which creates the signed
+ * Supabase URL server-side and returns bytes with CORP: cross-origin. This is
+ * required because the app sets COEP: credentialless (for SharedArrayBuffer /
+ * ONNX WASM), and Supabase Storage returns CORP: same-origin, which COEP
+ * would otherwise block.
+ *
  * Handles two storage formats transparently:
  *
- *   *.webm  -- legacy unencrypted audio (v1 Supabase users).
- *              Signs the storage URL and returns it directly.
+ *   *.webm  -- legacy unencrypted audio.
+ *              Returns the proxy URL directly for the <audio> element.
  *
- *   *.enc   -- AES-GCM-256 encrypted JSON blob (vault v2 users).
- *              Signs the URL -> fetches bytes -> JSON-parses to EncryptedBlob
+ *   *.enc   -- AES-GCM-256 encrypted JSON blob.
+ *              Fetches bytes via proxy -> JSON-parses to EncryptedBlob
  *              -> decrypts with the HKDF vault key -> creates a temporary
  *              object URL from the plaintext bytes.
- *              The object URL is revoked automatically on unmount or when
- *              voicePath changes.
+ *              The object URL is revoked automatically on unmount.
  *
  * @param voicePath  Storage path (e.g. "denId/userId/ts-rand.enc").
  *                   Pass null/undefined while the path is not yet known.
  *
  * @returns  { url, isDecrypting, error }
- *   url          -- Playable URL, or null while loading.
- *   isDecrypting -- True while fetching + decrypting an .enc blob.
- *   error        -- Non-null string if something went wrong.
  */
 export function useVoiceUrl(voicePath: string | null | undefined): {
   url: string | null;
@@ -54,29 +55,15 @@ export function useVoiceUrl(voicePath: string | null | undefined): {
     async function resolve() {
       setError(null);
 
-      const supabase = createClient();
-
-      // Step 1: Get a signed URL from Supabase Storage (both formats need this).
-      const { data, error: signErr } = await supabase.storage
-        .from("voice-notes")
-        .createSignedUrl(voicePath!, 3600);
-
-      if (signErr || !data?.signedUrl) {
-        if (!cancelled) {
-          setError(
-            `Could not load voice note: ${signErr?.message ?? "unknown error"}`,
-          );
-        }
-        return;
-      }
-
       if (!isEncrypted) {
-        // Legacy .webm -- use the signed URL directly, no decryption needed.
-        if (!cancelled) setUrl(data.signedUrl);
+        // Legacy .webm -- serve via the audio proxy so CORP: cross-origin is
+        // set and the <audio> element loads under COEP: credentialless.
+        if (!cancelled)
+          setUrl(`/api/audio?path=${encodeURIComponent(voicePath!)}`);
         return;
       }
 
-      // Encrypted .enc blob: fetch -> decrypt -> object URL.
+      // Encrypted .enc blob: fetch via proxy -> decrypt -> object URL.
       if (!cancelled) setIsDecrypting(true);
 
       try {
@@ -88,8 +75,15 @@ export function useVoiceUrl(voicePath: string | null | undefined): {
           );
         }
 
-        // Step 3: Fetch the encrypted blob from the signed URL.
-        const response = await fetch(data.signedUrl);
+        // Step 3: Fetch the encrypted blob via the /api/audio proxy.
+        //
+        // Direct fetch from Supabase Storage is blocked under COEP:
+        // credentialless because Supabase returns CORP: same-origin.
+        // The proxy fetches server-side (no COEP) and returns the bytes with
+        // CORP: cross-origin so the browser accepts the response.
+        const response = await fetch(
+          `/api/audio?path=${encodeURIComponent(voicePath!)}`,
+        );
         if (!response.ok) {
           throw new Error(
             `Failed to fetch encrypted blob: HTTP ${response.status}`,
