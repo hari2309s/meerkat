@@ -221,7 +221,7 @@ export function VoiceNoteMessage({
       {/* Mood toggle + collapsible detail panel */}
       {analysis && moodColor && moodEmoji && (
         <div
-          className={`self-center flex items-center gap-1.5 ${isOwn ? "flex-row-reverse" : ""}`}
+          className={`self-center flex flex-col sm:flex-row sm:items-center gap-1.5 ${isOwn ? "sm:flex-row-reverse" : ""}`}
         >
           {/* Always-visible emoji toggle button */}
           <button
@@ -247,7 +247,7 @@ export function VoiceNoteMessage({
                 exit={{ opacity: 0, scale: 0.88 }}
                 transition={{ duration: 0.14, ease: "easeOut" }}
                 style={{
-                  transformOrigin: isOwn ? "right center" : "left center",
+                  transformOrigin: isOwn ? "top right" : "top left",
                 }}
               >
                 <MoodSidePanel

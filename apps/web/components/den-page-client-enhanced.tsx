@@ -31,6 +31,7 @@ import {
 } from "@/stores/use-den-store";
 
 import { useVoiceMemoUpload } from "@/hooks/use-voice-memo-upload";
+import { useDenNotifications } from "@/hooks/use-den-notifications";
 
 import { DenHeaderEnhanced } from "@/components/den/den-header-enhanced";
 import { DenNavTabs } from "@/components/den/den-nav-tabs";
@@ -103,6 +104,15 @@ export function DenPageClientEnhanced({
   // ── CRDT state ────────────────────────────────────────────────────────────
   const syncStatus = denContext?.syncStatus ?? "offline";
   const visitors = denContext?.visitors ?? [];
+  const dropboxItems = denContext?.shared.dropbox ?? [];
+
+  // ── P2P event notifications (toasts + title badge) ────────────────────────
+  useDenNotifications({
+    denName: activeDen.name,
+    visitors,
+    dropboxItems,
+    isOwner,
+  });
 
   // ── Visitor P2P auto-join ─────────────────────────────────────────────────
   const p2pOptions = useMemo<P2PManagerOptions>(() => {
