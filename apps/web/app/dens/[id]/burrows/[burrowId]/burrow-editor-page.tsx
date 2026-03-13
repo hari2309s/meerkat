@@ -117,6 +117,9 @@ function createVoiceBlockRenderer(denId: string, userId: string) {
         duration: recorder.seconds,
         mood: analysis?.mood ?? null,
         moodScore: analysis?.valence ?? null,
+        arousal: analysis?.arousal ?? null,
+        confidence: analysis?.confidence ?? null,
+        tone: analysis?.tone ?? null,
         transcript: analysis?.transcript ?? null,
       });
     }, [
@@ -190,74 +193,24 @@ function createVoiceBlockRenderer(denId: string, userId: string) {
         typeof attrs.moodScore === "number"
           ? Math.round(((attrs.moodScore + 1) / 2) * 100)
           : null;
+      const arousalPct =
+        typeof attrs.arousal === "number"
+          ? Math.round(attrs.arousal * 100)
+          : null;
+      const confidencePct =
+        typeof attrs.confidence === "number"
+          ? Math.round(attrs.confidence * 100)
+          : null;
+      const toneLabel =
+        typeof attrs.tone === "string" && attrs.tone ? attrs.tone : null;
+      const displayLabel =
+        moodLabel && toneLabel
+          ? `${moodLabel} · ${toneLabel}`
+          : (toneLabel ?? moodLabel ?? "");
 
       return (
         <NodeViewWrapper className={outerCls} contentEditable={false}>
           <div className="inline-flex gap-2 items-end">
-            {/* Mood detail panel (left of player, mirrors chat layout) */}
-            {moodEmoji && moodColor && moodLabel && (
-              <AnimatePresence>
-                {moodExpanded && (
-                  <motion.div
-                    key="mood-panel"
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 112, opacity: 1 }}
-                    exit={{ width: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    style={{ overflow: "hidden" }}
-                  >
-                    <div
-                      className="flex flex-col gap-2 shrink-0"
-                      style={{ width: 112 }}
-                    >
-                      <div
-                        className="text-[10px] font-semibold leading-none px-0.5 truncate w-full"
-                        style={{ color: "var(--color-text-muted)" }}
-                      >
-                        {moodLabel}
-                      </div>
-                      {valencePct !== null && (
-                        <div className="flex items-center gap-1">
-                          <span
-                            className="text-[9px] w-8 shrink-0 leading-none"
-                            style={{ color: "var(--color-text-muted)" }}
-                          >
-                            Mood
-                          </span>
-                          <div
-                            className="flex-1 h-1 rounded-full overflow-hidden"
-                            style={{
-                              background: "var(--color-btn-secondary-bg)",
-                            }}
-                          >
-                            <div
-                              className="h-full rounded-full transition-all duration-500"
-                              style={{
-                                width: `${valencePct}%`,
-                                background: moodColor,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {typeof attrs.transcript === "string" &&
-                        attrs.transcript && (
-                          <p
-                            className="text-[10px] italic leading-relaxed line-clamp-3"
-                            style={{
-                              color: "var(--color-text-primary)",
-                              opacity: 0.75,
-                            }}
-                          >
-                            &ldquo;{attrs.transcript}&rdquo;
-                          </p>
-                        )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            )}
-
             <div className="flex flex-col gap-1.5" style={selectedScale}>
               {playError ? (
                 <div
@@ -287,6 +240,95 @@ function createVoiceBlockRenderer(denId: string, userId: string) {
               >
                 {moodEmoji}
               </button>
+            )}
+
+            {/* Mood detail panel — right of player, expands outward */}
+            {moodEmoji && moodColor && moodLabel && (
+              <AnimatePresence>
+                {moodExpanded && (
+                  <motion.div
+                    key="mood-panel"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 140, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    style={{ overflow: "hidden" }}
+                  >
+                    <div
+                      className="flex flex-col gap-2 shrink-0"
+                      style={{ width: 140 }}
+                    >
+                      <div
+                        className="text-[10px] font-semibold leading-none px-0.5 truncate w-full"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
+                        {displayLabel}
+                        {confidencePct !== null ? ` · ${confidencePct}%` : ""}
+                      </div>
+                      {valencePct !== null && (
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="text-[9px] w-8 shrink-0 leading-none"
+                            style={{ color: "var(--color-text-muted)" }}
+                          >
+                            Mood
+                          </span>
+                          <div
+                            className="flex-1 h-1 rounded-full overflow-hidden"
+                            style={{
+                              background: "var(--color-btn-secondary-bg)",
+                            }}
+                          >
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${valencePct}%`,
+                                background: moodColor,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {arousalPct !== null && (
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="text-[9px] w-8 shrink-0 leading-none"
+                            style={{ color: "var(--color-text-muted)" }}
+                          >
+                            Energy
+                          </span>
+                          <div
+                            className="flex-1 h-1 rounded-full overflow-hidden"
+                            style={{
+                              background: "var(--color-btn-secondary-bg)",
+                            }}
+                          >
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${arousalPct}%`,
+                                background: moodColor,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {typeof attrs.transcript === "string" &&
+                        attrs.transcript && (
+                          <p
+                            className="text-[10px] italic leading-relaxed line-clamp-3"
+                            style={{
+                              color: "var(--color-text-primary)",
+                              opacity: 0.75,
+                            }}
+                          >
+                            &ldquo;{attrs.transcript}&rdquo;
+                          </p>
+                        )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             )}
           </div>
         </NodeViewWrapper>
