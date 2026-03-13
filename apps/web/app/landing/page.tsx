@@ -56,11 +56,11 @@ export default function LandingPage() {
       </header>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="pt-32 pb-0 px-6 sm:px-10">
+      <section className="pt-24 pb-0 px-6 sm:px-10">
         {/* Text + image row */}
-        <div className="relative flex items-end min-h-[72vh]">
+        <div className="relative flex items-stretch">
           {/* Text */}
-          <div className="relative z-10 max-w-xl pb-16">
+          <div className="relative z-10 max-w-xl py-16 sm:py-20">
             <motion.p
               {...fadeUp(0.1)}
               className="text-xs font-bold uppercase tracking-widest mb-6"
@@ -115,7 +115,7 @@ export default function LandingPage() {
             animate={{ opacity: 1, x: 0, y: 0 }}
             transition={{ duration: 1.1, delay: 0.15, ease: "easeOut" }}
             className="absolute bottom-0 right-0 pointer-events-none select-none hidden sm:block"
-            style={{ width: "46vw", maxWidth: 560 }}
+            style={{ width: "42vw", maxWidth: 520 }}
           >
             <img
               src="/meerkats.png"
