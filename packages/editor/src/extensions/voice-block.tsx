@@ -32,6 +32,9 @@ export interface VoiceBlockAttrs {
   duration: number;
   mood: string | null;
   moodScore: number | null;
+  arousal: number | null;
+  confidence: number | null;
+  tone: string | null;
   transcript: string | null;
 }
 
@@ -112,6 +115,9 @@ export function createVoiceBlockExtension(
         duration: { default: 0 },
         mood: { default: null },
         moodScore: { default: null },
+        arousal: { default: null },
+        confidence: { default: null },
+        tone: { default: null },
         transcript: { default: null },
       };
     },
