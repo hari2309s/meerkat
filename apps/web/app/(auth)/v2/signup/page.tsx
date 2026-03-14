@@ -43,7 +43,7 @@ const createMnemonic = () => generateMnemonic(wordlist, 128);
 const FIRST_DEN_STORAGE_KEY = "vault_first_den_id";
 
 const WELCOME_LINES = [
-  "Welcome to your den.",
+  "Welcome to your den. 🦦",
   "",
   "This is your private space. Everything here is encrypted on your device before it goes anywhere. Not even Meerkat can read it.",
   "",
