@@ -93,6 +93,7 @@ function LostKeyScreen({
 
       <Link
         href={`/v2/signup${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`}
+        className="mt-4 block"
       >
         <Button className="w-full h-12 text-base font-semibold" type="button">
           Create new account

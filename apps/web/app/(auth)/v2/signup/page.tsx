@@ -23,6 +23,7 @@ import {
   VAULT_PROFILE_NAME_COOKIE,
 } from "@/lib/vault-credentials";
 import { startNavigationProgress } from "@/components/navigation-progress";
+import { addVaultDen } from "@/lib/vault-dens";
 import {
   createBurrow,
   openBurrowContentDoc,
@@ -79,6 +80,11 @@ async function seedFirstDen(): Promise<string> {
   closeBurrowsDoc(denId);
 
   localStorage.setItem(FIRST_DEN_STORAGE_KEY, denId);
+  addVaultDen({
+    id: denId,
+    name: "For You",
+    createdAt: new Date().toISOString(),
+  });
   return denId;
 }
 
@@ -91,9 +97,11 @@ type SaveMethod = "copy" | "download" | null;
 function IntentStep({
   onReady,
   onExisting,
+  denName,
 }: {
   onReady: () => void;
   onExisting: () => void;
+  denName: string | null;
 }) {
   return (
     <div className="space-y-6">
@@ -104,21 +112,45 @@ function IntentStep({
           border: "1px solid var(--color-border-card)",
         }}
       >
-        <p
-          className="text-base font-semibold"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          Meerkat works differently.
-        </p>
-        <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-          No email. No password. No way for us to see your data.
-        </p>
-        <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-          Instead, you get a Key — 12 words that are yours alone.
-        </p>
-        <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-          We&apos;ll help you save it safely.
-        </p>
+        {denName ? (
+          <>
+            <p
+              className="text-base font-semibold"
+              style={{ color: "var(--color-text-primary)" }}
+            >
+              You&apos;re joining{" "}
+              <span style={{ color: "hsl(var(--meerkat-brown))" }}>
+                {denName}
+              </span>
+              .
+            </p>
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              First, let&apos;s set up your Key.
+            </p>
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              No email. No password. No way for us to see your data. Instead,
+              you get a Key — 12 words that are yours alone.
+            </p>
+          </>
+        ) : (
+          <>
+            <p
+              className="text-base font-semibold"
+              style={{ color: "var(--color-text-primary)" }}
+            >
+              Meerkat works differently.
+            </p>
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              No email. No password. No way for us to see your data.
+            </p>
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              Instead, you get a Key — 12 words that are yours alone.
+            </p>
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              We&apos;ll help you save it safely.
+            </p>
+          </>
+        )}
       </div>
 
       <Button
@@ -519,6 +551,7 @@ function SignUpV2Form() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextUrl = searchParams.get("next") ?? "/";
+  const denName = searchParams.get("denName");
 
   const [step, setStep] = useState<Step>("intent");
   const [mnemonic] = useState(() => createMnemonic());
@@ -577,6 +610,7 @@ function SignUpV2Form() {
         >
           <IntentStep
             onReady={() => setStep("key")}
+            denName={denName}
             onExisting={() =>
               router.push(
                 `/v2/login${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`,
