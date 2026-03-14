@@ -30,7 +30,7 @@ The responsibility feels like a burden before it feels like a gift.
 
 #### Step 1 — Intent Screen (New)
 
-Before generating the mnemonic, show a single warm screen in the form area before rendering the keys:
+Before generating the mnemonic, show a single warm screen:
 
 ```
 Meerkat works differently.
@@ -159,46 +159,308 @@ and gives a forward path rather than a wall.
 
 ---
 
-## 3. Family & Friends Invite Flow
+## 3. Invite Flow — All Four Types
 
-### Current Problem
+The invite modal is beautifully designed. The four access types —
+House-sit, Come Over, Peek, Letterbox — are intuitive and warm.
+But each type creates a **different recipient experience** that needs
+its own guidance, both for the _sender_ and the _recipient_.
 
-The invite modal is beautifully designed but the journey _after_ copying
-the link is undocumented. A non-technical family member receives a URL,
-taps it, and needs to know what to do next.
+Right now the journey after copying the link is undocumented.
+A non-technical family member receives a URL, taps it, and is on their own.
 
-### Proposed Changes
+---
 
-#### Invite Landing Page (New)
+### 3.1 — Invite Landing Page (All Types)
 
-When a recipient opens an invite link, show a warm welcome screen
-before any auth:
+Every invite link should land on a warm, contextual welcome screen
+_before_ any auth is required. The recipient needs to understand
+what they're walking into before being asked to do anything.
 
 ```
 [Meerkat logo + meerkat illustration]
 
 [Name] has invited you to their den.
 
+[Access type badge — e.g. 🏠 House-sit]
+[One line description of what this means]
+
 Meerkat is a private space for your people.
-No ads. No data harvesting. Yours forever.
+No ads. No data collection. Yours forever.
 
 [ Accept invite → ]
 ```
 
-Then walk them through a simplified signup — same mnemonic model,
-same guided save flow, but the copy acknowledges they were invited:
+The access type badge is critical — it tells the recipient
+_what kind of welcome this is_ before they commit to signing up.
+
+---
+
+### 3.2 — Guidance Per Invite Type
+
+Each type needs different copy on both sides — what the **sender sees**
+when choosing it, and what the **recipient sees** when accepting it.
+
+---
+
+#### 🏠 House-sit
+
+_Full access, offline capable. Best for trusted members._
+
+**Sender guidance** (shown in modal, below the option):
 
 ```
-You're joining [Name]'s den.
-First, let's set up your Key.
+Best for: family members, long-term collaborators, people you fully trust.
+They can read, write, and work offline. Treat this like giving someone
+a key to your home.
+Key duration: set to No expiry for permanent members, or 1 year to review annually.
 ```
 
-#### Post-Accept Experience
+**Recipient landing screen:**
 
-After accepting, land them directly in the shared den — not the
-dashboard. They should immediately see the collaborative space they
-were invited to. First experience = being _with_ someone, not
-navigating alone.
+```
+[Name] has given you full access to their den.
+
+🏠 House-sit access means you can read, write, and work
+even when you're offline. You're a trusted member here.
+
+This access [expires in 30 days / never expires].
+
+[ Set up your Key and enter → ]
+```
+
+**Post-accept:** Land directly in the shared den, Burrows tab open,
+ready to read and write immediately.
+
+---
+
+#### 👋 Come Over
+
+_Real-time read & write. Live sessions only._
+
+**Sender guidance:**
+
+```
+Best for: working together right now — a shared writing session,
+a family catch-up, a quick collaboration.
+Access ends when the session ends. Nothing persists after they leave.
+Key duration: 7 days is usually enough — they'll use it once or twice.
+```
+
+**Recipient landing screen:**
+
+```
+[Name] has invited you to collaborate live.
+
+👋 Come Over access means you can read and write together
+in real-time, right now. When the session ends, so does access.
+
+This is a live invitation — [Name] is waiting.
+
+[ Join the session → ]
+```
+
+**Post-accept:** Land directly in the shared den, Chat tab open,
+presence indicator showing the host is live. Immediate sense of
+arriving somewhere someone is already waiting.
+
+**Important UX note:** If the recipient taps the link when the host
+is offline, show a gentle holding screen:
+
+```
+[Name] isn't hosting right now.
+
+Come Over access only works when [Name] is active in the den.
+Try again when they're around, or ask them to send a new invite.
+```
+
+---
+
+#### 👀 Peek
+
+_Read-only access to shared notes. No changes._
+
+**Sender guidance:**
+
+```
+Best for: sharing notes with someone who just needs to read —
+a family member checking the holiday plan, a friend reviewing
+something you wrote. They can't change anything.
+Key duration: set an expiry that matches how long you want them to have access.
+```
+
+**Recipient landing screen:**
+
+```
+[Name] has shared their notes with you.
+
+👀 Peek access means you can read everything in this den,
+but you won't be able to make changes. It's like being handed
+a notebook to read.
+
+This access expires [date / never].
+
+[ View the den → ]
+```
+
+**Post-accept:** Land directly in Burrows, read-only mode clearly
+indicated — subtle visual treatment (slightly muted UI, no edit
+cursors, a small "read only" badge in the header). No confusion
+about why they can't type.
+
+**Important UX note:** Peek recipients may not need a full Meerkat
+account if they're just reading. Consider a lightweight
+**guest view** — no mnemonic required, session-scoped access,
+with a gentle prompt to create an account if they want to come back.
+This dramatically lowers the barrier for casual sharing.
+
+---
+
+#### 📬 Letterbox
+
+_Drop messages when you're not home. Works offline._
+
+This is the most nuanced invite type and the one most likely to
+confuse recipients without guidance. The concept of asynchronous
+encrypted drops is unfamiliar.
+
+**Sender guidance:**
+
+```
+Best for: someone who wants to leave you messages when you're not around —
+like dropping a note through your door. You'll collect them next time
+you're in the den. Works even when neither of you is online at the same time.
+Key duration: longer durations make sense here — 90 days or 1 year.
+```
+
+**Recipient landing screen:**
+
+```
+[Name] has set up a Letterbox for you.
+
+📬 You can leave [Name] encrypted messages even when they're
+not online. They'll collect them next time they open their den.
+
+Think of it as a private drop box — your messages go straight
+to [Name] and nowhere else.
+
+This access expires [date].
+
+[ Set up your Key and start dropping → ]
+```
+
+**Post-accept:** Land in the Chat tab with a simple composer and
+clear indication of the async nature:
+
+```
+Leave a message for [Name].
+They'll see it next time they're in their den. 📬
+```
+
+No presence indicator. No "waiting for visitors." Just a calm,
+quiet composer that makes asynchronous communication feel intentional
+rather than broken.
+
+---
+
+### 3.3 — Sender Experience Improvements
+
+The invite modal currently shows the four types clearly but doesn't
+give the sender enough confidence that they're choosing the right one.
+
+Add a **recommendation hint** based on context:
+
+```
+Creating a den called "Family"?
+→ House-sit recommended for members who'll be here regularly.
+
+Wanting to share your holiday notes?
+→ Peek is perfect — they can read, you stay in control.
+
+Working on something together right now?
+→ Come Over for live collaboration.
+
+Want someone to reach you privately?
+→ Letterbox lets them message you anytime.
+```
+
+These don't need to be intrusive — a subtle contextual suggestion
+below the access type selector is enough.
+
+Also: after sending an invite, show a **what happens next** summary:
+
+```
+Invite sent. Here's what [friend@example.com] will see:
+
+→ An email with your invite link
+→ A welcome screen explaining House-sit access
+→ A guided Key setup (takes 2 minutes)
+→ They'll land directly in your den
+
+You'll see them appear here when they join. 🦦
+```
+
+This closes the loop for the sender — they know what their friend
+will experience and feel confident the invitation was meaningful.
+
+---
+
+### 3.4 — Existing User Accepting an Invite
+
+If someone already has a Meerkat account and taps an invite link,
+the flow should be seamless — no new Key setup, just confirmation:
+
+```
+[Name] has invited you to their den.
+
+🏠 House-sit access — full read & write.
+
+You're already signed in as [display name].
+
+[ Accept and enter den → ]   [ Sign in as someone else ]
+```
+
+One tap. No friction. This is the most common repeat-use case
+(established users getting invited to new dens) and it should
+feel instant.
+
+---
+
+### 3.5 — Expired or Invalid Invite Links
+
+Currently an expired or invalid link likely shows a generic error.
+It needs a compassionate response:
+
+```
+This invite has expired.
+
+Invite links have a limited life to keep your den secure.
+
+Ask [Name] to send you a fresh invite — it only takes them
+a few seconds.
+```
+
+If the den name or host name is recoverable from the link metadata,
+show it. Knowing _whose_ invite expired is more helpful than a
+generic "link invalid" message.
+
+---
+
+### 3.6 — Key Duration Guidance
+
+The key duration selector (7 days / 30 days / 90 days / 1 year /
+No expiry) is powerful but senders often won't know what to choose.
+
+Add subtle guidance beneath the selector based on the access type:
+
+| Access Type | Suggested Duration  | Reason shown to sender                        |
+| ----------- | ------------------- | --------------------------------------------- |
+| House-sit   | No expiry or 1 year | Permanent members shouldn't need to re-accept |
+| Come Over   | 7 days              | Single session use — short is cleaner         |
+| Peek        | 30–90 days          | Match how long the content stays relevant     |
+| Letterbox   | 90 days or 1 year   | Async communication needs longevity           |
+
+Not prescriptive — just a nudge in the right direction.
 
 ---
 
@@ -277,13 +539,21 @@ inside.
 
 ## Priority Order
 
-1. **Invite landing page** — highest impact, unblocks family/friends use case
-2. **Guided Key save flow** — reduces signup abandonment immediately
-3. **Intent screen before mnemonic** — reframes anxiety as empowerment
-4. **Login word-by-word input** — reduces returning user friction
-5. **PWA install prompt** — improves retention after first session
-6. **Lost Key compassionate path** — reduces support confusion
-7. **First-run checklist** — nice to have, not urgent
+1. **Invite landing page** _(all types)_ — highest impact, unblocks family/friends use case
+2. **Per-type recipient screens** — Come Over, Peek, Letterbox each need their own landing
+3. **Existing user invite acceptance** — one-tap flow for users already signed in
+4. **Guided Key save flow** — reduces signup abandonment ✓ _shipped_
+5. **Intent screen before mnemonic** — reframes anxiety as empowerment ✓ _shipped_
+6. **First den with welcome note** — warm landing after signup ✓ _shipped_
+7. **Login word-by-word input** — reduces returning user friction
+8. **Come Over offline holding screen** — prevents confusion when host is away
+9. **Peek guest view** — removes mnemonic barrier for casual read-only sharing
+10. **Expired link compassionate path** — replaces generic error
+11. **Key duration guidance** — nudges senders toward sensible expiry choices
+12. **Sender "what happens next" summary** — closes the loop after sending
+13. **PWA install prompt** — improves retention after first session
+14. **Lost Key compassionate path** — reduces support confusion
+15. **First-run checklist** — nice to have, not urgent
 
 ---
 

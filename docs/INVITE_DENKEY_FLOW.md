@@ -89,10 +89,11 @@ CREATE POLICY "Creator can delete flower pots"
   ON flower_pots FOR DELETE USING (auth.uid() = created_by);
 ```
 
-### den_invites column
+### den_invites columns
 
 ```sql
 ALTER TABLE den_invites ADD COLUMN IF NOT EXISTS flower_pot_token TEXT;
+ALTER TABLE den_invites ADD COLUMN IF NOT EXISTS key_type TEXT DEFAULT 'house-sit';
 ```
 
 ---
