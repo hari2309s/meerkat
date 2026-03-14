@@ -82,11 +82,15 @@ export function clearVaultSessionCookie(): void {
 // ---------------------------------------------------------------------------
 // Full sign-out — clears everything on this device
 // ---------------------------------------------------------------------------
+// The profile (display name) is intentionally NOT cleared on sign-out because
+// it is not sensitive. Keeping it means the greeting works correctly on
+// re-login without asking "What should we call you?" every session.
+// The mnemonic (the actual secret) is always cleared.
 export function clearVault(): void {
   clearMnemonic();
-  clearProfile();
   clearVaultSessionCookie();
-  // Also clear the server-readable profile name cookie
+  // Clear the server-readable profile name cookie so the server no longer
+  // shows the name while the session is inactive.
   document.cookie = `vault_profile_name=; path=/; max-age=0; SameSite=Strict`;
 }
 
