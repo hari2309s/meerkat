@@ -20,6 +20,8 @@ import type { Den } from "@/types/den";
 interface InviteModalProps {
   den: Den;
   onClose: () => void;
+  /** True for vault (v2 local-first) users — generates offline invite URL with no server calls. */
+  isVaultUser?: boolean;
 }
 
 // ── Key type options ─────────────────────────────────────────────────────────
@@ -55,6 +57,29 @@ const KEY_TYPE_OPTIONS: {
     emoji: "📬",
   },
 ];
+
+// ── Sender guidance per key type ─────────────────────────────────────────────
+
+const SENDER_GUIDANCE: Record<Exclude<KeyType, "custom">, string> = {
+  "house-sit":
+    "Best for family members, long-term collaborators, people you fully trust. They can read, write, and work offline. Treat this like giving someone a key to your home.",
+  "come-over":
+    "Best for working together right now — a shared writing session, a quick collaboration. Access ends when the session ends. Nothing persists after they leave.",
+  peek: "Best for sharing notes with someone who just needs to read — a family member checking the holiday plan, a friend reviewing something you wrote. They can't change anything.",
+  letterbox:
+    "Best for someone who wants to leave you messages when you're not around. You'll collect them next time you're in the den. Works even when neither of you is online.",
+};
+
+// ── Suggested duration per key type ──────────────────────────────────────────
+
+const DURATION_HINTS: Record<Exclude<KeyType, "custom">, string> = {
+  "house-sit":
+    "Suggested: No expiry or 1 year — permanent members shouldn't need to re-accept.",
+  "come-over": "Suggested: 7 days — single session use, short is cleaner.",
+  peek: "Suggested: 30–90 days — match how long the content stays relevant.",
+  letterbox:
+    "Suggested: 90 days or 1 year — async communication needs longevity.",
+};
 
 // ── Duration options ─────────────────────────────────────────────────────────
 
@@ -111,9 +136,50 @@ async function buildFlowerPot(
   }
 }
 
+// ── Offline flower pot (vault users — no server) ──────────────────────────────
+// Encodes the encrypted bundle directly as the "token" so it can be
+// embedded in the URL hash. No Supabase call is made.
+
+async function buildFlowerPotOffline(
+  denId: string,
+  keyType: Exclude<KeyType, "custom">,
+  durationMs: number | null,
+): Promise<{ kp: KeyPair; encryptedBundle: string } | null> {
+  try {
+    const kp = generateKeyPair();
+    const existingKeys = await getSetting<SerializedNamespaceKeySet>(
+      denId,
+      "den-ns-keys",
+    );
+    const allNamespaceKeys = existingKeys ?? (await generateDenNamespaceKeys());
+    if (!existingKeys) {
+      await setSetting(denId, "den-ns-keys", allNamespaceKeys);
+    }
+    const denKey = generateKey({
+      keyType,
+      denId,
+      allNamespaceKeys,
+      ...(durationMs != null ? { durationMs } : {}),
+    });
+    // Use depositKey with an in-memory "server" — returns the bundle itself
+    const encryptedBundle = await depositKey({
+      key: denKey,
+      visitorPublicKey: kp.publicKey,
+      depositOnServer: async ({ encryptedBundle }) => encryptedBundle,
+    });
+    return { kp, encryptedBundle };
+  } catch {
+    return null;
+  }
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function InviteModal({ den, onClose }: InviteModalProps) {
+export function InviteModal({
+  den,
+  onClose,
+  isVaultUser = false,
+}: InviteModalProps) {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -139,6 +205,25 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
       setSecretKeyB64(null);
 
       try {
+        if (isVaultUser) {
+          // ── Vault user: fully offline, no server calls ──────────────────
+          const result = await buildFlowerPotOffline(
+            den.id,
+            selectedKeyType,
+            selectedDurationMs,
+          );
+          if (!result || cancelled) return;
+          // Token = "vault" sentinel; bundle travels in the URL hash
+          if (!cancelled) {
+            setInviteToken("vault");
+            setSecretKeyB64(
+              `${toBase64(result.kp.secretKey)}&bundle=${encodeURIComponent(result.encryptedBundle)}&denId=${den.id}&denName=${encodeURIComponent(den.name)}&keyType=${selectedKeyType}`,
+            );
+          }
+          return;
+        }
+
+        // ── Supabase user: server-backed flower pot ─────────────────────
         const supabase = createClient();
         const {
           data: { user },
@@ -148,7 +233,11 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
         // 1. Create the membership invite row
         const { data: inviteData, error: inviteErr } = await supabase
           .from("den_invites")
-          .insert({ den_id: den.id, invited_by: user.id })
+          .insert({
+            den_id: den.id,
+            invited_by: user.id,
+            key_type: selectedKeyType,
+          })
           .select("id, token")
           .single();
         if (inviteErr || !inviteData || cancelled) return;
@@ -184,10 +273,12 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
     return () => {
       cancelled = true;
     };
-  }, [den.id, selectedKeyType, selectedDurationMs]);
+  }, [den.id, den.name, selectedKeyType, selectedDurationMs, isVaultUser]);
 
   // The shareable link includes the flower-pot secret in the hash fragment
-  // so the server never sees it.  Format: /invite/TOKEN#sk=SECRET_BASE64
+  // so the server never sees it.
+  // Supabase: /invite/TOKEN#sk=SECRET_BASE64
+  // Vault:    /invite/vault#sk=SECRET&bundle=BUNDLE&denId=ID&denName=NAME&keyType=TYPE
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const inviteLink =
     inviteToken && secretKeyB64
@@ -195,7 +286,13 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
       : inviteToken
         ? `${origin}/invite/${inviteToken}`
         : null;
-  const displayLink = inviteToken ? `${origin}/invite/${inviteToken}` : null;
+  // For vault invites the full link (including hash) is what matters — show it.
+  // For Supabase invites keep the shorter display (secret stays in hash, not shown).
+  const displayLink = isVaultUser
+    ? inviteLink
+    : inviteToken
+      ? `${origin}/invite/${inviteToken}`
+      : null;
 
   const selectedDurationLabel =
     DURATION_OPTIONS.find((d) => d.durationMs === selectedDurationMs)?.label ??
@@ -206,6 +303,18 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
     if (!trimmed.includes("@")) return;
     setSending(true);
     try {
+      if (isVaultUser) {
+        // Vault: copy the already-generated link (same as handleCopy but for email flow)
+        if (inviteLink) {
+          await navigator.clipboard.writeText(inviteLink);
+          toast.success(`Invite link for ${trimmed} copied!`, {
+            description: "Paste it in an email or message to them.",
+          });
+          setEmail("");
+        }
+        return;
+      }
+
       const supabase = createClient();
       const {
         data: { user },
@@ -214,7 +323,12 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
 
       const { data: inviteData } = await supabase
         .from("den_invites")
-        .insert({ den_id: den.id, invited_by: user.id, email: trimmed })
+        .insert({
+          den_id: den.id,
+          invited_by: user.id,
+          email: trimmed,
+          key_type: selectedKeyType,
+        })
         .select("id, token")
         .single();
 
@@ -259,7 +373,11 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
     if (!inviteLink) return;
     await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
-    toast.success("Invite link copied!");
+    const opt = KEY_TYPE_OPTIONS.find((o) => o.value === selectedKeyType);
+    toast.success("Invite link copied!", {
+      description: `They'll see a welcome screen explaining ${opt?.emoji ?? ""} ${opt?.label ?? selectedKeyType} access, then a guided Key setup. They'll land directly in ${den.name}. 🦦`,
+      duration: 6000,
+    });
     setTimeout(() => setCopied(false), 2500);
   };
 
@@ -303,7 +421,7 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
       >
         Access type
       </p>
-      <div className="grid grid-cols-2 gap-2 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-2">
         {KEY_TYPE_OPTIONS.map((opt) => {
           const active = selectedKeyType === opt.value;
           return (
@@ -344,6 +462,16 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
         })}
       </div>
 
+      {/* Sender guidance for selected type */}
+      {SENDER_GUIDANCE[selectedKeyType] && (
+        <p
+          className="text-xs leading-relaxed mb-4 px-1"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          {SENDER_GUIDANCE[selectedKeyType]}
+        </p>
+      )}
+
       {/* ── Duration selector ─────────────────────────────────────────────── */}
       <p
         className="text-xs font-semibold uppercase tracking-wide mb-2"
@@ -351,7 +479,7 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
       >
         Key duration
       </p>
-      <div className="flex flex-wrap gap-2 mb-5">
+      <div className="flex flex-wrap gap-2 mb-2">
         {DURATION_OPTIONS.map((opt) => {
           const active = selectedDurationMs === opt.durationMs;
           return (
@@ -376,6 +504,16 @@ export function InviteModal({ den, onClose }: InviteModalProps) {
           );
         })}
       </div>
+
+      {/* Duration hint for selected type */}
+      {DURATION_HINTS[selectedKeyType] && (
+        <p
+          className="text-xs leading-relaxed mb-5 px-1"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          {DURATION_HINTS[selectedKeyType]}
+        </p>
+      )}
 
       {/* ── Invite by email ───────────────────────────────────────────────── */}
       <p

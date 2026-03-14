@@ -6,15 +6,22 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ModalShell } from "@meerkat/ui";
 import { HoverButton } from "@meerkat/ui";
+import { updateVaultDenName } from "@/lib/vault-dens";
 import type { Den } from "@/types/den";
 
 interface RenameModalProps {
   den: Den;
   onClose: () => void;
   onRenamed: (name: string) => void;
+  isVaultUser?: boolean;
 }
 
-export function RenameModal({ den, onClose, onRenamed }: RenameModalProps) {
+export function RenameModal({
+  den,
+  onClose,
+  onRenamed,
+  isVaultUser,
+}: RenameModalProps) {
   const [value, setValue] = useState(den.name);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -37,12 +44,16 @@ export function RenameModal({ den, onClose, onRenamed }: RenameModalProps) {
     setSaving(true);
     setError("");
     try {
-      const supabase = createClient();
-      const { error: dbErr } = await supabase
-        .from("dens")
-        .update({ name: trimmed })
-        .eq("id", den.id);
-      if (dbErr) throw dbErr;
+      if (isVaultUser) {
+        updateVaultDenName(den.id, trimmed);
+      } else {
+        const supabase = createClient();
+        const { error: dbErr } = await supabase
+          .from("dens")
+          .update({ name: trimmed })
+          .eq("id", den.id);
+        if (dbErr) throw dbErr;
+      }
       onRenamed(trimmed);
       toast.success("Den renamed", { description: `Now called "${trimmed}"` });
       onClose();
