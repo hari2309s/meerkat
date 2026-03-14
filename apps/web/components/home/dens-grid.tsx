@@ -10,9 +10,20 @@ import { startNavigationProgress } from "@/components/navigation-progress";
 import { DenCard } from "@/components/home/den-card";
 import { CreateDenModal } from "@/components/home/create-den-modal";
 import { useStoredKeys } from "@meerkat/keys";
+import { getVaultDens } from "@/lib/vault-dens";
 import type { Den } from "@/types/den";
 
-async function fetchUserDens(): Promise<Den[]> {
+async function fetchUserDens(userId: string): Promise<Den[]> {
+  // Vault users: dens live in localStorage, not Supabase
+  if (userId === "local") {
+    return getVaultDens().map((d) => ({
+      id: d.id,
+      name: d.name,
+      user_id: "local",
+      created_at: d.createdAt,
+    })) as Den[];
+  }
+
   const supabase = createClient();
   const { data } = await supabase
     .from("dens")
@@ -76,7 +87,7 @@ export function DensGrid({ userId }: DensGridProps) {
 
   const { data: dens = [], isLoading } = useQuery({
     queryKey: ["dens", userId],
-    queryFn: () => fetchUserDens(),
+    queryFn: () => fetchUserDens(userId),
   });
 
   const { validKeys } = useStoredKeys();

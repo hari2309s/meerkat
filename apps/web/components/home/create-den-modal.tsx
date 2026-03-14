@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { X, Plus, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { addVaultDen } from "@/lib/vault-dens";
 import type { Den } from "@/types/den";
 
 const DEN_SUGGESTIONS = ["Family", "Friends", "Work", "For You", "Creative"];
@@ -36,6 +37,18 @@ export function CreateDenModal({
 
   const mutation = useMutation({
     mutationFn: async (trimmed: string) => {
+      // Vault users: store den in localStorage registry only
+      if (userId === "local") {
+        const den: Den = {
+          id: crypto.randomUUID(),
+          name: trimmed,
+          user_id: "local",
+          created_at: new Date().toISOString(),
+        } as Den;
+        addVaultDen({ id: den.id, name: den.name, createdAt: den.created_at });
+        return den;
+      }
+
       const supabase = createClient();
       const { data, error: dbError } = await supabase
         .from("dens")
