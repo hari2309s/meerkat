@@ -51,6 +51,38 @@ import { AttachmentPickerModal } from "@/components/den/attachment-picker-modal"
 import type { Den, DenMember } from "@/types/den";
 import { createBrowserClient } from "@supabase/ssr";
 import { clientEnv } from "@meerkat/config";
+import { getVaultDens } from "@/lib/vault-dens";
+
+// ─── Drop upload helper ───────────────────────────────────────────────────────
+// Routes through /api/drops (admin client) so vault users with no Supabase
+// session can still upload drops to Storage.
+async function uploadDropViaApi(
+  path: string,
+  data: Uint8Array,
+  metadata: { iv: string; visitorId: string; droppedAt: string },
+): Promise<void> {
+  const metaBytes = new TextEncoder().encode(JSON.stringify(metadata));
+  const header = new Uint8Array(4);
+  new DataView(header.buffer).setUint32(0, metaBytes.length, false);
+  const combined = new Uint8Array(4 + metaBytes.length + data.length);
+  combined.set(header, 0);
+  combined.set(metaBytes, 4);
+  combined.set(data, 4 + metaBytes.length);
+
+  const form = new FormData();
+  form.append("path", path);
+  form.append(
+    "data",
+    new Blob([combined], { type: "application/octet-stream" }),
+  );
+  const res = await fetch("/api/drops", { method: "POST", body: form });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({
+      error: "Upload failed",
+    }))) as { error: string };
+    throw new Error(body.error);
+  }
+}
 
 interface DenPageClientEnhancedProps {
   den: Den;
@@ -95,6 +127,16 @@ export function DenPageClientEnhanced({
     setMuted(loadMuteState(initialDen.id));
     return () => reset();
   }, [initialDen, initialMembers, setDen, setMembers, setMuted, reset]);
+
+  // Vault users: the server can't read localStorage, so the initial den has
+  // name="For You". Patch it immediately from the vault den registry.
+  useEffect(() => {
+    if (currentUserId !== "vault") return;
+    const vaultDen = getVaultDens().find((d) => d.id === initialDen.id);
+    if (vaultDen && vaultDen.name !== initialDen.name) {
+      setDen({ ...initialDen, name: vaultDen.name });
+    }
+  }, [currentUserId, initialDen, setDen]);
 
   const activeDen = den ?? initialDen;
   const activeMembers = members.length ? members : initialMembers;
@@ -228,27 +270,24 @@ export function DenPageClientEnhanced({
     if (!isOwner) return;
 
     async function collectDrops() {
-      const supabase = createClient();
+      // Use the /api/drops server routes (admin client) so vault hosts with
+      // no Supabase session can still list/download/delete drops.
       const mgr = new OfflineDropManager({
         async uploadDrop() {},
         async listDrops(prefix) {
-          // prefix = "drops/{denId}/" — list the folder without trailing slash
-          const folder = prefix.replace(/\/$/, "");
-          const { data, error } = await supabase.storage
-            .from("blobs")
-            .list(folder);
-          if (error || !data) return [];
-          return data
-            .filter((f) => f.name.endsWith(".enc"))
-            .map((f) => `${folder}/${f.name}`);
+          const res = await fetch(
+            `/api/drops?list=${encodeURIComponent(prefix)}`,
+          );
+          if (!res.ok) return [];
+          const json = (await res.json()) as { paths: string[] };
+          return json.paths ?? [];
         },
         async downloadDrop(path) {
-          const { data, error } = await supabase.storage
-            .from("blobs")
-            .download(path);
-          if (error || !data)
-            throw new Error(error?.message ?? "Download failed");
-          const bytes = new Uint8Array(await data.arrayBuffer());
+          const res = await fetch(
+            `/api/drops?path=${encodeURIComponent(path)}`,
+          );
+          if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+          const bytes = new Uint8Array(await res.arrayBuffer());
           const metaLen = new DataView(bytes.buffer).getUint32(0, false);
           const meta = JSON.parse(
             new TextDecoder().decode(bytes.slice(4, 4 + metaLen)),
@@ -256,7 +295,9 @@ export function DenPageClientEnhanced({
           return { data: bytes.slice(4 + metaLen), metadata: meta };
         },
         async deleteDrop(path) {
-          await supabase.storage.from("blobs").remove([path]);
+          await fetch(`/api/drops?path=${encodeURIComponent(path)}`, {
+            method: "DELETE",
+          });
         },
       });
 
@@ -288,26 +329,41 @@ export function DenPageClientEnhanced({
             { data: drop.encryptedPayload, iv: drop.iv, alg: "AES-GCM-256" },
             cryptoKey,
           );
-          const payload = JSON.parse(new TextDecoder().decode(plaintext)) as {
-            type: string;
-            blobRef: string;
-            durationSeconds: number;
-            createdAt: number;
-            sender: {
-              full_name: string;
-              preferred_name?: string;
-              email: string;
-            };
-            analysis?: {
-              transcript: string;
-              mood: string;
-              tone: string;
-              valence: number;
-              arousal: number;
-              confidence: number;
-              analysedAt: number;
-            };
-          };
+          type DropPayload =
+            | {
+                type: "voice_memo";
+                blobRef: string;
+                durationSeconds: number;
+                createdAt: number;
+                sender: {
+                  full_name: string;
+                  preferred_name?: string;
+                  email: string;
+                };
+                analysis?: {
+                  transcript: string;
+                  mood: string;
+                  tone: string;
+                  valence: number;
+                  arousal: number;
+                  confidence: number;
+                  analysedAt: number;
+                };
+              }
+            | {
+                type: "text_message";
+                text: string;
+                createdAt: number;
+                sender: {
+                  full_name: string;
+                  preferred_name?: string;
+                  email: string;
+                };
+              };
+          const payload = JSON.parse(
+            new TextDecoder().decode(plaintext),
+          ) as DropPayload;
+
           if (payload.type === "voice_memo") {
             const { sharedDen } = await openDen(activeDen.id);
             const voiceMemo = {
@@ -321,6 +377,20 @@ export function DenPageClientEnhanced({
             };
             sharedDen.ydoc.transact(() => {
               sharedDen.voiceThread.push([voiceMemo]);
+            });
+            imported++;
+          } else if (payload.type === "text_message") {
+            const { sharedDen } = await openDen(activeDen.id);
+            const chatMsg = {
+              id: crypto.randomUUID(),
+              userId: drop.visitorId,
+              kind: "text" as const,
+              text: payload.text,
+              createdAt: payload.createdAt,
+              sender: payload.sender,
+            };
+            sharedDen.ydoc.transact(() => {
+              sharedDen.chatThread.push([chatMsg]);
             });
             imported++;
           }
@@ -338,7 +408,7 @@ export function DenPageClientEnhanced({
       if (imported > 0) {
         toast.success(
           `${imported} offline ${imported === 1 ? "message" : "messages"} delivered`,
-          { description: "Visitor voice memos added to the thread" },
+          { description: "Visitor messages added to the den" },
         );
       }
     }
@@ -590,27 +660,8 @@ export function DenPageClientEnhanced({
         );
         const encrypted = await encryptBlob(payload, cryptoKey);
 
-        const supabase = createClient();
         const mgr = new OfflineDropManager({
-          async uploadDrop(path, data, metadata) {
-            // Pack: [4-byte big-endian meta length][meta JSON UTF-8][ciphertext]
-            const metaBytes = new TextEncoder().encode(
-              JSON.stringify(metadata),
-            );
-            const header = new Uint8Array(4);
-            new DataView(header.buffer).setUint32(0, metaBytes.length, false);
-            const combined = new Uint8Array(4 + metaBytes.length + data.length);
-            combined.set(header, 0);
-            combined.set(metaBytes, 4);
-            combined.set(data, 4 + metaBytes.length);
-            const { error } = await supabase.storage
-              .from("blobs")
-              .upload(path, combined, {
-                contentType: "application/octet-stream",
-                upsert: false,
-              });
-            if (error) throw new Error(error.message);
-          },
+          uploadDrop: uploadDropViaApi,
           async listDrops() {
             return [];
           },
@@ -669,6 +720,63 @@ export function DenPageClientEnhanced({
 
   // ── Local-first text/image/document chat (shared.chatThread) ─────────────
   const handleSendText = async (content: string) => {
+    // Offline Letterbox visitor: encrypt the message and upload as a drop
+    // instead of writing to the CRDT (which has no path to the host offline).
+    if (!isOwner && activeDenKey?.scope.offline && visitorStatus !== "synced") {
+      try {
+        const rawKeys = deserializeNamespaceKeySet(activeDenKey.namespaceKeys);
+        const dropboxRaw = rawKeys.dropbox;
+        if (!dropboxRaw) throw new Error("No dropbox key in this DenKey");
+
+        const cryptoKey = await importNamespaceKey(dropboxRaw);
+        const payload = new TextEncoder().encode(
+          JSON.stringify({
+            type: "text_message",
+            text: content,
+            createdAt: Date.now(),
+            sender: {
+              full_name: user.name,
+              preferred_name: user.preferredName ?? undefined,
+              email: user.email,
+            },
+          }),
+        );
+        const encrypted = await encryptBlob(payload, cryptoKey);
+
+        const mgr = new OfflineDropManager({
+          uploadDrop: uploadDropViaApi,
+          async listDrops() {
+            return [];
+          },
+          async downloadDrop() {
+            throw new Error("not implemented");
+          },
+          async deleteDrop() {},
+        });
+
+        const ciphertextBytes = Uint8Array.from(atob(encrypted.data), (c) =>
+          c.charCodeAt(0),
+        );
+        await mgr.uploadDrop(
+          activeDen.id,
+          currentUserId,
+          ciphertextBytes,
+          encrypted.iv,
+        );
+
+        toast.success("Message queued for delivery", {
+          description: "The host will receive it when they come online",
+        });
+      } catch (err) {
+        toast.error("Failed to queue message", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
+      return;
+    }
+
+    // Online path: write to shared CRDT so host (and synced visitors) see it.
     const { sharedDen } = await openDen(activeDen.id);
     const msg = {
       id: crypto.randomUUID(),
@@ -840,12 +948,17 @@ export function DenPageClientEnhanced({
             den={activeDen}
             onClose={closeModal}
             onRenamed={(name) => setDen({ ...activeDen, name })}
+            isVaultUser={currentUserId === "vault"}
           />
         )}
       </AnimatePresence>
       <AnimatePresence>
         {modal === "invite" && (
-          <InviteModal den={activeDen} onClose={closeModal} />
+          <InviteModal
+            den={activeDen}
+            onClose={closeModal}
+            isVaultUser={currentUserId === "vault"}
+          />
         )}
       </AnimatePresence>
       <AnimatePresence>
