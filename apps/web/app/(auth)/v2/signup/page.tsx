@@ -6,7 +6,14 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { Button, Input, Label } from "@meerkat/ui";
-import { Loader2, Copy, Check, ArrowLeft } from "lucide-react";
+import {
+  Loader2,
+  Copy,
+  Check,
+  ArrowLeft,
+  Download,
+  ArrowRight,
+} from "lucide-react";
 import { generateMnemonic } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
 import {
@@ -16,6 +23,13 @@ import {
   VAULT_PROFILE_NAME_COOKIE,
 } from "@/lib/vault-credentials";
 import { startNavigationProgress } from "@/components/navigation-progress";
+import {
+  createBurrow,
+  openBurrowContentDoc,
+  closeBurrowContentDoc,
+  closeBurrowsDoc,
+} from "@meerkat/burrows";
+import * as Y from "yjs";
 
 /** Mirror the display name into a cookie so server components can read it. */
 function setProfileNameCookie(name: string) {
@@ -26,38 +40,110 @@ function setProfileNameCookie(name: string) {
 // 128 bits of entropy → 12 words from the canonical 2048-word BIP39 list.
 const createMnemonic = () => generateMnemonic(wordlist, 128);
 
-type Step = "welcome" | "key" | "name";
+const FIRST_DEN_STORAGE_KEY = "vault_first_den_id";
+
+const WELCOME_LINES = [
+  "Welcome to your den. 🦦",
+  "",
+  "This is your private space. Everything here is encrypted on your device before it goes anywhere. Not even Meerkat can read it.",
+  "",
+  "Your Key is saved. You're good. Start writing.",
+];
+
+async function seedFirstDen(): Promise<string> {
+  const denId = crypto.randomUUID();
+
+  // Create the "My first note" burrow.
+  const burrow = await createBurrow({
+    denId,
+    title: "My first note",
+    createdBy: "vault",
+  });
+
+  // Seed the content doc with welcome paragraphs in Tiptap XML format.
+  const { ydoc, fragment } = await openBurrowContentDoc(burrow.yjsDocId);
+  ydoc.transact(() => {
+    const nodes = WELCOME_LINES.map((line) => {
+      const para = new Y.XmlElement("paragraph");
+      if (line) {
+        const text = new Y.XmlText();
+        text.insert(0, line);
+        para.insert(0, [text]);
+      }
+      return para;
+    });
+    fragment.insert(0, nodes);
+  });
+
+  closeBurrowContentDoc(burrow.yjsDocId);
+  closeBurrowsDoc(denId);
+
+  localStorage.setItem(FIRST_DEN_STORAGE_KEY, denId);
+  return denId;
+}
+
+type Step = "intent" | "key" | "name";
+type SaveMethod = "copy" | "download" | null;
 
 // ---------------------------------------------------------------------------
-// Step 1 — Welcome
+// Step 1 — Intent Screen
 // ---------------------------------------------------------------------------
-function WelcomeStep({
-  onNew,
+function IntentStep({
+  onReady,
   onExisting,
 }: {
-  onNew: () => void;
+  onReady: () => void;
   onExisting: () => void;
 }) {
   return (
-    <div className="space-y-4 text-center">
-      <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Your data is encrypted locally and belongs to you — forever.
-      </p>
-
-      <Button className="w-full h-12 text-base font-semibold" onClick={onNew}>
-        I am new here
-      </Button>
+    <div className="space-y-6">
+      <div
+        className="rounded-2xl p-6 space-y-3"
+        style={{
+          background: "var(--color-bg-card)",
+          border: "1px solid var(--color-border-card)",
+        }}
+      >
+        <p
+          className="text-base font-semibold"
+          style={{ color: "var(--color-text-primary)" }}
+        >
+          Meerkat works differently.
+        </p>
+        <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+          No email. No password. No way for us to see your data.
+        </p>
+        <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+          Instead, you get a Key — 12 words that are yours alone.
+        </p>
+        <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+          We&apos;ll help you save it safely.
+        </p>
+      </div>
 
       <Button
-        variant="outline"
-        className="w-full h-12 font-medium"
-        onClick={onExisting}
-        type="button"
+        className="w-full h-12 text-base font-semibold gap-2"
+        onClick={onReady}
       >
-        I already have a Key
+        I&apos;m ready
+        <ArrowRight className="h-4 w-4" />
       </Button>
 
-      <p className="text-xs pt-2" style={{ color: "var(--color-text-muted)" }}>
+      <div className="text-center">
+        <button
+          onClick={onExisting}
+          className="text-sm hover:opacity-70 transition-opacity underline underline-offset-2"
+          style={{ color: "var(--color-text-muted)" }}
+          type="button"
+        >
+          I already have a Key
+        </button>
+      </div>
+
+      <p
+        className="text-xs text-center"
+        style={{ color: "var(--color-text-muted)" }}
+      >
         By continuing you agree to our{" "}
         <Link href="/terms" className="underline hover:opacity-80">
           Terms of Use
@@ -72,7 +158,7 @@ function WelcomeStep({
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — Show & save Key
+// Step 2 — Show & save Key (guided)
 // ---------------------------------------------------------------------------
 function KeyStep({
   mnemonic,
@@ -83,20 +169,39 @@ function KeyStep({
   onContinue: () => void;
   onBack: () => void;
 }) {
+  const words = mnemonic.split(" ");
   const [revealed, setRevealed] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [savedWith, setSavedWith] = useState<SaveMethod>(null);
   const [acknowledged, setAcknowledged] = useState(false);
 
-  const handleRevealAndCopy = async () => {
-    setRevealed(true);
+  const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(mnemonic);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
     } catch {
-      // clipboard unavailable in some envs — reveal still works
+      // clipboard unavailable — still count as saved
     }
+    setRevealed(true);
+    setSavedWith("copy");
   };
+
+  const handleDownload = () => {
+    const blob = new Blob(
+      [
+        `Your Meerkat Key\n\nKeep this file safe. Do not share it.\n\n${mnemonic}\n`,
+      ],
+      { type: "text/plain" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "meerkat-key.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+    setRevealed(true);
+    setSavedWith("download");
+  };
+
+  const keySaved = savedWith !== null;
 
   return (
     <div className="space-y-5">
@@ -110,7 +215,7 @@ function KeyStep({
         Back
       </button>
 
-      <div className="text-center space-y-2">
+      <div className="text-center space-y-1.5">
         <h2
           className="text-xl font-bold"
           style={{ color: "var(--color-text-primary)" }}
@@ -118,88 +223,186 @@ function KeyStep({
           This is your Key
         </h2>
         <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-          It replaces login and password. Keep it safe — only you are
-          responsible for your data. You can find this Key later in app
-          settings.
+          How would you like to save it?
         </p>
       </div>
 
-      {/* Mnemonic display */}
+      {/* Word cards */}
       <div
-        className="rounded-xl p-4 font-mono text-sm text-center leading-relaxed select-none relative overflow-hidden"
+        className="rounded-xl p-4 relative overflow-hidden"
         style={{
           background: "var(--color-bg-card)",
           border: "1px solid var(--color-border-card)",
-          color: "var(--color-text-primary)",
-          filter: revealed ? "none" : "blur(6px)",
-          userSelect: revealed ? "text" : "none",
         }}
-        aria-label={revealed ? "Your mnemonic key" : "Key hidden"}
       >
-        {mnemonic}
+        <div
+          className="grid grid-cols-3 gap-2 cursor-pointer"
+          onClick={() => !revealed && setRevealed(true)}
+          title={revealed ? undefined : "Click to reveal your Key"}
+        >
+          {words.map((word, i) => (
+            <div
+              key={i}
+              className="rounded-lg px-2 py-2 flex items-center gap-1.5"
+              style={{
+                background: "var(--color-btn-secondary-bg)",
+                filter: revealed ? "none" : "blur(5px)",
+                transition: "filter 0.3s ease",
+                userSelect: revealed ? "text" : "none",
+              }}
+            >
+              <span
+                className="text-xs font-mono w-4 shrink-0 text-right"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                {i + 1}
+              </span>
+              <span
+                className="text-xs font-semibold truncate"
+                style={{ color: "var(--color-text-primary)" }}
+              >
+                {word}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Click-to-reveal overlay */}
+        {!revealed && (
+          <div
+            className="absolute inset-0 flex items-center justify-center rounded-xl cursor-pointer"
+            onClick={() => setRevealed(true)}
+          >
+            <p
+              className="text-xs font-medium px-3 py-1.5 rounded-full"
+              style={{
+                background: "var(--color-bg-card)",
+                border: "1px solid var(--color-border-card)",
+                color: "var(--color-text-muted)",
+              }}
+            >
+              Click to reveal
+            </p>
+          </div>
+        )}
       </div>
 
-      <Button
-        variant="outline"
-        className="w-full h-11 font-medium gap-2"
-        onClick={handleRevealAndCopy}
-        type="button"
-      >
-        {copied ? (
-          <>
-            <Check className="h-4 w-4 text-green-500" />
-            Copied!
-          </>
-        ) : (
-          <>
-            <Copy className="h-4 w-4" />
-            {revealed ? "Copy again" : "Reveal and Copy"}
-          </>
-        )}
-      </Button>
-
-      {/* Acknowledgement checkbox */}
-      <label className="flex items-start gap-3 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          className="sr-only"
-          checked={acknowledged}
-          onChange={(e) => setAcknowledged(e.target.checked)}
-        />
-        <span
-          className="mt-0.5 flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition-all"
-          style={{
-            border: acknowledged
-              ? "2px solid hsl(var(--meerkat-brown))"
-              : "2px solid var(--color-border-card)",
-            background: acknowledged
-              ? "hsl(var(--meerkat-brown))"
-              : "transparent",
-            boxShadow: acknowledged
-              ? "0 0 0 3px hsl(var(--meerkat-brown) / 0.18)"
-              : "none",
-          }}
-          aria-hidden="true"
-        >
-          {acknowledged && (
-            <svg
-              viewBox="0 0 10 8"
-              className="h-2.5 w-2.5"
-              fill="none"
-              stroke="white"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+      {/* Save options or confirmation */}
+      <AnimatePresence mode="wait">
+        {!keySaved ? (
+          <motion.div
+            key="options"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-2"
+          >
+            <button
+              onClick={handleCopy}
+              className="w-full flex items-center gap-3 rounded-xl px-4 h-11 text-sm font-medium transition-opacity hover:opacity-80"
+              style={{
+                background: "var(--color-bg-card)",
+                border: "1px solid var(--color-border-card)",
+                color: "var(--color-text-primary)",
+              }}
+              type="button"
             >
-              <path d="M1 4l2.5 2.5L9 1" />
-            </svg>
-          )}
-        </span>
-        <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-          I have saved my Key in a safe place. I understand I cannot recover my
-          account without it.
-        </span>
-      </label>
+              <Copy
+                className="h-4 w-4 shrink-0"
+                style={{ color: "var(--color-text-muted)" }}
+              />
+              Copy to clipboard
+            </button>
+
+            <button
+              onClick={handleDownload}
+              className="w-full flex items-center gap-3 rounded-xl px-4 h-11 text-sm font-medium transition-opacity hover:opacity-80"
+              style={{
+                background: "var(--color-bg-card)",
+                border: "1px solid var(--color-border-card)",
+                color: "var(--color-text-primary)",
+              }}
+              type="button"
+            >
+              <Download
+                className="h-4 w-4 shrink-0"
+                style={{ color: "var(--color-text-muted)" }}
+              />
+              Download as text file
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="saved"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium"
+            style={{
+              background: "rgba(34, 197, 94, 0.08)",
+              border: "1px solid rgba(34, 197, 94, 0.25)",
+              color: "rgb(34, 197, 94)",
+            }}
+          >
+            <Check className="h-4 w-4 shrink-0" />
+            Key saved. You&apos;re protected.
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Acknowledgement checkbox — only shown after saving */}
+      <AnimatePresence>
+        {keySaved && (
+          <motion.label
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start gap-3 cursor-pointer select-none"
+          >
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={acknowledged}
+              onChange={(e) => setAcknowledged(e.target.checked)}
+            />
+            <span
+              className="mt-0.5 flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition-all"
+              style={{
+                border: acknowledged
+                  ? "2px solid hsl(var(--meerkat-brown))"
+                  : "2px solid var(--color-border-card)",
+                background: acknowledged
+                  ? "hsl(var(--meerkat-brown))"
+                  : "transparent",
+                boxShadow: acknowledged
+                  ? "0 0 0 3px hsl(var(--meerkat-brown) / 0.18)"
+                  : "none",
+              }}
+              aria-hidden="true"
+            >
+              {acknowledged && (
+                <svg
+                  viewBox="0 0 10 8"
+                  className="h-2.5 w-2.5"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M1 4l2.5 2.5L9 1" />
+                </svg>
+              )}
+            </span>
+            <span
+              className="text-sm"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              I&apos;ve saved my Key. I know Meerkat can&apos;t recover it for
+              me, and that means nobody else can access my den either.
+            </span>
+          </motion.label>
+        )}
+      </AnimatePresence>
 
       <Button
         variant="outline"
@@ -299,10 +502,10 @@ function NameStep({
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Creating your vault…
+            Setting up your den…
           </>
         ) : (
-          "Enter my Vault"
+          "Enter my den"
         )}
       </Button>
     </div>
@@ -317,13 +520,13 @@ function SignUpV2Form() {
   const searchParams = useSearchParams();
   const nextUrl = searchParams.get("next") ?? "/";
 
-  const [step, setStep] = useState<Step>("welcome");
+  const [step, setStep] = useState<Step>("intent");
   const [mnemonic] = useState(() => createMnemonic());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleComplete = useCallback(
-    (name: string) => {
+    async (name: string) => {
       setIsLoading(true);
       setError(null);
 
@@ -339,8 +542,16 @@ function SignUpV2Form() {
         setProfileNameCookie(name);
         setVaultSessionCookie();
 
+        // 4. Seed the "For You" first den with a welcome note.
+        //    Only if there's no redirect target (i.e. fresh signup, not invite flow).
+        let destination = nextUrl;
+        if (nextUrl === "/") {
+          const denId = await seedFirstDen();
+          destination = `/dens/${denId}`;
+        }
+
         startNavigationProgress();
-        router.push(nextUrl);
+        router.push(destination);
         router.refresh();
       } catch (err: unknown) {
         setError(
@@ -356,16 +567,16 @@ function SignUpV2Form() {
 
   return (
     <AnimatePresence mode="wait">
-      {step === "welcome" && (
+      {step === "intent" && (
         <motion.div
-          key="welcome"
+          key="intent"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.25 }}
         >
-          <WelcomeStep
-            onNew={() => setStep("key")}
+          <IntentStep
+            onReady={() => setStep("key")}
             onExisting={() =>
               router.push(
                 `/v2/login${nextUrl !== "/" ? `?next=${encodeURIComponent(nextUrl)}` : ""}`,
@@ -386,7 +597,7 @@ function SignUpV2Form() {
           <KeyStep
             mnemonic={mnemonic}
             onContinue={() => setStep("name")}
-            onBack={() => setStep("welcome")}
+            onBack={() => setStep("intent")}
           />
         </motion.div>
       )}
