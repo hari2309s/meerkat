@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/get-current-user";
 import { BurrowsPageClient } from "./burrows-page-client";
 
 interface BurrowsPageProps {
@@ -7,6 +8,27 @@ interface BurrowsPageProps {
 }
 
 export default async function BurrowsPage({ params }: BurrowsPageProps) {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) redirect("/v2/login");
+
+  // ── Vault (v2 local-first) path ────────────────────────────────────────────
+  if (currentUser.authType === "vault") {
+    return (
+      <BurrowsPageClient
+        denId={params.id}
+        denName="For You"
+        userId="vault"
+        isOwner={true}
+        user={{
+          name: currentUser.name,
+          preferredName: currentUser.preferredName,
+          email: "",
+        }}
+      />
+    );
+  }
+
+  // ── Supabase (v1) path ─────────────────────────────────────────────────────
   const supabase = createClient();
   const {
     data: { user },
