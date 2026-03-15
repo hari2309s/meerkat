@@ -464,17 +464,21 @@ Not prescriptive — just a nudge in the right direction.
 
 ---
 
-## 4. PWA Install Prompt
+## 4. PWA Install Prompt ✓ _shipped_
 
-### Current Problem
+### Trigger
 
-The PWA capability exists but there's no guided prompt to install it.
-Most users don't know to look for "Add to Home Screen."
+After **1 hour of cumulative use on a device** (not on first visit — let the
+user settle in and experience value before asking them to commit).
 
-### Proposed Change
+The timestamp of first authentication is recorded in `localStorage`
+(`meerkat:first-used-at`) once, at signup or login. The banner is gated
+on `Date.now() - firstUsedAt >= 3_600_000`. A `setTimeout` fires the
+banner mid-session if the threshold is crossed while the app is open.
 
-After the user's **second login** (not first — let them settle in),
-show a gentle nudge:
+### What it looks like
+
+A spring-animated slide-up banner at the bottom of the home page:
 
 ```
 Install Meerkat for the best experience.
@@ -485,9 +489,28 @@ Your Key stays securely on this device.
 [ Install ]   [ Maybe later ]
 ```
 
-Trigger the native PWA install prompt on tap.
-This converts browser users to installed users — better retention,
-better offline experience, less dependency on the browser staying open.
+**Install** — triggers the browser's native `beforeinstallprompt` dialog.
+**Maybe later** — dismisses permanently (stored as `meerkat:pwa-prompt-dismissed`
+in `localStorage`).
+
+### Conditions to show
+
+All four must be true:
+
+1. Browser has surfaced a `beforeinstallprompt` event (Chrome / Edge / Android — Safari handles its own flow)
+2. App is not already running in `display-mode: standalone`
+3. Banner has not been previously dismissed
+4. ≥ 1 hour has elapsed since `meerkat:first-used-at`
+
+### Relevant files
+
+```
+apps/web/
+├── hooks/use-pwa-install.ts          # Captures beforeinstallprompt, checks conditions
+├── components/pwa-install-banner.tsx # Animated banner UI
+├── app/page.tsx                      # <PWAInstallBanner /> mounted here
+└── lib/vault-credentials.ts          # recordFirstUsed() / getFirstUsedAt()
+```
 
 ---
 
@@ -551,7 +574,7 @@ inside.
 10. **Expired link compassionate path** — replaces generic error
 11. **Key duration guidance** — nudges senders toward sensible expiry choices
 12. **Sender "what happens next" summary** — closes the loop after sending
-13. **PWA install prompt** — improves retention after first session
+13. **PWA install prompt** — improves retention after first session ✓ _shipped_
 14. **Lost Key compassionate path** — reduces support confusion
 15. **First-run checklist** — nice to have, not urgent
 

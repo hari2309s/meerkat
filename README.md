@@ -40,6 +40,7 @@ A note-taking and real-time collaboration app for your crew — voice, text, sol
 - **Animated UI**: Smooth transitions and real-time feedback powered by Framer Motion.
 - **Type-Safe Pipeline**: End-to-end TypeScript with Zod validation and shared types across the monorepo.
 - **Key-based Auth**: Passwordless authentication via a BIP39 mnemonic phrase — your Key is your identity.
+- **PWA Install Prompt**: After 1 hour of use on a device, a native install banner slides up — converts browser sessions to installed app sessions with offline support, without interrupting first-time users.
 
 ## 🏗️ Monorepo Structure
 
@@ -120,6 +121,8 @@ mnemonic (UTF-8, trimmed + lowercased)
 ```
 
 After a successful sign-in or sign-up the mnemonic is stored in `localStorage` (`vault_mnemonic`) so the user stays logged in across sessions without re-entering their phrase. Call `clearMnemonic()` from `lib/vault-credentials.ts` on sign-out.
+
+`vault-credentials.ts` also exposes `recordFirstUsed()` (called once at signup/login to stamp `meerkat:first-used-at`) and `getFirstUsedAt()` — used by the PWA install prompt to gate the banner until the user has 1 hour of use on the device.
 
 ### Signup flow (3 animated steps)
 
