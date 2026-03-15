@@ -12,6 +12,11 @@ import { CreateDenModal } from "@/components/home/create-den-modal";
 import { useStoredKeys } from "@meerkat/keys";
 import { getVaultDens } from "@/lib/vault-dens";
 import type { Den } from "@/types/den";
+import {
+  useActivityStore,
+  hasUnreadByDenId,
+  type ActivityState,
+} from "@/stores/use-activity-store";
 
 async function fetchUserDens(userId: string): Promise<Den[]> {
   // Vault users: dens live in localStorage, not Supabase
@@ -92,7 +97,11 @@ export function DensGrid({ userId }: DensGridProps) {
 
   const { validKeys } = useStoredKeys();
 
+  const markVisited = useActivityStore((s) => s.markVisited);
+  const activityState = useActivityStore((s) => s);
+
   const handleDenClick = (den: Den) => {
+    markVisited(den.id);
     setNavigatingId(den.id);
     startNavigationProgress();
     router.push(`/dens/${den.id}`);
@@ -166,6 +175,7 @@ export function DensGrid({ userId }: DensGridProps) {
           onNavigate={handleDenClick}
           showCreate
           onCreateClick={() => setShowModal(true)}
+          activityState={activityState}
         />
 
         {/* ── Visitor sections ── */}
@@ -178,6 +188,7 @@ export function DensGrid({ userId }: DensGridProps) {
             navigatingId={navigatingId}
             onNavigate={handleDenClick}
             expiresAtByDenId={expiresAtByDenId}
+            activityState={activityState}
           />
         ))}
       </div>
@@ -206,6 +217,7 @@ interface DenSectionProps {
   showCreate?: boolean;
   onCreateClick?: () => void;
   expiresAtByDenId?: Record<string, string | null>;
+  activityState?: ActivityState;
 }
 
 function DenSection({
@@ -217,6 +229,7 @@ function DenSection({
   showCreate = false,
   onCreateClick,
   expiresAtByDenId,
+  activityState,
 }: DenSectionProps) {
   const { emoji, label, description } = SECTION_META[id];
 
@@ -265,6 +278,9 @@ function DenSection({
               navigatingId={navigatingId}
               onNavigate={onNavigate}
               expiresAt={expiresAtByDenId?.[den.id]}
+              hasUnread={
+                activityState ? hasUnreadByDenId(activityState, den.id) : false
+              }
             />
           ))}
 
