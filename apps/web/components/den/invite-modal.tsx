@@ -81,6 +81,16 @@ const DURATION_HINTS: Record<Exclude<KeyType, "custom">, string> = {
     "Suggested: 90 days or 1 year — async communication needs longevity.",
 };
 
+// ── Default duration per key type ────────────────────────────────────────────
+// Preselected when the user picks an access type. Matches the DURATION_HINTS.
+
+const DEFAULT_DURATION_MS: Record<Exclude<KeyType, "custom">, number | null> = {
+  "house-sit": null, // No expiry — permanent members shouldn't need to re-accept
+  "come-over": 7 * 24 * 60 * 60 * 1000, // 7 days — single session
+  peek: 30 * 24 * 60 * 60 * 1000, // 30 days — match content relevance
+  letterbox: 365 * 24 * 60 * 60 * 1000, // 1 year — async comms need longevity
+};
+
 // ── Duration options ─────────────────────────────────────────────────────────
 
 const DURATION_OPTIONS: { label: string; durationMs: number | null }[] = [
@@ -187,8 +197,13 @@ export function InviteModal({
   const [selectedKeyType, setSelectedKeyType] =
     useState<Exclude<KeyType, "custom">>("house-sit");
   const [selectedDurationMs, setSelectedDurationMs] = useState<number | null>(
-    30 * 24 * 60 * 60 * 1000,
+    DEFAULT_DURATION_MS["house-sit"],
   );
+
+  // Auto-preselect duration when key type changes
+  useEffect(() => {
+    setSelectedDurationMs(DEFAULT_DURATION_MS[selectedKeyType]);
+  }, [selectedKeyType]);
 
   // Link state
   const [inviteToken, setInviteToken] = useState<string | null>(null);
@@ -505,7 +520,7 @@ export function InviteModal({
         })}
       </div>
 
-      {/* Duration hint for selected type */}
+      {/* Duration hint — explains the auto-preselected choice */}
       {DURATION_HINTS[selectedKeyType] && (
         <p
           className="text-xs leading-relaxed mb-5 px-1"
