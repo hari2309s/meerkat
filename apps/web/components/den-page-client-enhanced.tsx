@@ -32,6 +32,7 @@ import {
 
 import { useVoiceMemoUpload } from "@/hooks/use-voice-memo-upload";
 import { useDenNotifications } from "@/hooks/use-den-notifications";
+import { useDenActivityReporter } from "@/hooks/use-den-activity-reporter";
 
 import { DenHeaderEnhanced } from "@/components/den/den-header-enhanced";
 import { DenNavTabs } from "@/components/den/den-nav-tabs";
@@ -154,6 +155,13 @@ export function DenPageClientEnhanced({
     visitors,
     dropboxItems,
     isOwner,
+  });
+
+  // ── Activity reporting (unread dots + nav dropbox badge) ──────────────────
+  useDenActivityReporter({
+    denId: activeDen.id,
+    isOwner,
+    pendingDropCount: dropboxItems.length,
   });
 
   // ── Visitor P2P auto-join ─────────────────────────────────────────────────

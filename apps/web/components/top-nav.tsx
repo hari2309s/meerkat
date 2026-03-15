@@ -21,6 +21,10 @@ import { startNavigationProgress } from "@/components/navigation-progress";
 import { getInitials, getDisplayName } from "@meerkat/utils/string";
 import { useTheme } from "@/components/theme-provider";
 import { clearVault } from "@/lib/vault-credentials";
+import {
+  useActivityStore,
+  selectTotalPendingDrops,
+} from "@/stores/use-activity-store";
 
 interface NavUser {
   name: string;
@@ -97,6 +101,7 @@ export function TopNav({ user }: TopNavProps) {
     if (href !== pathname) startNavigationProgress();
   };
 
+  const totalDrops = useActivityStore(selectTotalPendingDrops);
   const initials = getInitials(user.name);
 
   return (
@@ -136,6 +141,8 @@ export function TopNav({ user }: TopNavProps) {
           <nav className="hidden sm:flex items-center gap-1 flex-1">
             {navItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
+              const badge =
+                href === "/settings" && totalDrops > 0 ? totalDrops : 0;
               return (
                 <Link
                   key={href}
@@ -158,6 +165,14 @@ export function TopNav({ user }: TopNavProps) {
                 >
                   <Icon className="h-4 w-4" />
                   {label}
+                  {badge > 0 && (
+                    <span
+                      className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[10px] font-bold text-white leading-none"
+                      style={{ background: "#E67E22" }}
+                    >
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -308,6 +323,8 @@ export function TopNav({ user }: TopNavProps) {
               <div className="p-2">
                 {navItems.map(({ href, label, icon: Icon }) => {
                   const active = pathname === href;
+                  const badge =
+                    href === "/settings" && totalDrops > 0 ? totalDrops : 0;
                   return (
                     <Link
                       key={href}
@@ -325,6 +342,14 @@ export function TopNav({ user }: TopNavProps) {
                     >
                       <Icon className="h-4 w-4" />
                       {label}
+                      {badge > 0 && (
+                        <span
+                          className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[10px] font-bold text-white leading-none ml-auto"
+                          style={{ background: "#E67E22" }}
+                        >
+                          {badge > 99 ? "99+" : badge}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
