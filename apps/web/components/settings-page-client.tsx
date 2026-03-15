@@ -15,14 +15,21 @@ interface SettingsPageClientProps {
   user: SettingsUser;
 }
 
-const NAV_ITEMS: { id: Section; label: string; icon: React.ElementType }[] = [
+const ALL_NAV_ITEMS: {
+  id: Section;
+  label: string;
+  icon: React.ElementType;
+  vaultOnly?: boolean;
+}[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Shield },
-  { id: "vault", label: "Vault Key", icon: KeyRound },
+  { id: "vault", label: "Vault Key", icon: KeyRound, vaultOnly: true },
   { id: "dropbox", label: "Dropbox", icon: Inbox },
 ];
 
 export function SettingsPageClient({ user }: SettingsPageClientProps) {
+  const isVault = user.id === "vault";
+  const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.vaultOnly || isVault);
   const [activeSection, setActiveSection] = useState<Section>("profile");
 
   return (
