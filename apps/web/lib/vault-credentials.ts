@@ -22,6 +22,7 @@
 
 const MNEMONIC_STORAGE_KEY = "vault_mnemonic";
 const PROFILE_STORAGE_KEY = "vault_profile";
+const FIRST_USED_KEY = "meerkat:first-used-at";
 export const VAULT_SESSION_COOKIE = "vault_session";
 export const VAULT_PROFILE_NAME_COOKIE = "vault_profile_name";
 
@@ -86,6 +87,26 @@ export function clearVaultSessionCookie(): void {
 // it is not sensitive. Keeping it means the greeting works correctly on
 // re-login without asking "What should we call you?" every session.
 // The mnemonic (the actual secret) is always cleared.
+// ---------------------------------------------------------------------------
+// First-used timestamp — used to gate the PWA install prompt (show after 1 h)
+// ---------------------------------------------------------------------------
+
+/** Records the first time the user authenticated on this device. No-op if already set. */
+export function recordFirstUsed(): void {
+  if (!localStorage.getItem(FIRST_USED_KEY)) {
+    localStorage.setItem(FIRST_USED_KEY, String(Date.now()));
+  }
+}
+
+/** Returns the epoch-ms timestamp of first use, or null if not yet recorded. */
+export function getFirstUsedAt(): number | null {
+  const raw = localStorage.getItem(FIRST_USED_KEY);
+  return raw ? parseInt(raw, 10) : null;
+}
+
+// ---------------------------------------------------------------------------
+// Full sign-out — clears everything on this device
+// ---------------------------------------------------------------------------
 export function clearVault(): void {
   clearMnemonic();
   clearVaultSessionCookie();
