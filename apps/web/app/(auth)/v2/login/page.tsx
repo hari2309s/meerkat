@@ -13,6 +13,7 @@ import {
   saveMnemonic,
   saveProfile,
   setVaultSessionCookie,
+  recordFirstUsed,
   loadProfile,
   VAULT_PROFILE_NAME_COOKIE,
 } from "@/lib/vault-credentials";
@@ -331,6 +332,7 @@ function LoginV2Form() {
       if (profile?.name) {
         // Known device — profile already here.
         setProfileNameCookie(profile.name);
+        recordFirstUsed();
         setVaultSessionCookie();
         startNavigationProgress();
         router.push(buildDestination());
@@ -356,6 +358,7 @@ function LoginV2Form() {
     const resolvedName = name || "You";
     saveProfile({ name: resolvedName, createdAt: new Date().toISOString() });
     setProfileNameCookie(resolvedName);
+    recordFirstUsed();
     setVaultSessionCookie();
     startNavigationProgress();
     router.push(buildDestination());

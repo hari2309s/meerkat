@@ -20,6 +20,7 @@ import {
   saveMnemonic,
   saveProfile,
   setVaultSessionCookie,
+  recordFirstUsed,
   VAULT_PROFILE_NAME_COOKIE,
 } from "@/lib/vault-credentials";
 import { startNavigationProgress } from "@/components/navigation-progress";
@@ -573,6 +574,7 @@ function SignUpV2Form() {
         // 3. Mirror name into a cookie so server components can read it,
         //    and set the session presence cookie for middleware.
         setProfileNameCookie(name);
+        recordFirstUsed();
         setVaultSessionCookie();
 
         // 4. Seed the "For You" first den with a welcome note.

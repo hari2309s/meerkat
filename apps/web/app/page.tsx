@@ -4,6 +4,7 @@ import { DensSection } from "@/components/dens-section";
 import { GrainOverlay } from "@/components/grain-overlay";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { getDisplayName } from "@meerkat/utils/string";
+import { PWAInstallBanner } from "@/components/pwa-install-banner";
 
 export default async function HomePage() {
   const user = await getCurrentUser();
@@ -48,6 +49,8 @@ export default async function HomePage() {
           userId={user.authType === "supabase" ? user.id : "local"}
         />
       </main>
+
+      <PWAInstallBanner />
     </div>
   );
 }
