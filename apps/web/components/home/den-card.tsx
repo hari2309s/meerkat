@@ -144,10 +144,10 @@ export const DenCard = forwardRef<HTMLButtonElement, DenCardProps>(
           className="flex items-center gap-3 mt-auto text-[11px] font-medium"
           style={{ color: "var(--color-text-muted)" }}
         >
-          {/* Member count */}
+          {/* Member count — den_members excludes the owner, so +1 */}
           <div className="flex items-center gap-1">
             <Users className="h-3 w-3 opacity-60" />
-            <span>{den.members?.[0]?.count ?? 1}</span>
+            <span>{(den.members?.[0]?.count ?? 0) + 1}</span>
           </div>
 
           {/* Online count */}
