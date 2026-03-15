@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { SectionCard } from "@/components/settings/shared";
 import { relativeTime } from "@meerkat/utils/time";
 import { dropStoragePrefix } from "@meerkat/p2p";
+import { getVaultDens } from "@/lib/vault-dens";
 
 interface PendingDrop {
   path: string;
@@ -53,14 +54,20 @@ function PendingDropsCard({ userId }: { userId: string }) {
     try {
       const supabase = createClient();
 
-      // 1. Fetch owned dens (the current user is host)
-      const { data: dens, error: densErr } = await supabase
-        .from("dens")
-        .select("id, name")
-        .eq("user_id", userId);
+      // 1. Fetch owned dens — vault users store dens in localStorage, not Supabase
+      let dens: OwnedDen[];
+      if (userId === "vault") {
+        dens = getVaultDens();
+      } else {
+        const { data, error: densErr } = await supabase
+          .from("dens")
+          .select("id, name")
+          .eq("user_id", userId);
+        if (densErr) throw densErr;
+        dens = (data as OwnedDen[]) ?? [];
+      }
 
-      if (densErr) throw densErr;
-      if (!dens || dens.length === 0) {
+      if (dens.length === 0) {
         setDrops([]);
         return;
       }
@@ -68,7 +75,7 @@ function PendingDropsCard({ userId }: { userId: string }) {
       // 2. For each den, list drops from Supabase Storage
       const allDrops: PendingDrop[] = [];
 
-      for (const den of dens as OwnedDen[]) {
+      for (const den of dens) {
         const prefix = dropStoragePrefix(den.id);
         const { data: files, error: listErr } = await supabase.storage
           .from("blobs")
