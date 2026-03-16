@@ -25,18 +25,64 @@ import type {
   StoredDenKey,
 } from "./types";
 
-// ─── Storage key helpers (localStorage) ──────────────────────────────────────
+// ─── Storage key helpers ───────────────────────────────────────────────────────
 //
-// Visitor keys are stored in localStorage under a namespaced key.
-// This is the visitor's device — no IndexedDB needed here.
+// Visitor key storage is split across two stores to minimise the exposure of
+// raw AES namespace key bytes:
+//
+//   localStorage (persistent, survives restarts)
+//     "meerkat:den-keys"  →  StoredDenKey[] but with namespaceKeys STRIPPED.
+//     Stores only key metadata: keyId, denId, label, scope, expiry, issuedAt.
+//     Safe at rest — no cryptographic material.
+//
+//   sessionStorage (tab-scoped, cleared when the tab/browser closes)
+//     "meerkat:den-keys:material"  →  Record<keyId, SerializedNamespaceKeySet>
+//     Stores only the namespace key bytes, keyed by keyId.
+//     Lost on session end — re-redemption is required in a new session.
+//
+// This means XSS or a malicious extension reading localStorage sees no key
+// bytes. The keys survive in sessionStorage for the lifetime of the tab.
 
-const LOCAL_STORAGE_KEY = "meerkat:den-keys";
+const LS_KEY = "meerkat:den-keys";
+const SS_KEY = "meerkat:den-keys:material";
+
+type MaterialMap = Record<string, StoredDenKey["key"]["namespaceKeys"]>;
+
+function loadMaterialMap(): MaterialMap {
+  if (typeof sessionStorage === "undefined") return {};
+  try {
+    const raw = sessionStorage.getItem(SS_KEY);
+    return raw ? (JSON.parse(raw) as MaterialMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMaterialMap(map: MaterialMap): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(SS_KEY, JSON.stringify(map));
+  } catch {
+    // sessionStorage quota exceeded — fail silently
+  }
+}
 
 function loadStoredKeys(): StoredDenKey[] {
   if (typeof localStorage === "undefined") return [];
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StoredDenKey[]) : [];
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return [];
+    const metadata = JSON.parse(raw) as StoredDenKey[];
+    // Re-attach namespace key bytes from sessionStorage (present only if the
+    // key was redeemed in this session, or if we just wrote it).
+    const material = loadMaterialMap();
+    return metadata.map((s) => ({
+      ...s,
+      key: {
+        ...s.key,
+        namespaceKeys: material[s.key.keyId] ?? {},
+      },
+    }));
   } catch {
     return [];
   }
@@ -45,10 +91,27 @@ function loadStoredKeys(): StoredDenKey[] {
 function saveStoredKeys(keys: StoredDenKey[]): void {
   if (typeof localStorage === "undefined") return;
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(keys));
+    // Write metadata (no key bytes) to localStorage.
+    const metadata = keys.map((s) => ({
+      ...s,
+      key: {
+        ...s.key,
+        namespaceKeys: {} as StoredDenKey["key"]["namespaceKeys"],
+      },
+    }));
+    localStorage.setItem(LS_KEY, JSON.stringify(metadata));
+
+    // Write namespace key bytes to sessionStorage only.
+    const material: MaterialMap = {};
+    for (const s of keys) {
+      if (Object.keys(s.key.namespaceKeys).length > 0) {
+        material[s.key.keyId] = s.key.namespaceKeys;
+      }
+    }
+    saveMaterialMap(material);
   } catch {
     // Storage quota exceeded or private browsing restriction — fail silently
-    console.warn("[@meerkat/keys] Failed to persist keys to localStorage");
+    console.warn("[@meerkat/keys] Failed to persist keys to storage");
   }
 }
 
@@ -267,6 +330,12 @@ export function useStoredKeys(): UseStoredKeysReturn {
     setKeys((prev) => {
       const updated = prev.filter((s) => s.key.keyId !== keyId);
       saveStoredKeys(updated);
+      // Also remove the key material from sessionStorage.
+      const material = loadMaterialMap();
+      if (keyId in material) {
+        delete material[keyId];
+        saveMaterialMap(material);
+      }
       return updated;
     });
   }, []);

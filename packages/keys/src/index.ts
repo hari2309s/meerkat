@@ -41,6 +41,7 @@ export {
   revokeKey,
   redeemKey,
   validateKey,
+  validateKeyMetadata,
   generateDenNamespaceKeys,
 } from "./lib/keys";
 

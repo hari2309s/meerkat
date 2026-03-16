@@ -300,6 +300,45 @@ export function validateKey(key: DenKey): boolean {
   return true;
 }
 
+// ─── validateKeyMetadata ──────────────────────────────────────────────────────
+
+/**
+ * Validate a DenKey's metadata (expiry, scope, read/write) WITHOUT checking
+ * that namespaceKeys are present.
+ *
+ * Use this on the HOST side when processing a JoinRequestSignal. The host
+ * already holds the namespace keys itself — they must not be sent over the
+ * signaling channel. This function lets the host validate the claim without
+ * requiring the visitor to echo sensitive key material back.
+ *
+ * @returns true if the key metadata is valid, false otherwise.
+ */
+export function validateKeyMetadata(
+  key: Omit<DenKey, "namespaceKeys"> & {
+    namespaceKeys?: DenKey["namespaceKeys"];
+  },
+): boolean {
+  // 1. Expiry check
+  if (key.expiresAt !== null) {
+    const expiry = new Date(key.expiresAt).getTime();
+    if (Date.now() > expiry) {
+      return false;
+    }
+  }
+
+  // 2. Non-empty scope
+  if (!key.scope.namespaces || key.scope.namespaces.length === 0) {
+    return false;
+  }
+
+  // 3. Must have at least read or write
+  if (!key.scope.read && !key.scope.write) {
+    return false;
+  }
+
+  return true;
+}
+
 // ─── generateDenNamespaceKeys (convenience) ──────────────────────────────────
 
 /**
