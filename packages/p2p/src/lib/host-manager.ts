@@ -7,7 +7,7 @@
 //   and the channel never opened.
 
 import * as awarenessProtocol from "y-protocols/awareness";
-import { validateKey } from "@meerkat/keys";
+import { validateKeyMetadata } from "@meerkat/keys";
 import { openDen } from "@meerkat/local-store";
 import type { DenKey } from "@meerkat/keys";
 import type { PresenceInfo } from "@meerkat/local-store";
@@ -162,7 +162,9 @@ export class HostManager {
       `[@meerkat/p2p:host] join-request received from visitorId=${visitorId}`,
     );
 
-    if (!validateKey(denKey) || denKey.denId !== this.denId) {
+    // validateKeyMetadata checks expiry/scope without requiring namespaceKeys —
+    // visitors must not send namespace key bytes over the signaling channel.
+    if (!validateKeyMetadata(denKey) || denKey.denId !== this.denId) {
       console.warn(
         `[@meerkat/p2p:host] DenKey invalid or wrong den — rejecting`,
       );

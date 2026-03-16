@@ -191,12 +191,18 @@ export class VisitorConnection {
 
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
+    // Strip namespaceKeys before sending over Supabase Realtime.
+    // The raw AES key bytes must NOT leave the device on the signaling channel —
+    // they would be stored in plaintext on Supabase's servers.
+    // The host already holds the namespace keys (it generated them); it
+    // validates only the key metadata (expiry, scope, denId).
+    const { namespaceKeys: _stripped, ...keySignal } = this.denKey;
     await this.signaling.sendJoinRequest({
       type: "join-request",
       visitorId,
       denId: this.hostDenId,
       sdpOffer: offer.sdp ?? "",
-      denKey: this.denKey,
+      denKey: keySignal as DenKey,
     });
     console.log(`[@meerkat/p2p:visitor] join-request sent`);
 
