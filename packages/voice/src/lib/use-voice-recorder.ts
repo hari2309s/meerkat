@@ -165,6 +165,8 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
   const discard = useCallback(() => {
     cleanup();
     if (state.audioUrl) URL.revokeObjectURL(state.audioUrl);
+    // Release accumulated MediaRecorder chunks from memory.
+    chunksRef.current = [];
     setState(INITIAL_STATE);
   }, [cleanup, state.audioUrl]);
 
@@ -199,7 +201,16 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
           uploadEncryptedBlob,
         });
 
-        setState((prev) => ({ ...prev, phase: "done" }));
+        // Release the audio blob and revoke the object URL now that the
+        // encrypted copy has been uploaded. Don't hold raw audio in memory.
+        if (state.audioUrl) URL.revokeObjectURL(state.audioUrl);
+        chunksRef.current = [];
+        setState((prev) => ({
+          ...prev,
+          phase: "done",
+          audioBlob: null,
+          audioUrl: null,
+        }));
         return result;
       } catch (err) {
         setState((prev) => ({

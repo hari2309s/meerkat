@@ -103,6 +103,10 @@ export async function saveVoiceNote(
 
   const encryptedBlob = await encryptBlob(rawBytes, encryptionKey);
 
+  // Zero the raw audio bytes immediately after encryption — audio content is
+  // sensitive and must not linger in the heap beyond what is strictly needed.
+  rawBytes.fill(0);
+
   // ── Step 4: Upload ──────────────────────────────────────────────────────────
   // The caller provides the upload function. In the app this calls a tRPC route
   // that proxies directly to Supabase Storage. The server never sees plaintext.
