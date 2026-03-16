@@ -27,7 +27,7 @@
     "@meerkat/voice": "workspace:*",
     "@scure/bip39": "^2.0.1",
     "@supabase/ssr": "^0.9.0",
-    "@supabase/supabase-js": "^2.95.3",
+    "@supabase/supabase-js": "^2.97.0",
     "@tanstack/react-query": "^5.17.19",
     "@trpc/client": "^11.0.0-rc.332",
     "@trpc/next": "^11.0.0-rc.332",
