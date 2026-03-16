@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createRateLimiter, getClientIp } from "@/lib/rate-limit";
+
+const createPotSchema = z.object({
+  // UUID format for den ownership
+  denId: z.string().uuid(),
+  // Encrypted bundle is a JSON-encoded EncryptedBundle — NaCl box output.
+  // Empirically: ephemeral pubkey (44) + nonce (32) + base64 ciphertext.
+  // A DenKey with all four namespace keys serialises to ~600 bytes before
+  // encryption. Cap at 8 KB to reject obviously oversized payloads.
+  encryptedBundle: z.string().max(8_192),
+  expiresAt: z.string().datetime().nullable(),
+});
 
 // 30 lookups per minute per IP for public token redemption.
 const redeemLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 });
@@ -24,11 +36,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await req.json()) as {
-    denId: string;
-    encryptedBundle: string;
-    expiresAt: string | null;
-  };
+  const parsed = createPotSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+  const body = parsed.data;
 
   const { data, error } = await supabase
     .from("flower_pots")

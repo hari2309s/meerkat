@@ -1,7 +1,8 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
 import { env } from "@meerkat/config";
 
+// @supabase/ssr >=0.4 uses getAll/setAll (replaces get/set/remove).
 export function createClient() {
   const cookieStore = cookies();
   const headerStore = headers();
@@ -15,21 +16,22 @@ export function createClient() {
         headers: ip ? { "x-forwarded-for": ip } : undefined,
       },
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
+        setAll(
+          cookiesToSet: Array<{
+            name: string;
+            value: string;
+            options?: Record<string, unknown>;
+          }>,
+        ) {
           try {
-            cookieStore.set({ name, value, ...options });
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options ?? {}),
+            );
           } catch {
             // Called from a Server Component — middleware handles session refresh.
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: "", ...options });
-          } catch {
-            // Called from a Server Component — safe to ignore.
           }
         },
       },

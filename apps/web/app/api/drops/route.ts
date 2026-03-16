@@ -5,6 +5,11 @@ import { createRateLimiter, getClientIp } from "@/lib/rate-limit";
 // 20 drop operations per minute per IP — generous for real use, throttles abuse.
 const dropsLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
+// Max encrypted drop size: 512 KB. A Letterbox drop is a small Yjs update
+// (note title + content). 512 KB is orders of magnitude above any legitimate
+// payload and well below Supabase's 50 MB Storage object limit.
+const MAX_DROP_BYTES = 512 * 1024;
+
 // All endpoints use the admin client (bypasses RLS) so vault users with no
 // Supabase session can still read/write drops in the blobs bucket.
 //
@@ -40,6 +45,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "path and data are required" },
         { status: 400 },
+      );
+    }
+    if (blob.size > MAX_DROP_BYTES) {
+      return NextResponse.json(
+        { error: `Drop payload exceeds ${MAX_DROP_BYTES} byte limit` },
+        { status: 413 },
       );
     }
     data = await blob.arrayBuffer();

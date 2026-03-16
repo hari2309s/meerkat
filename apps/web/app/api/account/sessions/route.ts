@@ -1,9 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { parseUA } from "@meerkat/utils/ua-parser";
 import { getLocation } from "@meerkat/utils/geo";
 import { sessionIdFromJWT } from "@meerkat/utils/jwt";
+
+const sessionIdSchema = z.string().uuid();
 
 // ── GET /api/account/sessions ───────────────────────────────────────────────
 
@@ -76,11 +79,16 @@ export async function DELETE(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const sessionId = searchParams.get("id");
+  const parsed = sessionIdSchema.safeParse(searchParams.get("id"));
 
-  if (!sessionId) {
-    return NextResponse.json({ error: "Missing session id" }, { status: 400 });
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid or missing session id" },
+      { status: 400 },
+    );
   }
+
+  const sessionId = parsed.data;
 
   const adminClient = createAdminClient();
   const { error } = await adminClient.rpc("delete_user_session", {
