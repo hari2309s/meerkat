@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createRateLimiter, getClientIp } from "@/lib/rate-limit";
+
+// 20 drop operations per minute per IP — generous for real use, throttles abuse.
+const dropsLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
 // All endpoints use the admin client (bypasses RLS) so vault users with no
 // Supabase session can still read/write drops in the blobs bucket.
@@ -21,6 +25,10 @@ const DROP_PATH_RE = /^drops\/[0-9a-f-]{36}\/[^/]+-[^/]+\.enc$/;
 const DROP_PREFIX_RE = /^drops\/[0-9a-f-]{36}\/$/;
 
 export async function POST(req: NextRequest) {
+  if (!dropsLimiter.check(getClientIp(req))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   let path: string;
   let data: ArrayBuffer;
 
@@ -65,6 +73,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!dropsLimiter.check(getClientIp(req))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { searchParams } = new URL(req.url);
   const listPrefix = searchParams.get("list");
   const filePath = searchParams.get("path");
@@ -123,6 +135,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  if (!dropsLimiter.check(getClientIp(req))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { searchParams } = new URL(req.url);
   const filePath = searchParams.get("path");
 

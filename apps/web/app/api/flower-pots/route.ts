@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createRateLimiter, getClientIp } from "@/lib/rate-limit";
+
+// 30 lookups per minute per IP for public token redemption.
+const redeemLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 });
+// 10 pot creations per minute per IP (authenticated but still bounded).
+const createLimiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
 
 // POST /api/flower-pots
 // Body: { denId: string, encryptedBundle: string, expiresAt: string | null }
 // Returns: { token: string }
 export async function POST(req: NextRequest) {
+  if (!createLimiter.check(getClientIp(req))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const supabase = createClient();
   const {
     data: { user },
@@ -42,6 +52,10 @@ export async function POST(req: NextRequest) {
 // Returns: { encryptedBundle: string } | 404
 // Public — anyone with the token can fetch (RLS enforces TTL)
 export async function GET(req: NextRequest) {
+  if (!redeemLimiter.check(getClientIp(req))) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const token = req.nextUrl.searchParams.get("token");
   if (!token) {
     return NextResponse.json({ error: "token is required" }, { status: 400 });
