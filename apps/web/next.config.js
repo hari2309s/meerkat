@@ -56,13 +56,77 @@ const nextConfig = {
   // requests (e.g. <audio> elements pointing at Supabase Storage signed URLs)
   // to load as opaque responses without requiring the remote server to set
   // CORP: cross-origin. Only credentialed CORS fetches need explicit CORP.
+  //
+  // ─── Content Security Policy ──────────────────────────────────────────────
+  //
+  // Policy rationale:
+  //
+  //   script-src
+  //     'self'             — first-party JS chunks
+  //     'unsafe-inline'    — Next.js App Router injects inline hydration scripts.
+  //                          TODO (Phase 5): replace with nonce-based CSP via
+  //                          middleware — see Next.js docs on CSP with nonces.
+  //     'wasm-unsafe-eval' — Required for onnxruntime-web (ONNX WASM backend).
+  //                          This is the minimal directive; browsers that don't
+  //                          support it fall back to requiring 'unsafe-eval'.
+  //                          We deliberately do NOT add 'unsafe-eval' since that
+  //                          allows arbitrary eval() — only WASM compilation is
+  //                          needed here.
+  //
+  //   connect-src
+  //     Restrict outbound fetch/XHR/WebSocket to the four known origins.
+  //     Even if XSS occurs, 'connect-src' limits exfiltration vectors.
+  //     HuggingFace CDN mirrors needed for transformers.js model downloads.
+  //
+  //   worker-src / child-src
+  //     'self' blob: — PWA service worker lives at /sw.js (same origin);
+  //     ORT uses a blob:-URL worker for WASM threading.
+  //
+  //   object-src / frame-ancestors / base-uri / form-action
+  //     Locked down — no plugins, no framing, no base hijack, no form redirect.
   async headers() {
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' blob: data: https://*.supabase.co",
+      "font-src 'self' data:",
+      [
+        "connect-src 'self'",
+        "https://*.supabase.co",
+        "wss://*.supabase.co",
+        // HuggingFace Hub + CDN mirrors used by transformers.js model downloads
+        "https://huggingface.co",
+        "https://cdn-lfs.huggingface.co",
+        "https://cdn-lfs-us-1.huggingface.co",
+        "https://huggingface.co/api",
+      ].join(" "),
+      "media-src 'self' blob:",
+      // PWA service worker (/sw.js) + ORT blob:-URL WASM worker
+      "worker-src 'self' blob:",
+      "child-src 'self' blob:",
+      "object-src 'none'",
+      // Clickjacking prevention
+      "frame-ancestors 'none'",
+      // Prevent base-tag hijacking of relative URLs
+      "base-uri 'self'",
+      // Prevent form submissions to external origins
+      "form-action 'self'",
+    ].join("; ");
+
     return [
       {
         source: "/(.*)",
         headers: [
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
+          { key: "Content-Security-Policy", value: csp },
+          // Belt-and-suspenders clickjacking prevention (legacy browsers)
+          { key: "X-Frame-Options", value: "DENY" },
+          // Prevent MIME-type sniffing on responses
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Don't send the full Referrer to cross-origin destinations
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         ],
       },
     ];
