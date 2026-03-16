@@ -20,8 +20,7 @@
     "noImplicitReturns": true,
     "exactOptionalPropertyTypes": true,
     "paths": {
-      "@meerkat/types": ["../types/src/index.ts"],
-      "@meerkat/crypto": ["../crypto/src/index.ts"]
+      "@meerkat/types": ["../types/src/index.ts"]
     }
   },
   "include": ["src/**/*"],

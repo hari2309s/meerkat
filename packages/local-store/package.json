@@ -27,11 +27,11 @@
     "yjs": "^13.0.0"
   },
   "dependencies": {
+    "@meerkat/crypto": "workspace:*",
     "y-indexeddb": "^9.0.12",
     "yjs": "^13.6.18"
   },
   "devDependencies": {
-    "@meerkat/crypto": "workspace:*",
     "@meerkat/types": "workspace:*",
     "@types/react": "^18.0.0",
     "fake-indexeddb": "^5.0.2",

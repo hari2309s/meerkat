@@ -69,6 +69,13 @@ export {
   getAllSettings,
 } from "./settings.js";
 
+// ─── Encrypted settings (AES-GCM-256 — protects keypairs and namespace keys) ─
+export {
+  getSecureSetting,
+  setSecureSetting,
+  deleteSecureSetting,
+} from "./encrypted-settings.js";
+
 // ─── Persistence / backup utilities ──────────────────────────────────────────
 export {
   denHasLocalData,

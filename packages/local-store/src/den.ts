@@ -7,6 +7,23 @@
  * Both docs are persisted via y-indexeddb. The first time a den is opened
  * the databases are created; subsequent opens load instantly from IndexedDB
  * with no network round-trip.
+ *
+ * SECURITY — IDB encryption gap (Phase 5 TODO)
+ * ─────────────────────────────────────────────
+ * y-indexeddb writes raw Yjs binary updates to IndexedDB without encrypting
+ * them. This means note content, voice memo metadata, and other doc content
+ * are readable by any JavaScript on the same origin (XSS, malicious
+ * extensions) or by forensic analysis of the browser's IDB files.
+ *
+ * Phase 5 will replace IndexeddbPersistence with an EncryptedIndexeddbPersistence
+ * provider that encrypts each Yjs update with the device key (AES-GCM-256,
+ * non-extractable) before writing to IDB and decrypts on load.
+ *
+ * Until then, the most sensitive settings values (NaCl keypairs, namespace
+ * AES keys) are protected by the encrypted-settings module which encrypts
+ * individual values at the setter/getter layer.
+ *
+ * See: packages/local-store/src/encrypted-settings.ts
  */
 
 import * as Y from "yjs";
