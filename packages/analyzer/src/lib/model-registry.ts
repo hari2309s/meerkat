@@ -19,7 +19,12 @@ import type {
   ModelStatus,
   ModelLoadStatus,
 } from "../types";
-import { TRANSCRIPTION_MODEL_ID, EMOTION_MODEL_ID } from "../constants";
+import {
+  TRANSCRIPTION_MODEL_ID,
+  TRANSCRIPTION_MODEL_REVISION,
+  EMOTION_MODEL_ID,
+  EMOTION_MODEL_REVISION,
+} from "../constants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -166,6 +171,7 @@ export async function getTranscriptionPipeline(
         {
           dtype: "q8", // quantised int8 — 75MB vs 150MB fp32
           device: "wasm", // WASM fallback (works in all browsers)
+          revision: TRANSCRIPTION_MODEL_REVISION,
           progress_callback: progressCallback,
         },
       )) as AutomaticSpeechRecognitionPipeline;
@@ -241,6 +247,7 @@ export async function getEmotionPipeline(
         {
           dtype: "q8",
           device: "wasm",
+          revision: EMOTION_MODEL_REVISION,
           progress_callback: progressCallback,
         },
       )) as Pipeline;

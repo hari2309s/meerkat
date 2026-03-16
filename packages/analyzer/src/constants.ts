@@ -15,6 +15,20 @@
 export const TRANSCRIPTION_MODEL_ID = "onnx-community/whisper-tiny.en" as const;
 
 /**
+ * Pinned git revision for the Whisper model on Hugging Face Hub.
+ *
+ * Security: pinning to a specific commit SHA prevents upstream model poisoning
+ * (a compromised HF repo can't swap weights under our OPFS cache key).
+ *
+ * To update: visit https://huggingface.co/onnx-community/whisper-tiny.en/commits/main,
+ * copy the full commit SHA of the revision you have tested, and replace the value below.
+ *
+ * Current value "main" is a temporary placeholder — replace with a full SHA before
+ * shipping to production (e.g. "abc123def456...").
+ */
+export const TRANSCRIPTION_MODEL_REVISION = "main" as const;
+
+/**
  * DistilBERT fine-tuned on SST-2 sentiment classification.
  * Binary positive/negative sentiment — maps directly to valence.
  * Size: ~67MB ONNX (q8 quantised).
@@ -27,6 +41,19 @@ export const TRANSCRIPTION_MODEL_ID = "onnx-community/whisper-tiny.en" as const;
  */
 export const EMOTION_MODEL_ID =
   "Xenova/distilbert-base-uncased-finetuned-sst-2-english" as const;
+
+/**
+ * Pinned git revision for the emotion model on Hugging Face Hub.
+ *
+ * Security: same rationale as TRANSCRIPTION_MODEL_REVISION above.
+ *
+ * To update: visit https://huggingface.co/Xenova/distilbert-base-uncased-finetuned-sst-2-english/commits/main,
+ * copy the full commit SHA, and replace the value below.
+ *
+ * Current value "main" is a temporary placeholder — replace with a full SHA before
+ * shipping to production.
+ */
+export const EMOTION_MODEL_REVISION = "main" as const;
 
 /** Minimum transcript length (chars) before running text sentiment. */
 export const MIN_TRANSCRIPT_LENGTH = 3;
