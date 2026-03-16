@@ -119,6 +119,12 @@ export function encryptBundle(
 
   const ciphertext = nacl.box(message, nonce, publicKey, ephemeral.secretKey);
 
+  // Zero ephemeral secret key immediately — it must not outlive this call.
+  // TweetNaCl does not zero memory automatically.
+  ephemeral.secretKey.fill(0);
+  // Zero plaintext bytes so key material doesn't linger in the heap.
+  message.fill(0);
+
   if (ciphertext === null) {
     // nacl.box returns null only on invalid key sizes — guard defensively.
     throw new Error(
@@ -192,5 +198,10 @@ export function decryptBundle<T = unknown>(
     );
   }
 
-  return JSON.parse(decodeText(plaintext)) as T;
+  // Decode to string before zeroing the Uint8Array — decodeText copies bytes.
+  const json = decodeText(plaintext);
+  // Zero decrypted plaintext bytes so they don't linger on the heap.
+  plaintext.fill(0);
+
+  return JSON.parse(json) as T;
 }
