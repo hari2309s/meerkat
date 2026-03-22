@@ -30,7 +30,10 @@
  */
 
 import { NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { VAULT_SESSION_COOKIE } from "@/lib/vault-credentials";
 
 /** Signed URL TTL in seconds — short because the proxy streams immediately. */
 const SIGNED_URL_TTL = 60;
@@ -50,9 +53,13 @@ export async function GET(request: NextRequest) {
     return new Response("Invalid path", { status: 400 });
   }
 
-  const supabase = createClient();
+  // Vault users have no Supabase session — use the admin client to create
+  // the signed URL. V1 Supabase users use their own session client so that
+  // Storage RLS scopes access to their own files.
+  const isVaultUser = cookies().get(VAULT_SESSION_COOKIE)?.value === "1";
+  const supabase = isVaultUser ? createAdminClient() : createClient();
 
-  // Generate a short-lived signed URL authenticated to the requesting user.
+  // Generate a short-lived signed URL.
   const { data, error: signErr } = await supabase.storage
     .from("voice-notes")
     .createSignedUrl(path, SIGNED_URL_TTL);
