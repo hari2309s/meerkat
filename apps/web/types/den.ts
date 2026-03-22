@@ -94,6 +94,7 @@ export type ModalType =
   | "mute"
   | "leave"
   | "delete"
+  | "rotate_keys"
   | "voice_recorder"
   | "text_message"
   | "image_picker"

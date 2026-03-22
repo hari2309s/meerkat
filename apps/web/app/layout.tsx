@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Ysabeau_Office } from "next/font/google";
 import { Toaster } from "sonner";
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import { ThemeProvider } from "@/components/theme-provider";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { SplashScreen } from "@/components/splash-screen";
@@ -40,17 +41,22 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Read the per-request nonce injected by middleware. The nonce is set on the
+  // x-nonce request header and forwarded to Server Components automatically.
+  const nonce = (await headers()).get("x-nonce") ?? "";
+
   return (
     <html lang="en" suppressHydrationWarning className={ysabeauOffice.variable}>
       <head>
         <meta name="theme-color" content="#f5e6d3" />
         <meta name="mobile-web-app-capable" content="yes" />
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
