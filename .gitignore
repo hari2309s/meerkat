@@ -5,6 +5,9 @@ node_modules
 
 # Testing
 coverage
+/apps/web/playwright-report/
+/apps/web/test-results/
+/apps/web/e2e/vault-state.json
 
 # Next.js
 .next/
