@@ -22,6 +22,7 @@ A modern, real-time collaborative workspace platform featuring voice messaging w
 ![ONNX](https://img.shields.io/badge/ONNX-Runtime-005CED)
 ![Transformers.js](https://img.shields.io/badge/🤗_Transformers.js-On--device_AI-FFD21E)
 ![PWA](https://img.shields.io/badge/PWA-Offline--first-5A0FC8)
+![Playwright](https://img.shields.io/badge/Playwright-E2E_Testing-45BA4B?logo=playwright)
 ![IndexedDB](https://img.shields.io/badge/IndexedDB_%2F_OPFS-Local--first-F97316)
 ![License](https://img.shields.io/badge/License-ISC-blue)
 
