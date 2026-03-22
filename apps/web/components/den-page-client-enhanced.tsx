@@ -687,8 +687,17 @@ export function DenPageClientEnhanced({
           async listDrops() {
             return [];
           },
-          async downloadDrop() {
-            throw new Error("not implemented");
+          async downloadDrop(path) {
+            const res = await fetch(
+              `/api/drops?path=${encodeURIComponent(path)}`,
+            );
+            if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+            const bytes = new Uint8Array(await res.arrayBuffer());
+            const metaLen = new DataView(bytes.buffer).getUint32(0, false);
+            const meta = JSON.parse(
+              new TextDecoder().decode(bytes.slice(4, 4 + metaLen)),
+            ) as { iv: string; visitorId: string; droppedAt: string };
+            return { data: bytes.slice(4 + metaLen), metadata: meta };
           },
           async deleteDrop() {},
         });
@@ -770,8 +779,17 @@ export function DenPageClientEnhanced({
           async listDrops() {
             return [];
           },
-          async downloadDrop() {
-            throw new Error("not implemented");
+          async downloadDrop(path) {
+            const res = await fetch(
+              `/api/drops?path=${encodeURIComponent(path)}`,
+            );
+            if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+            const bytes = new Uint8Array(await res.arrayBuffer());
+            const metaLen = new DataView(bytes.buffer).getUint32(0, false);
+            const meta = JSON.parse(
+              new TextDecoder().decode(bytes.slice(4, 4 + metaLen)),
+            ) as { iv: string; visitorId: string; droppedAt: string };
+            return { data: bytes.slice(4 + metaLen), metadata: meta };
           },
           async deleteDrop() {},
         });
