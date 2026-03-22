@@ -12,7 +12,11 @@ import { GrainOverlay } from "@/components/grain-overlay";
 import { startNavigationProgress } from "@/components/navigation-progress";
 import { createClient } from "@/lib/supabase/client";
 import { useDenContextSafe } from "@meerkat/crdt";
-import { useJoinDen, OfflineDropManager } from "@meerkat/p2p";
+import {
+  useJoinDen,
+  OfflineDropManager,
+  DEFAULT_ICE_SERVERS,
+} from "@meerkat/p2p";
 import { useBurrows } from "@meerkat/burrows";
 import { useStoredKeys } from "@meerkat/keys";
 import { openDen, getSetting } from "@meerkat/local-store";
@@ -181,6 +185,7 @@ export function DenPageClientEnhanced({
       clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     );
     return {
+      iceServers: DEFAULT_ICE_SERVERS,
       createSignalingChannel: (channelName: string) => {
         const ch = supabase.channel(channelName);
         return {
