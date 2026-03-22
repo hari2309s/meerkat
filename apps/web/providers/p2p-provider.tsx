@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { initP2P, getP2PManager } from "@meerkat/p2p";
+import { initP2P, getP2PManager, DEFAULT_ICE_SERVERS } from "@meerkat/p2p";
 import { createClient } from "@/lib/supabase/client";
 import { useFeature } from "@/lib/feature-flags-context";
 import {
@@ -51,6 +51,7 @@ export function P2PProvider({ children }: P2PProviderProps) {
       // Not initialised yet — set it up now.
       const supabase = createClient();
       initP2P({
+        iceServers: DEFAULT_ICE_SERVERS,
         createSignalingChannel: (channelName: string) => {
           const channel = supabase.channel(channelName);
 
