@@ -1,9 +1,17 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { initP2P, getP2PManager } from "@meerkat/p2p";
 import { createClient } from "@/lib/supabase/client";
 import { useFeature } from "@/lib/feature-flags-context";
+import {
+  loadMnemonic,
+  deriveVaultUserId,
+  setVaultUserIdCookie,
+  VAULT_SESSION_COOKIE,
+  VAULT_USER_ID_COOKIE,
+} from "@/lib/vault-credentials";
+import { getVaultDens, VAULT_OWNED_DENS_COOKIE } from "@/lib/vault-dens";
 
 interface P2PProviderProps {
   children: ReactNode;
@@ -76,6 +84,38 @@ export function P2PProvider({ children }: P2PProviderProps) {
       });
     }
   }
+
+  // Migration shim: existing vault sessions that pre-date the vault_user_id
+  // and vault_owned_dens cookies get them set on first mount, so server
+  // components immediately see the correct identity and ownership on next
+  // navigation without requiring the user to log out and back in.
+  useEffect(() => {
+    const hasVaultSession = document.cookie
+      .split("; ")
+      .some((c) => c === `${VAULT_SESSION_COOKIE}=1`);
+    if (!hasVaultSession) return;
+
+    const hasUserIdCookie = document.cookie
+      .split("; ")
+      .some((c) => c.startsWith(`${VAULT_USER_ID_COOKIE}=`));
+    if (!hasUserIdCookie) {
+      const mnemonic = loadMnemonic();
+      if (mnemonic) {
+        deriveVaultUserId(mnemonic)
+          .then(setVaultUserIdCookie)
+          .catch(() => {});
+      }
+    }
+
+    const hasOwnedDensCookie = document.cookie
+      .split("; ")
+      .some((c) => c.startsWith(`${VAULT_OWNED_DENS_COOKIE}=`));
+    if (!hasOwnedDensCookie) {
+      const ids = getVaultDens().map((d) => d.id);
+      const maxAge = 60 * 60 * 24 * 30;
+      document.cookie = `${VAULT_OWNED_DENS_COOKIE}=${encodeURIComponent(JSON.stringify(ids))}; path=/; max-age=${maxAge}; SameSite=Strict`;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <>{children}</>;
 }
