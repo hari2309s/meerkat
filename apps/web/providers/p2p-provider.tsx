@@ -11,7 +11,7 @@ import {
   VAULT_SESSION_COOKIE,
   VAULT_USER_ID_COOKIE,
 } from "@/lib/vault-credentials";
-import { getVaultDens, VAULT_OWNED_DENS_COOKIE } from "@/lib/vault-dens";
+import { getOwnedVaultDens, VAULT_OWNED_DENS_COOKIE } from "@/lib/vault-dens";
 
 interface P2PProviderProps {
   children: ReactNode;
@@ -112,7 +112,7 @@ export function P2PProvider({ children }: P2PProviderProps) {
       .split("; ")
       .some((c) => c.startsWith(`${VAULT_OWNED_DENS_COOKIE}=`));
     if (!hasOwnedDensCookie) {
-      const ids = getVaultDens().map((d) => d.id);
+      const ids = getOwnedVaultDens().map((d) => d.id);
       const maxAge = 60 * 60 * 24 * 30;
       document.cookie = `${VAULT_OWNED_DENS_COOKIE}=${encodeURIComponent(JSON.stringify(ids))}; path=/; max-age=${maxAge}; SameSite=Strict`;
     }
