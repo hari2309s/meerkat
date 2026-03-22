@@ -129,7 +129,7 @@ export function Fab({ onAction }: FabProps) {
   return (
     <div
       data-fab
-      className="fixed bottom-7 right-7 z-40 flex flex-col items-end gap-3"
+      className="fixed bottom-5 right-4 sm:bottom-7 sm:right-7 z-40 flex flex-col items-end gap-3"
     >
       <AnimatePresence>
         {fabOpen && (

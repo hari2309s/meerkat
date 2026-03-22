@@ -12,6 +12,7 @@ import {
   BookOpen,
   Trash2,
   LogOut,
+  RotateCcw,
 } from "lucide-react";
 import { MenuRow } from "@meerkat/ui";
 import { useDenStore } from "@/stores/use-den-store";
@@ -154,6 +155,13 @@ export function DenMenu({ denId, isOwner, muted, memberCount }: DenMenuProps) {
               label={muted ? "Unmute den" : "Mute den"}
               badge={muted ? <MutedBadge /> : undefined}
               onClick={() => openModal("mute")}
+            />
+            <MenuRow
+              icon={RotateCcw}
+              label="Rotate keys"
+              disabled={!isOwner}
+              sublabel={!isOwner ? "Owner only" : "Revoke all invite links"}
+              onClick={() => openModal("rotate_keys")}
             />
 
             <div

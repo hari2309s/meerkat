@@ -35,7 +35,7 @@ export function DenHeaderEnhanced({
       className="mb-10"
     >
       <h1
-        className="text-3xl font-bold"
+        className="text-2xl sm:text-3xl font-bold"
         style={{ color: "var(--color-text-primary)" }}
       >
         {den.name}

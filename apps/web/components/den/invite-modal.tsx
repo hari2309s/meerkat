@@ -140,6 +140,15 @@ async function buildFlowerPot(
         return json.token;
       },
     });
+
+    // Track issued tokens so the host can revoke all of them during key rotation.
+    const issuedTokens =
+      (await getSetting<string[]>(denId, "issued-pot-tokens")) ?? [];
+    await setSetting(denId, "issued-pot-tokens", [
+      ...issuedTokens,
+      flowerPotToken,
+    ]);
+
     return { kp, flowerPotToken };
   } catch {
     return null;

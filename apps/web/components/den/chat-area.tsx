@@ -33,7 +33,7 @@ function TextMessage({
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex gap-3 items-end max-w-sm ${isOwn ? "flex-row-reverse self-end" : ""}`}
+      className={`flex gap-3 items-end max-w-[85vw] sm:max-w-sm ${isOwn ? "flex-row-reverse self-end" : ""}`}
     >
       {!isOwn && (
         <div
@@ -102,7 +102,7 @@ function ImageMessage({
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex gap-3 items-end max-w-sm ${isOwn ? "flex-row-reverse self-end" : ""}`}
+      className={`flex gap-3 items-end max-w-[85vw] sm:max-w-sm ${isOwn ? "flex-row-reverse self-end" : ""}`}
     >
       {!isOwn && (
         <div
@@ -171,7 +171,7 @@ function DocumentMessage({
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex gap-3 items-end max-w-sm ${isOwn ? "flex-row-reverse self-end" : ""}`}
+      className={`flex gap-3 items-end max-w-[85vw] sm:max-w-sm ${isOwn ? "flex-row-reverse self-end" : ""}`}
     >
       {!isOwn && (
         <div
@@ -413,7 +413,7 @@ export function ChatArea({ den, currentUserId, isOwner }: ChatAreaProps) {
         style={{
           background: "var(--color-bg-card)",
           border: "1.5px dashed var(--color-border-card)",
-          maxHeight: "min(60vh, calc(100dvh - 460px))",
+          maxHeight: "min(60vh, max(200px, calc(100dvh - 460px)))",
         }}
       >
         {sortedMessages.map((msg) => {
