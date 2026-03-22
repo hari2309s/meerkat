@@ -2,7 +2,10 @@ import { redirect, notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/get-current-user";
-import { VAULT_OWNED_DENS_COOKIE } from "@/lib/vault-dens";
+import {
+  VAULT_OWNED_DENS_COOKIE,
+  VAULT_ALL_DENS_COOKIE,
+} from "@/lib/vault-dens";
 import { DenPageClientEnhanced } from "@/components/den-page-client-enhanced";
 import { DenProvider } from "@/providers/den-provider";
 import type { Den, DenMember } from "@/types/den";
@@ -25,6 +28,8 @@ export default async function DenPage({ params }: DenPageProps) {
     // owner — a safe fallback because visitors always have the cookie set
     // when they accept an invite.
     const cookieStore = cookies();
+
+    // Resolve ownership from the vault_owned_dens cookie.
     const rawOwnedDens = cookieStore.get(VAULT_OWNED_DENS_COOKIE)?.value;
     let isVaultOwner = true; // safe default for legacy sessions
     if (rawOwnedDens) {
@@ -38,9 +43,24 @@ export default async function DenPage({ params }: DenPageProps) {
       }
     }
 
+    // Resolve den name from the vault_all_dens cookie (includes joined dens).
+    let denName = "Den";
+    const rawAllDens = cookieStore.get(VAULT_ALL_DENS_COOKIE)?.value;
+    if (rawAllDens) {
+      try {
+        const allDens = JSON.parse(decodeURIComponent(rawAllDens)) as {
+          id: string;
+          name: string;
+        }[];
+        denName = allDens.find((d) => d.id === params.id)?.name ?? "Den";
+      } catch {
+        // malformed cookie — keep the fallback
+      }
+    }
+
     const den: Den = {
       id: params.id,
-      name: "For You",
+      name: denName,
       created_at: new Date().toISOString(),
       user_id: currentUser.id,
     };

@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { SectionCard } from "@/components/settings/shared";
 import { relativeTime } from "@meerkat/utils/time";
 import { dropStoragePrefix } from "@meerkat/p2p";
-import { getVaultDens } from "@/lib/vault-dens";
+import { getOwnedVaultDens } from "@/lib/vault-dens";
 
 interface PendingDrop {
   path: string;
@@ -57,7 +57,7 @@ function PendingDropsCard({ userId }: { userId: string }) {
       // 1. Fetch owned dens — vault users store dens in localStorage, not Supabase
       let dens: OwnedDen[];
       if (userId === "vault") {
-        dens = getVaultDens();
+        dens = getOwnedVaultDens();
       } else {
         const { data, error: densErr } = await supabase
           .from("dens")

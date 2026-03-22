@@ -23,6 +23,7 @@ import {
 import { useRedeemKey } from "@meerkat/keys";
 import { fromBase64 } from "@meerkat/crypto";
 import { recoverInviteSecret } from "@/components/invite-auth-gate";
+import { addJoinedVaultDen } from "@/lib/vault-dens";
 
 // ── Per-type copy ─────────────────────────────────────────────────────────────
 
@@ -239,6 +240,16 @@ export function InvitePageClient({
           setJoining(false);
           return;
         }
+      }
+
+      // Register the joined den so the den page can resolve its name
+      // and it appears in the vault user's den list.
+      if (isVaultUser) {
+        addJoinedVaultDen({
+          id: den.id,
+          name: den.name,
+          createdAt: new Date().toISOString(),
+        });
       }
 
       toast.success(`You've joined ${den.name}!`, {
