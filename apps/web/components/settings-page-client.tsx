@@ -1,18 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { TopNav } from "@/components/top-nav";
 import { GrainOverlay } from "@/components/grain-overlay";
-import { User, Shield, Inbox, KeyRound } from "lucide-react";
+import { User, Shield, Inbox, KeyRound, HardDrive } from "lucide-react";
 import { ProfileSection } from "@/components/settings/profile-section";
 import { SecuritySection } from "@/components/settings/security-section";
 import { DropboxSection } from "@/components/settings/dropbox-section";
 import { VaultKeySection } from "@/components/settings/vault-key-section";
+import { BackupSection } from "@/components/settings/backup-section";
+import { createClient } from "@/lib/supabase/client";
+import { getVaultDens } from "@/lib/vault-dens";
 import type { Section, SettingsUser } from "@/components/settings/types";
 
 interface SettingsPageClientProps {
   user: SettingsUser;
+}
+
+// Loads dens for the backup section (differs for vault vs Supabase users).
+function BackupSectionLoader({ userId }: { userId: string }) {
+  const [dens, setDens] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (userId === "vault") {
+      setDens(getVaultDens());
+      return;
+    }
+    const supabase = createClient();
+    supabase
+      .from("dens")
+      .select("id, name")
+      .eq("user_id", userId)
+      .then(({ data }) =>
+        setDens((data ?? []) as { id: string; name: string }[]),
+      );
+  }, [userId]);
+
+  return <BackupSection dens={dens} />;
 }
 
 const ALL_NAV_ITEMS: {
@@ -25,6 +50,7 @@ const ALL_NAV_ITEMS: {
   { id: "security", label: "Security", icon: Shield },
   { id: "vault", label: "Vault Key", icon: KeyRound, vaultOnly: true },
   { id: "dropbox", label: "Dropbox", icon: Inbox },
+  { id: "backup", label: "Backup", icon: HardDrive },
 ];
 
 export function SettingsPageClient({ user }: SettingsPageClientProps) {
@@ -130,6 +156,9 @@ export function SettingsPageClient({ user }: SettingsPageClientProps) {
             {activeSection === "security" && <SecuritySection user={user} />}
             {activeSection === "vault" && <VaultKeySection />}
             {activeSection === "dropbox" && <DropboxSection userId={user.id} />}
+            {activeSection === "backup" && (
+              <BackupSectionLoader userId={user.id} />
+            )}
           </motion.div>
         </div>
       </main>

@@ -16,6 +16,9 @@ import {
   ArrowRight,
   Home,
   UserPlus,
+  Copy,
+  Check,
+  AlertTriangle,
 } from "lucide-react";
 import { useRedeemKey } from "@meerkat/keys";
 import { fromBase64 } from "@meerkat/crypto";
@@ -158,6 +161,13 @@ export function InvitePageClient({
 }: InvitePageClientProps) {
   const router = useRouter();
   const [joining, setJoining] = useState(false);
+  // keyError is set when the invite was accepted but key redemption failed.
+  // We show a banner instead of silently navigating so the visitor knows
+  // they need to ask the host for a fresh invite link.
+  const [keyError, setKeyError] = useState<
+    "missing_sk" | "redeem_failed" | null
+  >(null);
+  const [copied, setCopied] = useState(false);
   const { redeem } = useRedeemKey();
 
   const config = KEY_TYPE_CONFIG[keyType] ?? DEFAULT_CONFIG;
@@ -197,32 +207,35 @@ export function InvitePageClient({
       // sessionStorage (saved by InviteAuthGate before redirect).
       if (flowerPotToken) {
         const hash = typeof window !== "undefined" ? window.location.hash : "";
-        let sk =
+        const sk =
           new URLSearchParams(hash.slice(1)).get("sk") ??
           recoverInviteSecret(token);
         if (sk) {
-          await redeem({
-            token: flowerPotToken,
-            visitorSecretKey: fromBase64(sk),
-            fetchFromServer: async (t) => {
-              const res = await fetch(
-                `/api/flower-pots?token=${encodeURIComponent(t)}`,
-              );
-              return res.ok
-                ? (res.json() as Promise<{ encryptedBundle: string }>)
-                : null;
-            },
-          }).catch(() => {
-            // Non-fatal — member can still access the den; host can re-issue a key
-          });
+          try {
+            await redeem({
+              token: flowerPotToken,
+              visitorSecretKey: fromBase64(sk),
+              fetchFromServer: async (t) => {
+                const res = await fetch(
+                  `/api/flower-pots?token=${encodeURIComponent(t)}`,
+                );
+                return res.ok
+                  ? (res.json() as Promise<{ encryptedBundle: string }>)
+                  : null;
+              },
+            });
+          } catch {
+            // Key redemption failed (pot expired, network error, etc.).
+            // Show the key-error state so the visitor can request a new invite.
+            setKeyError("redeem_failed");
+            setJoining(false);
+            return;
+          }
         } else {
-          toast.warning(
-            "You joined, but real-time sync needs the full invite link.",
-            {
-              description:
-                "Ask the owner to copy and send you the complete invite link (from the Copy button).",
-            },
-          );
+          // Secret key missing from URL — invite link was incomplete.
+          setKeyError("missing_sk");
+          setJoining(false);
+          return;
         }
       }
 
@@ -238,6 +251,24 @@ export function InvitePageClient({
       });
       setJoining(false);
     }
+  };
+
+  const handleCopyRequest = () => {
+    const msg = `Hey! I tried to join "${den?.name ?? "your den"}" via your invite link, but my sync key couldn't be loaded. Could you send me a fresh invite link from the den's Invite button? Thanks!`;
+    navigator.clipboard.writeText(msg).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleEnterAnyway = () => {
+    if (!den) return;
+    toast.info("Entering without sync", {
+      description:
+        "Ask the host for a new invite link to enable real-time collaboration.",
+    });
+    startNavigationProgress();
+    router.push(`/dens/${den.id}`);
   };
 
   const goHome = () => {
@@ -339,6 +370,56 @@ export function InvitePageClient({
           <ArrowRight className="h-4 w-4" />
           Open den
         </button>
+      </Card>
+    );
+  }
+
+  // ── Key error — joined but sync key unavailable ───────────────────────────
+
+  if (keyError) {
+    const isSkMissing = keyError === "missing_sk";
+    return (
+      <Card
+        icon={AlertTriangle}
+        iconBg="rgba(200,150,50,0.12)"
+        iconColor="#c89632"
+        title="Joined! But sync key missing"
+        body={
+          isSkMissing
+            ? "Your invite link was incomplete — the secret key is missing. Ask the den owner to copy and send the full link from their Invite button."
+            : "Your sync key couldn't be loaded (it may have expired). Ask the den owner to send you a fresh invite link."
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={handleCopyRequest}
+            className="w-full rounded-xl py-3 text-sm font-semibold flex items-center justify-center gap-2"
+            style={{
+              background: "var(--color-btn-default-bg)",
+              color: "var(--color-btn-default-text)",
+              boxShadow: "0 4px 18px var(--color-btn-default-shadow)",
+            }}
+          >
+            {copied ? (
+              <>
+                <Check className="h-4 w-4" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4" />
+                Copy request message
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleEnterAnyway}
+            className="w-full rounded-xl py-2.5 text-sm font-medium transition-opacity hover:opacity-60"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            Enter without sync
+          </button>
+        </div>
       </Card>
     );
   }

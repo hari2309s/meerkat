@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -52,6 +52,8 @@ import { ConfirmModal } from "@/components/den/confirm-modal";
 import { VoiceNoteRecorder } from "@/components/den/voice-note-recorder";
 import { TextComposerModal } from "@/components/den/text-composer-modal";
 import { AttachmentPickerModal } from "@/components/den/attachment-picker-modal";
+import { SearchModal } from "@/components/den/search-modal";
+import { RotateKeysModal } from "@/components/den/rotate-keys-modal";
 
 import type { Den, DenMember } from "@/types/den";
 import { createBrowserClient } from "@supabase/ssr";
@@ -156,6 +158,20 @@ export function DenPageClientEnhanced({
       ? isOwnedVaultDen(activeDen.id)
       : activeDen.user_id === currentUserId;
   const { burrows } = useBurrows(activeDen.id);
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((v: boolean) => !v);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
   // ── CRDT state ────────────────────────────────────────────────────────────
   const syncStatus = denContext?.syncStatus ?? "offline";
@@ -928,8 +944,8 @@ export function DenPageClientEnhanced({
 
         <TopNav user={user} />
 
-        <main className="max-w-4xl mx-auto px-4 pt-8 pb-32">
-          <div className="flex items-center justify-between mb-8">
+        <main className="max-w-4xl mx-auto px-4 pt-4 sm:pt-8 pb-28 sm:pb-32">
+          <div className="flex items-center justify-between mb-4 sm:mb-8">
             <button
               onClick={handleBack}
               disabled={navigatingBack}
@@ -944,12 +960,37 @@ export function DenPageClientEnhanced({
               Back to dens
             </button>
 
-            <DenMenu
-              denId={activeDen.id}
-              isOwner={isOwner}
-              muted={muted}
-              memberCount={activeMembers.length}
-            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="p-2 rounded-xl transition-opacity hover:opacity-75"
+                style={{ color: "var(--color-text-muted)" }}
+                title="Search notes (⌘K)"
+                aria-label="Search notes"
+              >
+                {/* inline SVG to avoid another lucide import at the top */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+              </button>
+              <DenMenu
+                denId={activeDen.id}
+                isOwner={isOwner}
+                muted={muted}
+                memberCount={activeMembers.length}
+              />
+            </div>
           </div>
 
           <DenHeaderEnhanced
@@ -1072,6 +1113,25 @@ export function DenPageClientEnhanced({
           />
         )}
       </AnimatePresence>
+
+      {modal === "rotate_keys" && isOwner && (
+        <RotateKeysModal denId={activeDen.id} onClose={closeModal} />
+      )}
+
+      <SearchModal
+        denId={activeDen.id}
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onSelectNote={(note) => {
+          toast.info(
+            note.content.slice(0, 120) + (note.content.length > 120 ? "…" : ""),
+            {
+              description: "Open Burrows to view and edit this note",
+              duration: 5000,
+            },
+          );
+        }}
+      />
     </>
   );
 }
