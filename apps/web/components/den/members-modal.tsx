@@ -13,6 +13,7 @@ interface MembersModalProps {
   members: DenMember[];
   currentUserId: string;
   isOwner: boolean;
+  isVaultUser?: boolean;
   onClose: () => void;
   onMemberRemoved: (userId: string) => void;
 }
@@ -22,6 +23,7 @@ export function MembersModal({
   members,
   currentUserId,
   isOwner,
+  isVaultUser = false,
   onClose,
   onMemberRemoved,
 }: MembersModalProps) {
@@ -156,7 +158,7 @@ export function MembersModal({
                   Owner
                 </span>
               )}
-              {isOwner && !isMemberOwner && (
+              {isOwner && !isMemberOwner && !isVaultUser && (
                 <button
                   onClick={() => handleRemove(m.user_id, displayName)}
                   disabled={removing === m.user_id}

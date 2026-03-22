@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UserPlus, Loader2, Send, Copy, Check, LinkIcon } from "lucide-react";
+import { UserPlus, Copy, Check, LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ModalShell } from "@meerkat/ui";
@@ -199,20 +199,12 @@ export function InviteModal({
   onClose,
   isVaultUser = false,
 }: InviteModalProps) {
-  const [email, setEmail] = useState("");
-  const [sending, setSending] = useState(false);
-
   // Key config state
   const [selectedKeyType, setSelectedKeyType] =
     useState<Exclude<KeyType, "custom">>("house-sit");
   const [selectedDurationMs, setSelectedDurationMs] = useState<number | null>(
     DEFAULT_DURATION_MS["house-sit"],
   );
-
-  // Auto-preselect duration when key type changes
-  useEffect(() => {
-    setSelectedDurationMs(DEFAULT_DURATION_MS[selectedKeyType]);
-  }, [selectedKeyType]);
 
   // Link state
   const [inviteToken, setInviteToken] = useState<string | null>(null);
@@ -322,77 +314,6 @@ export function InviteModal({
     DURATION_OPTIONS.find((d) => d.durationMs === selectedDurationMs)?.label ??
     "No expiry";
 
-  const handleSend = async () => {
-    const trimmed = email.trim();
-    if (!trimmed.includes("@")) return;
-    setSending(true);
-    try {
-      if (isVaultUser) {
-        // Vault: copy the already-generated link (same as handleCopy but for email flow)
-        if (inviteLink) {
-          await navigator.clipboard.writeText(inviteLink);
-          toast.success(`Invite link for ${trimmed} copied!`, {
-            description: "Paste it in an email or message to them.",
-          });
-          setEmail("");
-        }
-        return;
-      }
-
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: inviteData } = await supabase
-        .from("den_invites")
-        .insert({
-          den_id: den.id,
-          invited_by: user.id,
-          email: trimmed,
-          key_type: selectedKeyType,
-        })
-        .select("id, token")
-        .single();
-
-      if (inviteData) {
-        const result = await buildFlowerPot(
-          den.id,
-          selectedKeyType,
-          selectedDurationMs,
-        );
-        if (result) {
-          const { kp, flowerPotToken } = result;
-          await supabase
-            .from("den_invites")
-            .update({ flower_pot_token: flowerPotToken })
-            .eq("id", inviteData.id);
-
-          const sk = toBase64(kp.secretKey);
-          const emailLink = `${window.location.origin}/invite/${inviteData.token}#sk=${sk}`;
-          await navigator.clipboard.writeText(emailLink);
-          toast.success(`Invite link for ${trimmed} copied!`, {
-            description: "Paste it in an email or message to them.",
-          });
-        } else {
-          toast.success(`Invite created for ${trimmed}`, {
-            description: "They'll receive a link to join.",
-          });
-        }
-      } else {
-        toast.success(`Invite sent to ${trimmed}`, {
-          description: "They'll receive a link to join.",
-        });
-      }
-      setEmail("");
-    } catch {
-      toast.error("Failed to send invite");
-    } finally {
-      setSending(false);
-    }
-  };
-
   const handleCopy = async () => {
     if (!inviteLink) return;
     await navigator.clipboard.writeText(inviteLink);
@@ -451,7 +372,10 @@ export function InviteModal({
           return (
             <button
               key={opt.value}
-              onClick={() => setSelectedKeyType(opt.value)}
+              onClick={() => {
+                setSelectedKeyType(opt.value);
+                setSelectedDurationMs(DEFAULT_DURATION_MS[opt.value]);
+              }}
               className="text-left rounded-xl px-3 py-2.5 transition-all"
               style={{
                 background: active
@@ -538,54 +462,6 @@ export function InviteModal({
           {DURATION_HINTS[selectedKeyType]}
         </p>
       )}
-
-      {/* ── Invite by email ───────────────────────────────────────────────── */}
-      <p
-        className="text-xs font-semibold uppercase tracking-wide mb-2"
-        style={{ color: "var(--color-text-muted)" }}
-      >
-        Invite by email
-      </p>
-      <div className="flex gap-2 mb-5">
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder="friend@example.com"
-          className="flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
-          autoFocus
-        />
-        <HoverButton
-          variant="primary"
-          onClick={handleSend}
-          disabled={sending || !email.includes("@")}
-          className="px-4 py-2.5 text-sm shrink-0"
-        >
-          {sending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <>
-              <Send className="h-3.5 w-3.5" />
-              Send
-            </>
-          )}
-        </HoverButton>
-      </div>
-
-      <div className="flex items-center gap-3 mb-5">
-        <div
-          className="flex-1 h-px"
-          style={{ background: "var(--color-border-card)" }}
-        />
-        <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-          or share a link
-        </span>
-        <div
-          className="flex-1 h-px"
-          style={{ background: "var(--color-border-card)" }}
-        />
-      </div>
 
       {/* ── Link preview ──────────────────────────────────────────────────── */}
       <div

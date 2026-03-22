@@ -58,7 +58,11 @@ import { RotateKeysModal } from "@/components/den/rotate-keys-modal";
 import type { Den, DenMember } from "@/types/den";
 import { createBrowserClient } from "@supabase/ssr";
 import { clientEnv } from "@meerkat/config";
-import { getVaultDens, isOwnedVaultDen } from "@/lib/vault-dens";
+import {
+  getVaultDens,
+  isOwnedVaultDen,
+  removeVaultDen,
+} from "@/lib/vault-dens";
 
 // ─── Drop upload helper ───────────────────────────────────────────────────────
 // Routes through /api/drops (admin client) so vault users with no Supabase
@@ -239,7 +243,7 @@ export function DenPageClientEnhanced({
     error: p2pError,
   } = useJoinDen(p2pOptions);
 
-  const { validKeys } = useStoredKeys();
+  const { validKeys, removeKey: removeDenKey } = useStoredKeys();
   const activeDenKey =
     validKeys.find((s) => s.key.denId === activeDen.id)?.key ?? null;
 
@@ -493,6 +497,9 @@ export function DenPageClientEnhanced({
   );
 
   useEffect(() => {
+    // Vault dens don't exist in Supabase — skip postgres_changes subscriptions.
+    if (authType === "vault") return;
+
     const supabase = createClient();
     const channel = supabase
       .channel(`den-meta:${activeDen.id}`)
@@ -542,6 +549,7 @@ export function DenPageClientEnhanced({
       supabase.removeChannel(channel);
     };
   }, [
+    authType,
     activeDen.id,
     handleDenUpdate,
     handleDenDelete,
@@ -557,6 +565,16 @@ export function DenPageClientEnhanced({
   };
 
   const handleLeave = async () => {
+    // Vault visitors have no den_members row in Supabase.
+    // "Leaving" means revoking their local DenKey so they lose cryptographic
+    // access and can no longer connect to the den.
+    if (authType === "vault") {
+      if (activeDenKey) removeDenKey(activeDenKey.keyId);
+      toast.success(`You left ${activeDen.name}`);
+      startNavigationProgress();
+      router.push("/");
+      return;
+    }
     const supabase = createClient();
     const { error } = await supabase
       .from("den_members")
@@ -574,6 +592,14 @@ export function DenPageClientEnhanced({
   };
 
   const handleDelete = async () => {
+    // Vault dens are local-only — remove from the on-device registry.
+    if (authType === "vault") {
+      removeVaultDen(activeDen.id);
+      toast.success(`"${activeDen.name}" deleted`);
+      startNavigationProgress();
+      router.push("/");
+      return;
+    }
     const supabase = createClient();
     const { error } = await supabase
       .from("dens")
@@ -1049,6 +1075,7 @@ export function DenPageClientEnhanced({
             members={activeMembers}
             currentUserId={currentUserId}
             isOwner={isOwner}
+            isVaultUser={authType === "vault"}
             onClose={closeModal}
             onMemberRemoved={removeMember}
           />
@@ -1078,7 +1105,11 @@ export function DenPageClientEnhanced({
         {modal === "delete" && (
           <ConfirmModal
             title={`Delete "${activeDen.name}"?`}
-            description="This will permanently delete the den for all members. Everyone will be notified and removed. This cannot be undone."
+            description={
+              authType === "vault"
+                ? "This will permanently remove this den from your device. This cannot be undone."
+                : "This will permanently delete the den for all members. Everyone will be notified and removed. This cannot be undone."
+            }
             confirmLabel="Delete forever"
             onClose={closeModal}
             onConfirm={handleDelete}
