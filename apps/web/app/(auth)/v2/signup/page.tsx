@@ -21,6 +21,8 @@ import {
   saveProfile,
   setVaultSessionCookie,
   recordFirstUsed,
+  deriveVaultUserId,
+  setVaultUserIdCookie,
   VAULT_PROFILE_NAME_COOKIE,
 } from "@/lib/vault-credentials";
 import { startNavigationProgress } from "@/components/navigation-progress";
@@ -568,10 +570,16 @@ function SignUpV2Form() {
         // 1. Persist the mnemonic — this IS the user's identity on this device.
         saveMnemonic(mnemonic);
 
-        // 2. Save display name + creation timestamp locally.
+        // 2. Derive and persist the stable user ID so server components can
+        //    read it. Must happen before seedFirstDen calls addVaultDen, which
+        //    syncs the vault_owned_dens cookie (server reads both together).
+        const vaultUserId = await deriveVaultUserId(mnemonic);
+        setVaultUserIdCookie(vaultUserId);
+
+        // 3. Save display name + creation timestamp locally.
         saveProfile({ name, createdAt: new Date().toISOString() });
 
-        // 3. Mirror name into a cookie so server components can read it,
+        // 4. Mirror name into a cookie so server components can read it,
         //    and set the session presence cookie for middleware.
         setProfileNameCookie(name);
         recordFirstUsed();

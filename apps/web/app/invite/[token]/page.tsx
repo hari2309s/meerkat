@@ -88,7 +88,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
         token={params.token}
         inviteId={invite.id}
         den={den}
-        currentUserId="vault"
+        currentUserId={currentUser.id}
         currentUserName={currentUser.preferredName ?? currentUser.name}
         flowerPotToken={invite.flower_pot_token ?? null}
         keyType={keyType}

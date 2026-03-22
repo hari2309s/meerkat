@@ -1,6 +1,8 @@
 import { redirect, notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/get-current-user";
+import { VAULT_OWNED_DENS_COOKIE } from "@/lib/vault-dens";
 import { DenPageClientEnhanced } from "@/components/den-page-client-enhanced";
 import { DenProvider } from "@/providers/den-provider";
 import type { Den, DenMember } from "@/types/den";
@@ -17,18 +19,38 @@ export default async function DenPage({ params }: DenPageProps) {
   // Dens live in IndexedDB — no Supabase lookup needed. Synthesise a Den
   // object from the URL param so the client components have a consistent shape.
   if (currentUser.authType === "vault") {
+    // Determine ownership from the vault_owned_dens cookie (maintained
+    // client-side by addVaultDen/removeVaultDen). If the cookie is absent
+    // (legacy session that pre-dates this field) we assume the user is the
+    // owner — a safe fallback because visitors always have the cookie set
+    // when they accept an invite.
+    const cookieStore = cookies();
+    const rawOwnedDens = cookieStore.get(VAULT_OWNED_DENS_COOKIE)?.value;
+    let isVaultOwner = true; // safe default for legacy sessions
+    if (rawOwnedDens) {
+      try {
+        const ownedIds = JSON.parse(
+          decodeURIComponent(rawOwnedDens),
+        ) as string[];
+        isVaultOwner = ownedIds.includes(params.id);
+      } catch {
+        // malformed cookie — keep the safe default
+      }
+    }
+
     const den: Den = {
       id: params.id,
       name: "For You",
       created_at: new Date().toISOString(),
-      user_id: "vault",
+      user_id: currentUser.id,
     };
 
     return (
-      <DenProvider denId={den.id} readOnly={false}>
+      <DenProvider denId={den.id} readOnly={!isVaultOwner}>
         <DenPageClientEnhanced
           den={den}
-          currentUserId="vault"
+          currentUserId={currentUser.id}
+          authType="vault"
           user={{
             name: currentUser.name,
             preferredName: currentUser.preferredName,
@@ -131,6 +153,7 @@ export default async function DenPage({ params }: DenPageProps) {
       <DenPageClientEnhanced
         den={den}
         currentUserId={user.id}
+        authType="supabase"
         user={{ name: fullName, preferredName, email: user.email ?? "" }}
         members={membersList as unknown as DenMember[]}
       />

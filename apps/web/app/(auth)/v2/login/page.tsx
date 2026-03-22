@@ -15,6 +15,8 @@ import {
   setVaultSessionCookie,
   recordFirstUsed,
   loadProfile,
+  deriveVaultUserId,
+  setVaultUserIdCookie,
   VAULT_PROFILE_NAME_COOKIE,
 } from "@/lib/vault-credentials";
 
@@ -327,6 +329,10 @@ function LoginV2Form() {
       }
 
       saveMnemonic(mnemonic);
+
+      // Derive and persist the stable user ID so server components can read it.
+      const vaultUserId = await deriveVaultUserId(mnemonic);
+      setVaultUserIdCookie(vaultUserId);
 
       const profile = loadProfile();
       if (profile?.name) {
