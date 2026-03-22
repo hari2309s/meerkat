@@ -10,16 +10,7 @@ export interface User {
   updatedAt: string;
 }
 
-export interface UserProfile extends User {
-  notifPrefs?: NotifPrefs;
-}
-
-export interface NotifPrefs {
-  emailActivity: boolean;
-  emailDigest: boolean;
-  pushMessages: boolean;
-  pushMentions: boolean;
-}
+export interface UserProfile extends User {}
 
 export interface SessionInfo {
   id: string;
