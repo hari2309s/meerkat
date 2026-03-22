@@ -52,7 +52,7 @@ import { AttachmentPickerModal } from "@/components/den/attachment-picker-modal"
 import type { Den, DenMember } from "@/types/den";
 import { createBrowserClient } from "@supabase/ssr";
 import { clientEnv } from "@meerkat/config";
-import { getVaultDens } from "@/lib/vault-dens";
+import { getVaultDens, isOwnedVaultDen } from "@/lib/vault-dens";
 
 // ─── Drop upload helper ───────────────────────────────────────────────────────
 // Routes through /api/drops (admin client) so vault users with no Supabase
@@ -88,6 +88,7 @@ async function uploadDropViaApi(
 interface DenPageClientEnhancedProps {
   den: Den;
   currentUserId: string;
+  authType: "supabase" | "vault";
   user: { name: string; preferredName: string | null; email: string };
   members: DenMember[];
 }
@@ -95,6 +96,7 @@ interface DenPageClientEnhancedProps {
 export function DenPageClientEnhanced({
   den: initialDen,
   currentUserId,
+  authType,
   user,
   members: initialMembers,
 }: DenPageClientEnhancedProps) {
@@ -132,16 +134,23 @@ export function DenPageClientEnhanced({
   // Vault users: the server can't read localStorage, so the initial den has
   // name="For You". Patch it immediately from the vault den registry.
   useEffect(() => {
-    if (currentUserId !== "vault") return;
+    if (authType !== "vault") return;
     const vaultDen = getVaultDens().find((d) => d.id === initialDen.id);
     if (vaultDen && vaultDen.name !== initialDen.name) {
       setDen({ ...initialDen, name: vaultDen.name });
     }
-  }, [currentUserId, initialDen, setDen]);
+  }, [authType, initialDen, setDen]);
 
   const activeDen = den ?? initialDen;
   const activeMembers = members.length ? members : initialMembers;
-  const isOwner = activeDen.user_id === currentUserId;
+  // Vault: ownership is determined by whether this den is in the local
+  // vault_dens registry (dens the user created). Visitors who joined via
+  // invite won't have the den in their registry → isOwner = false.
+  // Supabase: compare den.user_id against the authenticated user's ID.
+  const isOwner =
+    authType === "vault"
+      ? isOwnedVaultDen(activeDen.id)
+      : activeDen.user_id === currentUserId;
   const { burrows } = useBurrows(activeDen.id);
 
   // ── CRDT state ────────────────────────────────────────────────────────────
@@ -956,7 +965,7 @@ export function DenPageClientEnhanced({
             den={activeDen}
             onClose={closeModal}
             onRenamed={(name) => setDen({ ...activeDen, name })}
-            isVaultUser={currentUserId === "vault"}
+            isVaultUser={authType === "vault"}
           />
         )}
       </AnimatePresence>
@@ -965,7 +974,7 @@ export function DenPageClientEnhanced({
           <InviteModal
             den={activeDen}
             onClose={closeModal}
-            isVaultUser={currentUserId === "vault"}
+            isVaultUser={authType === "vault"}
           />
         )}
       </AnimatePresence>
