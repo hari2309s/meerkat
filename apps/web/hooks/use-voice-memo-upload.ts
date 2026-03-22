@@ -98,17 +98,39 @@ export function useVoiceMemoUpload(denId: string, userId: string) {
       const random = Math.random().toString(36).substring(7);
       const fileName = `${denId}/${userId}/${timestamp}-${random}.${fileExt}`;
 
-      const { error: uploadErr } = await supabase.storage
-        .from("voice-notes")
-        .upload(fileName, uploadPayload, { contentType });
+      if (vaultKey) {
+        // Vault users have no Supabase JWT — upload via the /api/voice-notes
+        // server route which uses the admin client to bypass Storage RLS.
+        const form = new FormData();
+        form.append("path", fileName);
+        form.append("data", uploadPayload);
+        const res = await fetch("/api/voice-notes", {
+          method: "POST",
+          body: form,
+        });
+        if (!res.ok) {
+          setIsAnalyzing(false);
+          const body = (await res
+            .json()
+            .catch(() => ({ error: res.statusText }))) as {
+            error: string;
+          };
+          throw new Error(`Failed to upload voice memo: ${body.error}`);
+        }
+      } else {
+        // Supabase (v1) users — upload directly with the authenticated client.
+        const { error: uploadErr } = await supabase.storage
+          .from("voice-notes")
+          .upload(fileName, uploadPayload, { contentType });
 
-      if (uploadErr) {
-        setIsAnalyzing(false);
-        console.error("[@meerkat/web] Voice upload error:", uploadErr);
-        throw new Error(
-          `Failed to upload voice memo: ${uploadErr.message}. ` +
-            `Make sure the 'voice-notes' bucket exists in Supabase Storage.`,
-        );
+        if (uploadErr) {
+          setIsAnalyzing(false);
+          console.error("[@meerkat/web] Voice upload error:", uploadErr);
+          throw new Error(
+            `Failed to upload voice memo: ${uploadErr.message}. ` +
+              `Make sure the 'voice-notes' bucket exists in Supabase Storage.`,
+          );
+        }
       }
 
       // ── Step 6: Await analysis ────────────────────────────────────────────────
