@@ -173,7 +173,7 @@ export function InvitePageClient({
   const config = KEY_TYPE_CONFIG[keyType] ?? DEFAULT_CONFIG;
 
   const handleJoin = async () => {
-    if (!den || !currentUserId || !inviteId || !token) {
+    if (!den || !currentUserId || !token) {
       toast.error("Something went wrong", {
         description:
           "Could not load invite details. Please refresh the page and try again.",
@@ -191,14 +191,16 @@ export function InvitePageClient({
           .insert({ den_id: den.id, user_id: currentUserId, role: "member" });
         if (memberErr && memberErr.code !== "23505") throw memberErr;
 
-        // Mark invite as accepted
-        await supabase
-          .from("den_invites")
-          .update({
-            accepted_at: new Date().toISOString(),
-            accepted_by: currentUserId,
-          })
-          .eq("id", inviteId);
+        // Mark invite as accepted (only if a den_invites row exists)
+        if (inviteId) {
+          await supabase
+            .from("den_invites")
+            .update({
+              accepted_at: new Date().toISOString(),
+              accepted_by: currentUserId,
+            })
+            .eq("id", inviteId);
+        }
       }
 
       // Redeem DenKey if a flower pot was attached to this invite.

@@ -246,21 +246,8 @@ export function InviteModal({
         } = await supabase.auth.getUser();
         if (!user || cancelled) return;
 
-        // 1. Create the membership invite row
-        const { data: inviteData, error: inviteErr } = await supabase
-          .from("den_invites")
-          .insert({
-            den_id: den.id,
-            invited_by: user.id,
-            key_type: selectedKeyType,
-          })
-          .select("id, token")
-          .single();
-        if (inviteErr || !inviteData || cancelled) return;
-
-        setInviteToken(inviteData.token);
-
-        // 2. Build the flower pot
+        // 1. Build the flower pot first — this is what the invite link needs.
+        //    Show the link immediately; den_invites creation is non-blocking.
         const result = await buildFlowerPot(
           den.id,
           selectedKeyType,
@@ -270,15 +257,35 @@ export function InviteModal({
 
         const { kp, flowerPotToken } = result;
 
-        // 3. Link the flower pot back to the invite row
-        await supabase
-          .from("den_invites")
-          .update({ flower_pot_token: flowerPotToken })
-          .eq("id", inviteData.id);
-
+        // 2. Use the flower pot token directly as the invite URL token.
+        //    The invite page falls back to a flower_pots lookup if no
+        //    den_invites row is found, so this works even if step 3 fails.
         if (!cancelled) {
+          setInviteToken(flowerPotToken);
           setSecretKeyB64(toBase64(kp.secretKey));
         }
+
+        // 3. Create the den_invites row in the background (non-blocking).
+        //    Failure here is non-fatal — the link already works via the flower pot.
+        const expiresAt = selectedDurationMs
+          ? new Date(Date.now() + selectedDurationMs).toISOString()
+          : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+        supabase
+          .from("den_invites")
+          .insert({
+            den_id: den.id,
+            invited_by: user.id,
+            key_type: selectedKeyType,
+            flower_pot_token: flowerPotToken,
+            expires_at: expiresAt,
+          })
+          .then(({ error }) => {
+            if (error)
+              console.warn(
+                "[invite-modal] den_invites insert failed (non-fatal):",
+                error.message,
+              );
+          });
       } catch (err) {
         console.warn("[invite-modal] Failed to generate flower pot:", err);
       } finally {

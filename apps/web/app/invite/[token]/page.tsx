@@ -21,7 +21,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
   // Fetch the invite upfront (no auth required — service role bypasses RLS).
   // This lets us show the warm landing page to unauthenticated visitors
   // without a separate auth-gated round-trip.
-  const { data: invite, error } = await supabaseAdmin
+  const { data: invite } = await supabaseAdmin
     .from("den_invites")
     .select(
       `
@@ -39,6 +39,86 @@ export default async function InvitePage({ params }: InvitePageProps) {
     .eq("token", params.token)
     .single();
 
+  // ── Flower pot fallback ───────────────────────────────────────────────────
+  // New-style invites use the flower pot token directly in the URL
+  // (no den_invites row required at generation time).
+  if (!invite) {
+    const { data: pot } = await supabaseAdmin
+      .from("flower_pots")
+      .select("den_id, expires_at, token")
+      .eq("token", params.token)
+      .single();
+
+    if (!pot) return <InvitePageClient status="invalid" />;
+
+    if (pot.expires_at && new Date(pot.expires_at) < new Date()) {
+      return <InvitePageClient status="expired" />;
+    }
+
+    const { data: potDen } = await supabaseAdmin
+      .from("dens")
+      .select("id, name, user_id")
+      .eq("id", pot.den_id)
+      .single();
+
+    if (!potDen) return <InvitePageClient status="invalid" />;
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return (
+        <InviteLandingPage
+          token={params.token}
+          denName={potDen.name}
+          keyType="house-sit"
+        />
+      );
+    }
+
+    if (currentUser.authType === "vault") {
+      return (
+        <InvitePageClient
+          status="valid"
+          token={params.token}
+          den={potDen}
+          currentUserId={currentUser.id}
+          currentUserName={currentUser.preferredName ?? currentUser.name}
+          flowerPotToken={params.token}
+          keyType="house-sit"
+          isVaultUser
+        />
+      );
+    }
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return (
+        <InviteLandingPage
+          token={params.token}
+          denName={potDen.name}
+          keyType="house-sit"
+        />
+      );
+    }
+
+    return (
+      <InvitePageClient
+        status="valid"
+        token={params.token}
+        den={potDen}
+        currentUserId={user.id}
+        currentUserName={currentUser.preferredName ?? currentUser.name}
+        userEmail={user.email ?? ""}
+        flowerPotToken={params.token}
+        keyType="house-sit"
+      />
+    );
+  }
+
+  // ── Legacy path: den_invites row found ────────────────────────────────────
+
   const rawDen = invite?.dens;
   const den = (Array.isArray(rawDen) ? rawDen[0] : rawDen) as {
     id: string;
@@ -48,7 +128,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
 
   const keyType = (invite?.key_type as string | null) ?? "house-sit";
 
-  if (error || !invite || !den) {
+  if (!den) {
     return <InvitePageClient status="invalid" />;
   }
 
