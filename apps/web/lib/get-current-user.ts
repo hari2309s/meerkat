@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   VAULT_SESSION_COOKIE,
   VAULT_PROFILE_NAME_COOKIE,
+  VAULT_USER_ID_COOKIE,
 } from "@/lib/vault-credentials";
 
 export interface CurrentUser {
@@ -41,8 +42,13 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (vaultSession === "1") {
     const name =
       cookieStore.get(VAULT_PROFILE_NAME_COOKIE)?.value ?? "Vault User";
+    // Stable per-user ID derived from their mnemonic and stored as a cookie
+    // at login/signup time. Falls back to "vault" for existing sessions that
+    // pre-date this field (the migration shim in p2p-provider will set it on
+    // next client mount).
+    const id = cookieStore.get(VAULT_USER_ID_COOKIE)?.value ?? "vault";
     return {
-      id: "vault",
+      id,
       name,
       preferredName: name,
       email: "",

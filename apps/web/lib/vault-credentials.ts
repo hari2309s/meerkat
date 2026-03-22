@@ -25,6 +25,7 @@ const PROFILE_STORAGE_KEY = "vault_profile";
 const FIRST_USED_KEY = "meerkat:first-used-at";
 export const VAULT_SESSION_COOKIE = "vault_session";
 export const VAULT_PROFILE_NAME_COOKIE = "vault_profile_name";
+export const VAULT_USER_ID_COOKIE = "vault_user_id";
 
 // ---------------------------------------------------------------------------
 // Mnemonic helpers
@@ -81,6 +82,40 @@ export function clearVaultSessionCookie(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Vault user ID — a stable, unique identifier derived from the mnemonic.
+//
+// SHA-256 of "meerkat-vault-uid-v1:{mnemonic}" → first 16 bytes as hex.
+// Same mnemonic always yields the same ID across devices and sessions.
+// The server can't derive this itself (mnemonic is client-only), so we
+// mirror it into a cookie after login/signup so server components can read it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive a stable, unique user ID from the mnemonic.
+ * Returns a 32-char lowercase hex string.
+ */
+export async function deriveVaultUserId(mnemonic: string): Promise<string> {
+  const enc = new TextEncoder();
+  const data = enc.encode(
+    `meerkat-vault-uid-v1:${mnemonic.trim().toLowerCase()}`,
+  );
+  const hash = await globalThis.crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .slice(0, 16)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export function setVaultUserIdCookie(id: string): void {
+  const maxAge = 60 * 60 * 24 * 30; // 30 days
+  document.cookie = `${VAULT_USER_ID_COOKIE}=${id}; path=/; max-age=${maxAge}; SameSite=Strict`;
+}
+
+export function clearVaultUserIdCookie(): void {
+  document.cookie = `${VAULT_USER_ID_COOKIE}=; path=/; max-age=0; SameSite=Strict`;
+}
+
+// ---------------------------------------------------------------------------
 // Full sign-out — clears everything on this device
 // ---------------------------------------------------------------------------
 // The profile (display name) is intentionally NOT cleared on sign-out because
@@ -110,6 +145,7 @@ export function getFirstUsedAt(): number | null {
 export function clearVault(): void {
   clearMnemonic();
   clearVaultSessionCookie();
+  clearVaultUserIdCookie();
   // Clear the server-readable profile name cookie so the server no longer
   // shows the name while the session is inactive.
   document.cookie = `vault_profile_name=; path=/; max-age=0; SameSite=Strict`;
