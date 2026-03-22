@@ -8,7 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import { SectionCard } from "@/components/settings/shared";
 import { getInitials } from "@meerkat/utils/string";
+import { saveProfile } from "@/lib/vault-credentials";
 import type { SettingsUser } from "@/components/settings/types";
+
+const isVaultUser = (user: SettingsUser) => user.id === "vault";
 
 export function ProfileSection({ user }: { user: SettingsUser }) {
   const router = useRouter();
@@ -17,10 +20,21 @@ export function ProfileSection({ user }: { user: SettingsUser }) {
   const [isSaving, setIsSaving] = useState(false);
 
   const avatarInitials = getInitials(preferredName || name);
+  const isVault = isVaultUser(user);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      if (isVault) {
+        const displayName = name.trim();
+        saveProfile({ name: displayName, createdAt: new Date().toISOString() });
+        document.cookie = `vault_profile_name=${encodeURIComponent(displayName)}; path=/; max-age=31536000; SameSite=Lax`;
+        router.refresh();
+        toast.success("Profile updated", {
+          description: "Your changes have been saved.",
+        });
+        return;
+      }
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({
         data: {
@@ -50,41 +64,67 @@ export function ProfileSection({ user }: { user: SettingsUser }) {
         subtitle="Update your name and display preferences"
       >
         <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="full-name">Full name</Label>
-            <Input
-              id="full-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
-            />
-          </div>
+          {isVault ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="display-name">Display name</Label>
+              <Input
+                id="display-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your display name"
+              />
+              <p
+                className="text-xs"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Stored locally on this device only
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="full-name">Full name</Label>
+                <Input
+                  id="full-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your full name"
+                />
+              </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="preferred-name">Preferred name</Label>
-            <Input
-              id="preferred-name"
-              value={preferredName}
-              onChange={(e) => setPreferredName(e.target.value)}
-              placeholder="What we call you"
-            />
-            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-              Used to greet you when you sign in
-            </p>
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="preferred-name">Preferred name</Label>
+                <Input
+                  id="preferred-name"
+                  value={preferredName}
+                  onChange={(e) => setPreferredName(e.target.value)}
+                  placeholder="What we call you"
+                />
+                <p
+                  className="text-xs"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  Used to greet you when you sign in
+                </p>
+              </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="email-display">Email</Label>
-            <Input
-              id="email-display"
-              value={user.email}
-              disabled
-              className="opacity-60 cursor-not-allowed"
-            />
-            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-              Email cannot be changed here
-            </p>
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="email-display">Email</Label>
+                <Input
+                  id="email-display"
+                  value={user.email}
+                  disabled
+                  className="opacity-60 cursor-not-allowed"
+                />
+                <p
+                  className="text-xs"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  Email cannot be changed here
+                </p>
+              </div>
+            </>
+          )}
 
           <div className="flex justify-end pt-2">
             <Button

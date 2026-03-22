@@ -5,14 +5,6 @@ export interface SettingsUser {
   name: string;
   preferredName: string;
   email: string;
-  notifPrefs?: NotifPrefs;
-}
-
-export interface NotifPrefs {
-  emailActivity: boolean;
-  emailDigest: boolean;
-  pushMessages: boolean;
-  pushMentions: boolean;
 }
 
 export interface SessionInfo {
