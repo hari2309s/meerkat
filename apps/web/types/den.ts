@@ -1,5 +1,8 @@
 // ─── Shared types used across den components ──────────────────────────────────
 
+import type { MoodLabel, ToneLabel } from "@meerkat/analyzer";
+export type { MoodLabel, ToneLabel };
+
 export interface Den {
   id: string;
   name: string;
@@ -20,35 +23,6 @@ export interface DenMember {
 }
 
 export type MessageType = "text" | "voice" | "image" | "document";
-
-/**
- * Discrete mood labels from @meerkat/analyzer.
- * Must be kept in sync with MoodLabel in packages/analyzer/src/types.ts.
- *
- * 3-class system replaces previous 7-class (happy/sad/angry/…) per the
- * multi-modal analysis plan.
- */
-export type MoodLabel = "positive" | "negative" | "neutral";
-
-/**
- * Tone labels derived from valence + arousal dimensions (Russell circumplex).
- * Must be kept in sync with ToneLabel in packages/analyzer/src/types.ts.
- *
- * 9-tone system per the multi-modal analysis plan:
- *   High arousal: energetic (pos) | tense (neg) | animated (neutral)
- *   Low arousal:  calm (pos) | subdued (neg) | monotone (neutral)
- *   Mid arousal:  pleasant (pos) | serious (neg) | conversational (neutral)
- */
-export type ToneLabel =
-  | "energetic"
-  | "tense"
-  | "animated"
-  | "calm"
-  | "subdued"
-  | "monotone"
-  | "pleasant"
-  | "serious"
-  | "conversational";
 
 export interface Message {
   id: string;
