@@ -6,7 +6,7 @@ import {
   VAULT_OWNED_DENS_COOKIE,
   VAULT_ALL_DENS_COOKIE,
 } from "@/lib/vault-dens";
-import { DenPageClientEnhanced } from "@/components/den-page-client-enhanced";
+import { DenPageClientEnhanced } from "@/components/den-page-client";
 import { DenProvider } from "@/providers/den-provider";
 import type { Den, DenMember } from "@/types/den";
 
