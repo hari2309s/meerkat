@@ -210,6 +210,7 @@ export class HostManager {
             awareness,
             canWrite: denKey.scope.write,
             role: "host",
+            grantedNamespaces: denKey.scope.namespaces,
           });
 
           await this.writePresence(visitorId, denKey);

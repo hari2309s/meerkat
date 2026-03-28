@@ -45,6 +45,7 @@ export function wireScopedYjsSync(options: {
   awareness: awarenessProtocol.Awareness;
   canWrite: boolean;
   role: "host" | "visitor";
+  grantedNamespaces?: Namespace[]; // ← ADD THIS
 }): () => void {
   const { ydoc, channel, awareness, canWrite, role } = options;
 
@@ -73,6 +74,22 @@ export function wireScopedYjsSync(options: {
     const messageType = decoding.readVarUint(decoder);
 
     if (messageType === MESSAGE_SYNC) {
+      // When the host receives a message from a read-only visitor, block
+      // incoming document updates (sync step 2 and incremental updates).
+      // Sync step 1 (state vector request) is still processed so the
+      // visitor can read our current state.
+      if (role === "host" && !canWrite) {
+        const peekDecoder = decoding.createDecoder(new Uint8Array(data));
+        decoding.readVarUint(peekDecoder); // skip MESSAGE_SYNC byte
+        const syncSubType = decoding.readVarUint(peekDecoder);
+        if (
+          syncSubType === syncProtocol.messageYjsSyncStep2 ||
+          syncSubType === syncProtocol.messageYjsUpdate
+        ) {
+          return; // reject write from read-only visitor
+        }
+      }
+
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
 
@@ -139,10 +156,6 @@ export function wireScopedYjsSync(options: {
   // ── Wire up ────────────────────────────────────────────────────────────────
 
   channel.onmessage = (event: MessageEvent<ArrayBuffer>) => {
-    // Reject write attempts from visitors who don't have write permission
-    if (role === "host" && !canWrite) {
-      // Still process awareness and sync step 1 (reads are fine)
-    }
     handleMessage(event.data);
   };
 
