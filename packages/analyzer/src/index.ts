@@ -64,6 +64,9 @@ export {
   resetModels,
 } from "./analyzer";
 
+// ─── Audio utilities ───────────────────────────────────────────────────────────
+export { blobToFloat32 } from "./utils";
+
 // ─── React hooks ───────────────────────────────────────────────────────────────
 export { useModelStatus, usePreloadModels, useAnalyzeVoice } from "./hooks";
 
