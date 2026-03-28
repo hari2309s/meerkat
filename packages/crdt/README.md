@@ -153,10 +153,10 @@ function DenPageInner() {
 ### Hooks
 
 | Hook                  | Description                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------- | ----------------------------- |
+| --------------------- | ------------------------------------------------------------------------------------- |
 | `useDen(denId)`       | Returns `DenState`. Reads from context if inside `DenProvider`, otherwise standalone. |
 | `useDenContext()`     | Reads `DenState` from the nearest `DenProvider`. Throws if no provider found.         |
-| `useDenContextSafe()` | Returns `DenState                                                                     | null`. Safe to call anywhere. |
+| `useDenContextSafe()` | Returns `DenState \| null`. Safe to call anywhere.                                    |
 
 ### DenState
 

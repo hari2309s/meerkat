@@ -37,7 +37,7 @@ Fusion: fuseEmotionSignals(textResult, audioMood, audioFeatures)
 | Stream            | What it measures                                                                            | Model                                      | Network         |
 | ----------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------ | --------------- |
 | Acoustic features | Pitch (F0), energy (RMS), jitter, shimmer, speaking rate, pause duration, spectral centroid | None                                       | Never           |
-| Text sentiment    | Binary positive/negative sentiment from transcript                                          | Whisper + DistilBERT SST-2 (~142 MB total) | First load only |
+| Text sentiment    | Binary positive/negative sentiment from transcript                                          | Whisper + DistilBERT SST-2 (~115 MB total) | First load only |
 | Fusion            | Dynamic-weighted combination, contradiction detection                                       | None (rule-based)                          | Never           |
 
 ---
@@ -51,7 +51,7 @@ Fusion: fuseEmotionSignals(textResult, audioMood, audioFeatures)
 | Text sentiment              | `Xenova/distilbert-base-uncased-finetuned-sst-2-english` (q8) | ~67 MB | Valence ±score, confidence                                                              |
 | Fusion                      | Rule-based weighting                                          | 0 MB   | `AnalysisResult` — mood, tone, valence, arousal, confidence, description, contradiction |
 
-Both ML models load lazily on first use and are cached in the browser's Origin Private File System (OPFS). After the initial download (~142 MB total), analysis is fully offline. Acoustic feature extraction is always available with no download at all.
+Both ML models load lazily on first use and are cached in the browser's Origin Private File System (OPFS). After the initial download (~115 MB total), analysis is fully offline. Acoustic feature extraction is always available with no download at all.
 
 ---
 
@@ -106,7 +106,7 @@ Useful before models are loaded, or for very short clips where transcription isn
 
 ```ts
 import { extractAudioFeatures, inferMoodFromAudio } from "@meerkat/analyzer";
-import { blobToFloat32 } from "@meerkat/analyzer/utils";
+import { blobToFloat32 } from "@meerkat/analyzer";
 
 const samples = await blobToFloat32(blob);
 const features = extractAudioFeatures(samples);
@@ -156,7 +156,7 @@ import {
   inferMoodFromAudio,
   fuseEmotionSignals,
 } from "@meerkat/analyzer";
-import { blobToFloat32 } from "@meerkat/analyzer/utils";
+import { blobToFloat32 } from "@meerkat/analyzer";
 
 const [text, samples] = await Promise.all([
   transcribe(blob),
