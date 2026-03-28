@@ -19,6 +19,8 @@ import {
 } from "@meerkat/p2p";
 import { useBurrows } from "@meerkat/burrows";
 import { useStoredKeys } from "@meerkat/keys";
+import { StaleKeyBanner } from "@/components/den/stale-key-banner";
+import { OfflineLetterboxBanner } from "@/components/den/offline-letterbox-banner";
 import { openDen, getSetting } from "@meerkat/local-store";
 import {
   encryptBlob,
@@ -243,9 +245,12 @@ export function DenPageClientEnhanced({
     error: p2pError,
   } = useJoinDen(p2pOptions);
 
-  const { validKeys, removeKey: removeDenKey } = useStoredKeys();
+  const { validKeys, expiredKeys, removeKey: removeDenKey } = useStoredKeys();
   const activeDenKey =
     validKeys.find((s) => s.key.denId === activeDen.id)?.key ?? null;
+  const staleKeyForDen =
+    expiredKeys.find((s) => s.key.denId === activeDen.id) ?? null;
+  const needsKeyRefresh = !isOwner && !activeDenKey && !!staleKeyForDen;
 
   const p2pErrorShownRef = useRef<string | null>(null);
   useEffect(() => {
@@ -261,6 +266,9 @@ export function DenPageClientEnhanced({
   }, [p2pError, isOwner]);
 
   // Auto-join as visitor once key is available
+  const isOfflineLetterbox =
+    !isOwner && !!activeDenKey?.scope.offline && visitorStatus !== "synced";
+
   const hasAutoJoinedRef = useRef(false);
   useEffect(() => {
     if (
@@ -365,6 +373,7 @@ export function DenPageClientEnhanced({
       const cryptoKey = await importNamespaceKey(nsKeys.dropbox);
 
       let imported = 0;
+      let failedDecrypt = 0;
       for (const drop of drops) {
         try {
           const plaintext = await decryptBlob(
@@ -441,6 +450,7 @@ export function DenPageClientEnhanced({
             `[@meerkat/p2p] Failed to decrypt drop ${drop.dropId}:`,
             err,
           );
+          failedDecrypt++;
         }
         // Always confirm (delete) the drop — even on decrypt failure, to avoid
         // accumulating undecryptable blobs in storage.
@@ -451,6 +461,15 @@ export function DenPageClientEnhanced({
         toast.success(
           `${imported} offline ${imported === 1 ? "message" : "messages"} delivered`,
           { description: "Visitor messages added to the den" },
+        );
+      }
+      if (failedDecrypt > 0) {
+        toast.warning(
+          `${failedDecrypt} ${failedDecrypt === 1 ? "drop" : "drops"} could not be decrypted`,
+          {
+            description:
+              "They may have been encrypted with a different key version and have been cleared.",
+          },
         );
       }
     }
@@ -662,6 +681,31 @@ export function DenPageClientEnhanced({
     saveMuteState(activeDen.id, !muted);
   };
 
+  // Factory for the visitor-side OfflineDropManager (upload-only; no list/delete).
+  const makeVisitorDropManager = useCallback(
+    () =>
+      new OfflineDropManager({
+        uploadDrop: uploadDropViaApi,
+        async listDrops() {
+          return [];
+        },
+        async downloadDrop(path) {
+          const res = await fetch(
+            `/api/drops?path=${encodeURIComponent(path)}`,
+          );
+          if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+          const bytes = new Uint8Array(await res.arrayBuffer());
+          const metaLen = new DataView(bytes.buffer).getUint32(0, false);
+          const meta = JSON.parse(
+            new TextDecoder().decode(bytes.slice(4, 4 + metaLen)),
+          ) as { iv: string; visitorId: string; droppedAt: string };
+          return { data: bytes.slice(4 + metaLen), metadata: meta };
+        },
+        async deleteDrop() {},
+      }),
+    [],
+  );
+
   // ── Voice send ────────────────────────────────────────────────────────────
   const { uploadVoiceMemo } = useVoiceMemoUpload(activeDen.id, currentUserId);
 
@@ -724,25 +768,7 @@ export function DenPageClientEnhanced({
         );
         const encrypted = await encryptBlob(payload, cryptoKey);
 
-        const mgr = new OfflineDropManager({
-          uploadDrop: uploadDropViaApi,
-          async listDrops() {
-            return [];
-          },
-          async downloadDrop(path) {
-            const res = await fetch(
-              `/api/drops?path=${encodeURIComponent(path)}`,
-            );
-            if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-            const bytes = new Uint8Array(await res.arrayBuffer());
-            const metaLen = new DataView(bytes.buffer).getUint32(0, false);
-            const meta = JSON.parse(
-              new TextDecoder().decode(bytes.slice(4, 4 + metaLen)),
-            ) as { iv: string; visitorId: string; droppedAt: string };
-            return { data: bytes.slice(4 + metaLen), metadata: meta };
-          },
-          async deleteDrop() {},
-        });
+        const mgr = makeVisitorDropManager();
 
         const ciphertextBytes = Uint8Array.from(atob(encrypted.data), (c) =>
           c.charCodeAt(0),
@@ -816,25 +842,7 @@ export function DenPageClientEnhanced({
         );
         const encrypted = await encryptBlob(payload, cryptoKey);
 
-        const mgr = new OfflineDropManager({
-          uploadDrop: uploadDropViaApi,
-          async listDrops() {
-            return [];
-          },
-          async downloadDrop(path) {
-            const res = await fetch(
-              `/api/drops?path=${encodeURIComponent(path)}`,
-            );
-            if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-            const bytes = new Uint8Array(await res.arrayBuffer());
-            const metaLen = new DataView(bytes.buffer).getUint32(0, false);
-            const meta = JSON.parse(
-              new TextDecoder().decode(bytes.slice(4, 4 + metaLen)),
-            ) as { iv: string; visitorId: string; droppedAt: string };
-            return { data: bytes.slice(4 + metaLen), metadata: meta };
-          },
-          async deleteDrop() {},
-        });
+        const mgr = makeVisitorDropManager();
 
         const ciphertextBytes = Uint8Array.from(atob(encrypted.data), (c) =>
           c.charCodeAt(0),
@@ -1031,6 +1039,12 @@ export function DenPageClientEnhanced({
           />
 
           <DenNavTabs denId={activeDen.id} activeTab="chat" />
+
+          {needsKeyRefresh && (
+            <StaleKeyBanner denName={activeDen.name} denId={activeDen.id} />
+          )}
+
+          {isOfflineLetterbox && <OfflineLetterboxBanner />}
 
           <VisitorPanel
             denId={activeDen.id}

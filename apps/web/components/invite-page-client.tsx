@@ -267,7 +267,8 @@ export function InvitePageClient({
   };
 
   const handleCopyRequest = () => {
-    const msg = `Hey! I tried to join "${den?.name ?? "your den"}" via your invite link, but my sync key couldn't be loaded. Could you send me a fresh invite link from the den's Invite button? Thanks!`;
+    const ref = den?.id ? ` (den ID: ${den.id})` : "";
+    const msg = `Hi! I accepted your invite to "${den?.name ?? "your den"}"${ref} but my sync key couldn't be loaded — it may have expired or the link was incomplete. Could you send me a fresh invite link from your den's Invite button? Thanks!`;
     navigator.clipboard.writeText(msg).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
