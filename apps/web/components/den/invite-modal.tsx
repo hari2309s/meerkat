@@ -16,6 +16,13 @@ import type { KeyType } from "@meerkat/keys";
 import { getSetting, setSetting } from "@meerkat/local-store";
 import type { SerializedNamespaceKeySet } from "@meerkat/crypto";
 import type { Den } from "@/types/den";
+import {
+  KEY_TYPE_OPTIONS,
+  SENDER_GUIDANCE,
+  DURATION_HINTS,
+  DEFAULT_DURATION_MS,
+  DURATION_OPTIONS,
+} from "@/lib/invite-config";
 
 interface InviteModalProps {
   den: Den;
@@ -23,83 +30,6 @@ interface InviteModalProps {
   /** True for vault (v2 local-first) users — generates offline invite URL with no server calls. */
   isVaultUser?: boolean;
 }
-
-// ── Key type options ─────────────────────────────────────────────────────────
-
-const KEY_TYPE_OPTIONS: {
-  value: Exclude<KeyType, "custom">;
-  label: string;
-  description: string;
-  emoji: string;
-}[] = [
-  {
-    value: "house-sit",
-    label: "House-sit",
-    description: "Full access, offline capable. Best for trusted members.",
-    emoji: "🏠",
-  },
-  {
-    value: "come-over",
-    label: "Come Over",
-    description: "Real-time read & write. Live sessions only.",
-    emoji: "👋",
-  },
-  {
-    value: "peek",
-    label: "Peek",
-    description: "Read-only access to shared notes. No changes.",
-    emoji: "👀",
-  },
-  {
-    value: "letterbox",
-    label: "Letterbox",
-    description: "Drop messages when you're not home. Works offline.",
-    emoji: "📬",
-  },
-];
-
-// ── Sender guidance per key type ─────────────────────────────────────────────
-
-const SENDER_GUIDANCE: Record<Exclude<KeyType, "custom">, string> = {
-  "house-sit":
-    "Best for family members, long-term collaborators, people you fully trust. They can read, write, and work offline. Treat this like giving someone a key to your home.",
-  "come-over":
-    "Best for working together right now — a shared writing session, a quick collaboration. Access ends when the session ends. Nothing persists after they leave.",
-  peek: "Best for sharing notes with someone who just needs to read — a family member checking the holiday plan, a friend reviewing something you wrote. They can't change anything.",
-  letterbox:
-    "Best for someone who wants to leave you messages when you're not around. You'll collect them next time you're in the den. Works even when neither of you is online.",
-};
-
-// ── Suggested duration per key type ──────────────────────────────────────────
-
-const DURATION_HINTS: Record<Exclude<KeyType, "custom">, string> = {
-  "house-sit":
-    "Suggested: No expiry or 1 year — permanent members shouldn't need to re-accept.",
-  "come-over": "Suggested: 7 days — single session use, short is cleaner.",
-  peek: "Suggested: 30–90 days — match how long the content stays relevant.",
-  letterbox:
-    "Suggested: 90 days or 1 year — async communication needs longevity.",
-};
-
-// ── Default duration per key type ────────────────────────────────────────────
-// Preselected when the user picks an access type. Matches the DURATION_HINTS.
-
-const DEFAULT_DURATION_MS: Record<Exclude<KeyType, "custom">, number | null> = {
-  "house-sit": null, // No expiry — permanent members shouldn't need to re-accept
-  "come-over": 7 * 24 * 60 * 60 * 1000, // 7 days — single session
-  peek: 30 * 24 * 60 * 60 * 1000, // 30 days — match content relevance
-  letterbox: 365 * 24 * 60 * 60 * 1000, // 1 year — async comms need longevity
-};
-
-// ── Duration options ─────────────────────────────────────────────────────────
-
-const DURATION_OPTIONS: { label: string; durationMs: number | null }[] = [
-  { label: "7 days", durationMs: 7 * 24 * 60 * 60 * 1000 },
-  { label: "30 days", durationMs: 30 * 24 * 60 * 60 * 1000 },
-  { label: "90 days", durationMs: 90 * 24 * 60 * 60 * 1000 },
-  { label: "1 year", durationMs: 365 * 24 * 60 * 60 * 1000 },
-  { label: "No expiry", durationMs: null },
-];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
