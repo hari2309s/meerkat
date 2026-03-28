@@ -6,7 +6,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
-  "license": "ISC",
+  "license": "MIT",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

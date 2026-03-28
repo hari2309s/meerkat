@@ -1,6 +1,7 @@
 {
   "name": "@meerkat/crypto",
   "version": "0.1.0",
+  "license": "MIT",
   "description": "All encryption and decryption for Meerkat. Nothing leaves the device without passing through here.",
   "private": true,
   "type": "module",

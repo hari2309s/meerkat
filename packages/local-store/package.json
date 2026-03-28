@@ -1,6 +1,7 @@
 {
   "name": "@meerkat/local-store",
   "version": "0.1.0",
+  "license": "MIT",
   "description": "Local-first storage layer for Meerkat — IndexedDB-backed Yjs documents with private/shared doc split",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

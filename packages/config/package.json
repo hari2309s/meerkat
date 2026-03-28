@@ -9,7 +9,7 @@
     "clean": "tsc --build --clean && rm -rf dist",
     "type-check": "tsc --noEmit"
   },
-  "license": "ISC",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "exports": {

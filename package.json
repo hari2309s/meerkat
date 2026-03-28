@@ -3,6 +3,7 @@
   "description": "Note-taking and real-time collaboration for your crew. Voice, text, solo, or together.",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"

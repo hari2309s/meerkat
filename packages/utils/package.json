@@ -1,6 +1,7 @@
 {
   "name": "@meerkat/utils",
   "version": "0.1.0",
+  "license": "MIT",
   "private": true,
   "description": "Shared utility functions for the Meerkat monorepo",
   "main": "./src/index.ts",

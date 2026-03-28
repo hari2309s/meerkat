@@ -1,6 +1,7 @@
 {
   "name": "@meerkat/crdt",
   "version": "0.2.0",
+  "license": "MIT",
   "description": "Orchestration layer — wires @meerkat/local-store and @meerkat/p2p together. Exposes the unified den API that the app uses.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
