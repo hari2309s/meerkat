@@ -24,7 +24,7 @@ A modern, real-time collaborative workspace platform featuring voice messaging w
 ![PWA](https://img.shields.io/badge/PWA-Offline--first-5A0FC8)
 ![Playwright](https://img.shields.io/badge/Playwright-E2E_Testing-45BA4B?logo=playwright)
 ![IndexedDB](https://img.shields.io/badge/IndexedDB_%2F_OPFS-Local--first-F97316)
-![License](https://img.shields.io/badge/License-ISC-blue)
+![License](https://img.shields.io/badge/License-MIT-blue)
 
 A note-taking and real-time collaboration app for your crew — voice, text, solo, or together. Your content lives on your device, encrypted by default. Visitors connect directly to you; when you're offline, the door closes.
 
@@ -193,3 +193,7 @@ const publicRoutes = [
 ### Dashboard
 
 ![Dashboard](docs/screenshots/dashboard.png)
+
+## License
+
+MIT © [Hariharan Selvaraj](https://github.com/hari2309s)
