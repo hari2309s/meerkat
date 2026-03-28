@@ -58,22 +58,20 @@ export function ImageLightbox({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[90] flex items-center justify-center"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-[90] flex items-center justify-center">
+      {/* Backdrop — click here to close */}
       <motion.div
-        className="absolute inset-0"
+        className="absolute inset-0 cursor-pointer"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(12px)" }}
+        onClick={onClose}
       />
 
-      {/* Close */}
+      {/* Close — z-20 so it sits above the main content area */}
       <button
-        className="absolute top-4 right-4 z-10 rounded-full p-2 hover:bg-white/10 transition-colors"
+        className="absolute top-4 right-4 z-20 rounded-full p-2 hover:bg-white/10 transition-colors"
         onClick={onClose}
         aria-label="Close"
         style={{ color: "rgba(255,255,255,0.8)" }}
