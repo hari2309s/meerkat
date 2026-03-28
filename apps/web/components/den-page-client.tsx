@@ -65,37 +65,7 @@ import {
   isOwnedVaultDen,
   removeVaultDen,
 } from "@/lib/vault-dens";
-
-// ─── Drop upload helper ───────────────────────────────────────────────────────
-// Routes through /api/drops (admin client) so vault users with no Supabase
-// session can still upload drops to Storage.
-async function uploadDropViaApi(
-  path: string,
-  data: Uint8Array,
-  metadata: { iv: string; visitorId: string; droppedAt: string },
-): Promise<void> {
-  const metaBytes = new TextEncoder().encode(JSON.stringify(metadata));
-  const header = new Uint8Array(4);
-  new DataView(header.buffer).setUint32(0, metaBytes.length, false);
-  const combined = new Uint8Array(4 + metaBytes.length + data.length);
-  combined.set(header, 0);
-  combined.set(metaBytes, 4);
-  combined.set(data, 4 + metaBytes.length);
-
-  const form = new FormData();
-  form.append("path", path);
-  form.append(
-    "data",
-    new Blob([combined], { type: "application/octet-stream" }),
-  );
-  const res = await fetch("/api/drops", { method: "POST", body: form });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({
-      error: "Upload failed",
-    }))) as { error: string };
-    throw new Error(body.error);
-  }
-}
+import { uploadDropViaApi } from "@/lib/drop-upload";
 
 interface DenPageClientEnhancedProps {
   den: Den;

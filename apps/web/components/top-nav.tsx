@@ -11,7 +11,6 @@ import {
   X,
   ChevronDown,
   LogOut,
-  User,
   Sun,
   Moon,
   Monitor,
@@ -19,6 +18,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { startNavigationProgress } from "@/components/navigation-progress";
 import { getInitials, getDisplayName } from "@meerkat/utils/string";
+import { TopNavUserMenu } from "@/components/top-nav-user-menu";
 import { useTheme } from "@/components/theme-provider";
 import { clearVault } from "@/lib/vault-credentials";
 import {
@@ -222,67 +222,11 @@ export function TopNav({ user }: TopNavProps) {
               {/* Profile dropdown */}
               <AnimatePresence>
                 {profileOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
-                    className="absolute right-0 top-full mt-2 w-52 rounded-2xl overflow-hidden py-1.5"
-                    style={{
-                      background: "var(--color-bg-dropdown)",
-                      backdropFilter: "blur(20px) saturate(1.6)",
-                      WebkitBackdropFilter: "blur(20px) saturate(1.6)",
-                      boxShadow: "var(--color-shadow-nav-scrolled)",
-                      border: "1.5px solid var(--color-border-card)",
-                    }}
-                  >
-                    {/* User info header */}
-                    <div
-                      className="px-4 py-2.5 border-b mb-1"
-                      style={{ borderColor: "var(--color-border-card)" }}
-                    >
-                      <p
-                        className="text-sm font-semibold truncate"
-                        style={{ color: "var(--color-text-primary)" }}
-                      >
-                        {user.name}
-                      </p>
-                      <p
-                        className="text-xs truncate mt-0.5"
-                        style={{ color: "var(--color-text-muted)" }}
-                      >
-                        {user.email}
-                      </p>
-                    </div>
-
-                    <Link
-                      href="/settings"
-                      onClick={() => handleNavClick("/settings")}
-                      className="dropdown-item w-full flex items-center gap-2.5 px-3 py-2 mx-1.5 rounded-xl text-sm"
-                      style={{
-                        color: "var(--color-text-secondary)",
-                        width: "calc(100% - 12px)",
-                      }}
-                    >
-                      <User
-                        className="h-4 w-4"
-                        style={{ color: "var(--color-text-secondary)" }}
-                      />
-                      Profile & Settings
-                    </Link>
-
-                    <button
-                      onClick={handleSignOut}
-                      className="dropdown-item-danger w-full flex items-center gap-2.5 px-3 py-2 mx-1.5 rounded-xl text-sm transition-all"
-                      style={{
-                        color: "#e05c4a",
-                        width: "calc(100% - 12px)",
-                      }}
-                    >
-                      <LogOut className="h-4 w-4" />
-                      Sign out
-                    </button>
-                  </motion.div>
+                  <TopNavUserMenu
+                    user={user}
+                    onSignOut={handleSignOut}
+                    onNavClick={handleNavClick}
+                  />
                 )}
               </AnimatePresence>
             </div>

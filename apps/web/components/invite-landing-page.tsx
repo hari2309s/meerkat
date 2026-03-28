@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { GrainOverlay } from "@/components/grain-overlay";
-import { persistInviteSecret } from "@/components/invite-auth-gate";
+import { persistInviteSecret } from "@meerkat/keys";
 
 // ── Per-type copy ─────────────────────────────────────────────────────────────
 

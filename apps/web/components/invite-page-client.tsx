@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { GrainOverlay } from "@/components/grain-overlay";
 import { createClient } from "@/lib/supabase/client";
 import { startNavigationProgress } from "@/components/navigation-progress";
 import { toast } from "sonner";
@@ -20,108 +19,11 @@ import {
   Check,
   AlertTriangle,
 } from "lucide-react";
-import { useRedeemKey } from "@meerkat/keys";
+import { useRedeemKey, recoverInviteSecret } from "@meerkat/keys";
 import { fromBase64 } from "@meerkat/crypto";
-import { recoverInviteSecret } from "@/components/invite-auth-gate";
 import { addJoinedVaultDen } from "@/lib/vault-dens";
-
-// ── Per-type copy ─────────────────────────────────────────────────────────────
-
-const KEY_TYPE_CONFIG: Record<
-  string,
-  {
-    emoji: string;
-    label: string;
-    description: string;
-    joinCta: string;
-  }
-> = {
-  "house-sit": {
-    emoji: "🏠",
-    label: "House-sit",
-    description:
-      "Full read & write access, even offline. You're a trusted member here.",
-    joinCta: "Accept and enter den",
-  },
-  "come-over": {
-    emoji: "👋",
-    label: "Come Over",
-    description:
-      "Read and write together in real-time. Access ends when the session ends.",
-    joinCta: "Join the session",
-  },
-  peek: {
-    emoji: "👀",
-    label: "Peek",
-    description:
-      "Read everything in this den. You won't be able to make changes — like being handed a notebook to read.",
-    joinCta: "View the den",
-  },
-  letterbox: {
-    emoji: "📬",
-    label: "Letterbox",
-    description:
-      "Leave encrypted messages even when they're not online. They'll collect them next time they open their den.",
-    joinCta: "Start dropping messages",
-  },
-};
-
-const DEFAULT_CONFIG = KEY_TYPE_CONFIG["house-sit"];
-
-// ── Shared card shell for status screens ─────────────────────────────────────
-
-function Card({
-  icon: Icon,
-  iconBg,
-  iconColor,
-  title,
-  body,
-  children,
-}: {
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
-  title: string;
-  body: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="min-h-screen page-bg flex items-center justify-center p-6">
-      <GrainOverlay />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.94, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 380, damping: 28 }}
-        className="relative w-full max-w-sm rounded-2xl p-8 text-center"
-        style={{
-          background: "var(--color-bg-card)",
-          border: "1.5px solid var(--color-border-card)",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.16)",
-        }}
-      >
-        <div
-          className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
-          style={{ background: iconBg }}
-        >
-          <Icon className="h-7 w-7" style={{ color: iconColor }} />
-        </div>
-        <h1
-          className="text-xl font-bold mb-2"
-          style={{ color: "var(--color-text-primary)" }}
-        >
-          {title}
-        </h1>
-        <p
-          className="text-sm leading-relaxed mb-6"
-          style={{ color: "var(--color-text-secondary)" }}
-        >
-          {body}
-        </p>
-        {children}
-      </motion.div>
-    </div>
-  );
-}
+import { KEY_TYPE_CONFIG, DEFAULT_KEY_TYPE_CONFIG } from "@/lib/invite-config";
+import { InviteStatusCard } from "@/components/invite-status-card";
 
 type InviteStatus =
   | "valid"
@@ -171,7 +73,7 @@ export function InvitePageClient({
   const [copied, setCopied] = useState(false);
   const { redeem } = useRedeemKey();
 
-  const config = KEY_TYPE_CONFIG[keyType] ?? DEFAULT_CONFIG;
+  const config = KEY_TYPE_CONFIG[keyType] ?? DEFAULT_KEY_TYPE_CONFIG;
 
   const handleJoin = async () => {
     if (!den || !currentUserId || !token) {
@@ -300,7 +202,7 @@ export function InvitePageClient({
 
   if (status === "invalid") {
     return (
-      <Card
+      <InviteStatusCard
         icon={XCircle}
         iconBg="rgba(224,92,74,0.12)"
         iconColor="#e05c4a"
@@ -314,13 +216,13 @@ export function InvitePageClient({
           <Home className="h-4 w-4" />
           Go home
         </button>
-      </Card>
+      </InviteStatusCard>
     );
   }
 
   if (status === "expired") {
     return (
-      <Card
+      <InviteStatusCard
         icon={Clock}
         iconBg="rgba(200,150,50,0.12)"
         iconColor="#c89632"
@@ -334,13 +236,13 @@ export function InvitePageClient({
           <Home className="h-4 w-4" />
           Go home
         </button>
-      </Card>
+      </InviteStatusCard>
     );
   }
 
   if (status === "already_used") {
     return (
-      <Card
+      <InviteStatusCard
         icon={CheckCircle2}
         iconBg="rgba(58,158,106,0.12)"
         iconColor="#3a9e6a"
@@ -364,13 +266,13 @@ export function InvitePageClient({
             Go home
           </button>
         )}
-      </Card>
+      </InviteStatusCard>
     );
   }
 
   if (status === "already_member") {
     return (
-      <Card
+      <InviteStatusCard
         icon={CheckCircle2}
         iconBg="rgba(58,158,106,0.12)"
         iconColor="#3a9e6a"
@@ -384,7 +286,7 @@ export function InvitePageClient({
           <ArrowRight className="h-4 w-4" />
           Open den
         </button>
-      </Card>
+      </InviteStatusCard>
     );
   }
 
@@ -393,7 +295,7 @@ export function InvitePageClient({
   if (keyError) {
     const isSkMissing = keyError === "missing_sk";
     return (
-      <Card
+      <InviteStatusCard
         icon={AlertTriangle}
         iconBg="rgba(200,150,50,0.12)"
         iconColor="#c89632"
@@ -434,7 +336,7 @@ export function InvitePageClient({
             Enter without sync
           </button>
         </div>
-      </Card>
+      </InviteStatusCard>
     );
   }
 
