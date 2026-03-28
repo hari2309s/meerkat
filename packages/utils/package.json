@@ -13,7 +13,8 @@
     "./jwt": "./src/jwt.ts",
     "./time": "./src/time.ts",
     "./string": "./src/string.ts",
-    "./storage": "./src/storage.ts"
+    "./storage": "./src/storage.ts",
+    "./rate-limit": "./src/rate-limit.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit",
