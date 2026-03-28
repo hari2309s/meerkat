@@ -154,6 +154,27 @@ function ImageMessage({
   );
 }
 
+function openAttachment(url: string, name: string): void {
+  if (!url) return;
+  if (url.startsWith("data:")) {
+    // Browsers block navigating to data URLs in new tabs — convert to object URL first.
+    const [header, b64] = url.split(",");
+    const mime = header.match(/:(.*?);/)?.[1] ?? "application/octet-stream";
+    const bytes = atob(b64 ?? "");
+    const buf = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) buf[i] = bytes.charCodeAt(i);
+    const blob = new Blob([buf], { type: mime });
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objUrl;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
+  } else {
+    window.open(url, "_blank", "noreferrer");
+  }
+}
+
 function DocumentMessage({
   message,
   senderName,
@@ -164,8 +185,11 @@ function DocumentMessage({
   isOwn: boolean;
 }) {
   const createdAt = message.created_at;
-  const url = message.attachment_url ?? "";
+  const url = message.attachment_url ?? message.attachment_data ?? "";
   const name = message.attachment_name ?? message.content ?? "Document";
+  const ext = name.includes(".")
+    ? (name.split(".").pop()?.toUpperCase().slice(0, 4) ?? "FILE")
+    : "FILE";
 
   return (
     <motion.div
@@ -190,11 +214,10 @@ function DocumentMessage({
             {senderName}
           </span>
         )}
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-2xl px-4 py-2.5 flex items-center gap-2"
+        <button
+          type="button"
+          onClick={() => openAttachment(url, name)}
+          className="rounded-2xl px-4 py-2.5 flex items-center gap-2 text-left"
           style={{
             background: "var(--color-bg-card)",
             border: "1.5px solid var(--color-border-card)",
@@ -202,13 +225,13 @@ function DocumentMessage({
           }}
         >
           <span
-            className="inline-flex h-6 w-6 rounded-md items-center justify-center text-[10px] font-semibold"
+            className="inline-flex h-6 w-6 rounded-md items-center justify-center text-[10px] font-semibold shrink-0"
             style={{ background: "rgba(143,82,184,0.12)" }}
           >
-            PDF
+            {ext}
           </span>
           <span className="text-xs truncate max-w-[180px]">{name}</span>
-        </a>
+        </button>
         <span
           className={`text-xs px-1 ${isOwn ? "text-right" : ""}`}
           style={{ color: "var(--color-text-muted)" }}
