@@ -34,6 +34,9 @@
  * All server interaction is caller-provided — this package has no Supabase dependency.
  */
 
+// ─── Invite secret helpers ────────────────────────────────────────────────────
+export { persistInviteSecret, recoverInviteSecret } from "./lib/invite-secret";
+
 // ─── Core functions ───────────────────────────────────────────────────────────
 export {
   generateKey,
